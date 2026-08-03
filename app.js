@@ -291,6 +291,12 @@
         reminderDesc: document.getElementById('reminder-desc'),
         dismissReminderBtn: document.getElementById('dismiss-reminder-btn'),
 
+        updateBanner: document.getElementById('update-banner'),
+        updateBannerTitle: document.getElementById('update-banner-title'),
+        updateBannerDesc: document.getElementById('update-banner-desc'),
+        updateActionBtn: document.getElementById('update-action-btn'),
+        dismissUpdateBtn: document.getElementById('dismiss-update-btn'),
+
         searchInput: document.getElementById('search-input'),
         clearSearchBtn: document.getElementById('clear-search-btn'),
         categoriesContainer: document.getElementById('categories-container'),
@@ -356,6 +362,7 @@
         renderAccountStatusBar();
         checkAutoBackupSchedule();
         checkReminderNotification();
+        checkForAppUpdates();
         // Register Android notification channels, then schedule
         if (window.RC_NOTIFICATIONS) {
             window.RC_NOTIFICATIONS.registerChannels().then(() => {
@@ -1113,6 +1120,24 @@
         // to avoid firing noisy immediate notifications on every page load/task change.
     }
 
+    // --- IN-APP UPDATE CHECKER (VIA VERCEL VERSION.JSON) ---
+    function checkForAppUpdates() {
+        if (!dom.updateBanner) return;
+        fetch('./version.json?t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data && data.version && data.version > APP_VERSION) {
+                    dom.updateBanner.classList.remove('hide');
+                    if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = '🎉 New Update v' + (data.versionName || data.version) + ' Available!';
+                    if (dom.updateBannerDesc) dom.updateBannerDesc.textContent = data.releaseNotes || 'Tap to download the latest update.';
+                    if (dom.updateActionBtn) dom.updateActionBtn.href = data.apkUrl || './RoutineCraft.apk';
+                }
+            })
+            .catch(function() {
+                // Silently ignore if offline or fetch fails
+            });
+    }
+
     // --- TASK MODAL & FORM ---
     function openTaskModal(taskToEdit = null) {
         state.tempSubtasks = [];
@@ -1269,6 +1294,12 @@
     dom.dismissReminderBtn.addEventListener('click', () => {
         dom.reminderBanner.classList.add('hide');
     });
+
+    if (dom.dismissUpdateBtn) {
+        dom.dismissUpdateBtn.addEventListener('click', () => {
+            if (dom.updateBanner) dom.updateBanner.classList.add('hide');
+        });
+    }
 
     // --- PROFILE & SETTINGS MODAL ---
     function renderUsersGrid() {
