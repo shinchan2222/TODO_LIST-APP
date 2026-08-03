@@ -1415,7 +1415,25 @@
         });
     }
 
+    function closeAllModals() {
+        if (dom.taskModal) dom.taskModal.classList.add('hide');
+        if (dom.profileModal) dom.profileModal.classList.add('hide');
+        if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
+        if (dom.authModal) dom.authModal.classList.add('hide');
+        if (dom.gdrivePermissionModal) dom.gdrivePermissionModal.classList.add('hide');
+    }
+
+    function setActiveNav(navName) {
+        if (!dom.bottomNavItems) return;
+        dom.bottomNavItems.forEach(n => {
+            if (n.dataset.nav === navName) n.classList.add('active');
+            else n.classList.remove('active');
+        });
+    }
+
     function openProfileModal() {
+        closeAllModals();
+        setActiveNav('settings');
         dom.profileNameInput.value = state.profile.name;
         dom.avatarOpts.forEach(function(opt) {
             if (opt.dataset.avatar === state.profile.avatar) opt.classList.add('active');
@@ -1432,7 +1450,8 @@
     }
 
     function closeProfileModal() {
-        dom.profileModal.classList.add('hide');
+        if (dom.profileModal) dom.profileModal.classList.add('hide');
+        setActiveNav('tasks');
     }
 
     dom.avatarOpts.forEach(opt => {
@@ -1562,6 +1581,8 @@
 
     // --- OPEN STATS ANALYTICS DASHBOARD MODAL ---
     function openAnalyticsModal() {
+        closeAllModals();
+        setActiveNav('analytics');
         renderOverallProgressCard();
         renderWeeklyPlannerGrid();
 
@@ -1614,7 +1635,8 @@
     }
 
     function closeAnalyticsModal() {
-        dom.analyticsModal.classList.add('hide');
+        if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
+        setActiveNav('tasks');
     }
 
     // --- EVENT LISTENERS ---
@@ -1706,12 +1728,13 @@
 
         dom.bottomNavItems.forEach(nav => {
             nav.addEventListener('click', () => {
-                dom.bottomNavItems.forEach(n => n.classList.remove('active'));
-                nav.classList.add('active');
                 const view = nav.dataset.nav;
+                closeAllModals();
+                setActiveNav(view);
 
                 if (view === 'tasks') {
                     renderTasks();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else if (view === 'analytics') {
                     openAnalyticsModal();
                 } else if (view === 'settings') {
