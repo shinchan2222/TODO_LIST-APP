@@ -1,0 +1,6 @@
+{
+  "appId": "com.routinecraft.app",
+  "appName": "RoutineCraft",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

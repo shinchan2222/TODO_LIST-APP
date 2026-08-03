@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RoutineCraft - Personal Daily Task & Habit Tracker</title>
+    <meta name="description" content="A modern, mobile-friendly multi-user daily task checklist with Google Sign-In, automatic Google Drive cloud backup schedules (Daily, Weekly, Custom), custom themes, and visual analytics.">
+    <meta name="theme-color" content="#ec4899">
+    <link rel="manifest" href="manifest.json">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Identity Services API for Multi-User Google Sign-In & Drive Backup -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body data-theme="sunset-glow">
+    <div class="app-container">
+
+        <!-- Top Header & Profile Bar with Multi-User Support -->
+        <header class="app-header">
+            <div class="user-greeting" id="profile-trigger">
+                <div class="avatar-wrapper">
+                    <span class="avatar-icon" id="user-avatar">🚀</span>
+                    <span class="online-indicator"></span>
+                </div>
+                <div class="greeting-text">
+                    <span class="time-greeting" id="time-greeting">Good day,</span>
+                    <h1 class="user-name" id="user-name-display">Productivity Hero</h1>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button class="icon-btn google-login-btn" id="header-google-login-btn" title="Sign In with Google">
+                    <i class="fa-brands fa-google"></i> <span id="google-btn-text">Sign In</span>
+                </button>
+                <button class="icon-btn notify-badge" id="notify-btn" title="Toggle Reminders / Notifications">
+                    <i class="fa-solid fa-bell"></i>
+                </button>
+                <button class="icon-btn streak-badge" id="streak-btn" title="View Stats & Overall Progress">
+                    <i class="fa-solid fa-fire fire-icon"></i>
+                    <span id="streak-count">5</span> <small>days</small>
+                </button>
+                <button class="icon-btn theme-toggle-btn" id="quick-theme-btn" title="Quick Theme Switch">
+                    <i class="fa-solid fa-palette"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Multi-User Account Bar (Shows logged in Google user email) -->
+        <div class="account-status-bar hide" id="account-status-bar">
+            <div class="account-info">
+                <i class="fa-brands fa-google-drive" style="color:#4285F4;"></i>
+                <span>Synced as <strong id="account-email-display">user@gmail.com</strong></span>
+                <span class="badge-frequency" id="account-freq-badge">Auto: Daily</span>
+            </div>
+            <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-arrows-rotate"></i> Switch</button>
+        </div>
+
+        <!-- Progress Overview Ring Card -->
+        <section class="progress-card">
+            <div class="progress-info">
+                <span class="card-subtitle">Daily Overview</span>
+                <h2 class="progress-heading">Today's Goals</h2>
+                
+                <div class="stats-mini-row">
+                    <div class="mini-stat">
+                        <span class="stat-num stat-today" id="tasks-today-pending-count">0</span>
+                        <span class="stat-lbl">Today</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="mini-stat">
+                        <span class="stat-num stat-overdue" id="tasks-overdue-pending-count">0</span>
+                        <span class="stat-lbl">Overdue</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="mini-stat">
+                        <span class="stat-num stat-done" id="tasks-done-count">0</span>
+                        <span class="stat-lbl">Completed</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="progress-ring-container">
+                <svg class="progress-ring" width="80" height="80">
+                    <circle class="progress-ring-bg" stroke-width="8" r="36" cx="40" cy="40"/>
+                    <circle class="progress-ring-circle" stroke-width="8" r="36" cx="40" cy="40" id="progress-circle"/>
+                </svg>
+                <span class="progress-percentage" id="progress-percentage-text">0%</span>
+            </div>
+        </section>
+
+        <!-- Active Reminder Banner -->
+        <div class="reminder-banner hide" id="reminder-banner">
+            <div class="reminder-icon"><i class="fa-solid fa-bell fa-bounce"></i></div>
+            <div class="reminder-text">
+                <strong id="reminder-title">Scheduled Task Reminder!</strong>
+                <span id="reminder-desc">You have 1 task scheduled for today.</span>
+            </div>
+            <button class="reminder-dismiss" id="dismiss-reminder-btn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Search & Filter Section -->
+        <section class="controls-section">
+            <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="search-input" placeholder="Search tasks, categories...">
+                <button class="clear-search-btn hide" id="clear-search-btn">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Categories Scrollable Bar -->
+            <div class="categories-scroll" id="categories-container">
+                <button class="category-chip active" data-category="all">
+                    <i class="fa-solid fa-layer-group"></i> All
+                </button>
+                <button class="category-chip" data-category="morning">
+                    <i class="fa-solid fa-sun"></i> Morning
+                </button>
+                <button class="category-chip" data-category="work">
+                    <i class="fa-solid fa-briefcase"></i> Work
+                </button>
+                <button class="category-chip" data-category="health">
+                    <i class="fa-solid fa-heart-pulse"></i> Health
+                </button>
+                <button class="category-chip" data-category="personal">
+                    <i class="fa-solid fa-user"></i> Personal
+                </button>
+                <button class="category-chip" data-category="evening">
+                    <i class="fa-solid fa-moon"></i> Evening
+                </button>
+            </div>
+
+            <!-- Quick View Filters (Default: Today) -->
+            <div class="filter-tabs">
+                <button class="tab-btn active" data-filter="today">Today</button>
+                <button class="tab-btn tab-btn-overdue" data-filter="overdue">Overdue <span class="badge-count" id="overdue-tab-count">0</span></button>
+                <button class="tab-btn" data-filter="upcoming">Upcoming <span class="badge-count upcoming-count-badge" id="upcoming-tab-count">0</span></button>
+                <button class="tab-btn" data-filter="all">All</button>
+                <button class="tab-btn" data-filter="completed">Done</button>
+            </div>
+        </section>
+
+        <!-- Main Task Checklist -->
+        <main class="tasks-main">
+            <div class="section-header">
+                <h3 class="section-title" id="current-view-title">Today's Checklist</h3>
+                <div class="sort-dropdown">
+                    <button class="sort-btn" id="sort-trigger">
+                        <i class="fa-solid fa-arrow-down-short-wide"></i> Sort
+                    </button>
+                    <div class="sort-menu hide" id="sort-menu">
+                        <button data-sort="default" class="active"><i class="fa-solid fa-check"></i> Default</button>
+                        <button data-sort="priority"><i class="fa-solid fa-fire"></i> Priority</button>
+                        <button data-sort="time"><i class="fa-regular fa-clock"></i> Time</button>
+                        <button data-sort="date"><i class="fa-regular fa-calendar"></i> Date</button>
+                        <button data-sort="alphabetical"><i class="fa-solid fa-arrow-down-a-z"></i> Name</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task List Container -->
+            <div class="task-list" id="task-list">
+                <!-- Dynamically Rendered Tasks -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state hide" id="empty-state">
+                <div class="empty-illustration">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                </div>
+                <h4 class="empty-title" id="empty-title">All tasks completed! 🎉</h4>
+                <p class="empty-desc" id="empty-desc">You're all caught up for today. Add a new task to keep building your routine.</p>
+                <button class="btn btn-primary primary-add-btn" id="empty-add-btn">
+                    <i class="fa-solid fa-plus"></i> Add New Task
+                </button>
+            </div>
+        </main>
+
+        <!-- Floating Add Button -->
+        <button class="fab-btn" id="fab-add-btn" title="Add New Task">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+
+        <!-- Bottom Navigation Bar -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-nav="tasks">
+                <i class="fa-solid fa-list-check"></i>
+                <span>Tasks</span>
+            </button>
+            <button class="nav-item" data-nav="analytics">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Stats</span>
+            </button>
+            <button class="nav-item" data-nav="settings">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Customize</span>
+            </button>
+        </nav>
+
+        <!-- MODALS -->
+
+        <!-- 1. Add / Edit Task Modal -->
+        <div class="modal-overlay hide" id="task-modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="modal-heading">Create New Task</h3>
+                    <button class="close-modal-btn" id="close-task-modal">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <form id="task-form" class="modal-form">
+                    <input type="hidden" id="task-id">
+                    
+                    <div class="form-group">
+                        <label for="task-title-input">Task Title *</label>
+                        <input type="text" id="task-title-input" required placeholder="e.g. Gym workout">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="task-category-select">Category</label>
+                            <select id="task-category-select">
+                                <option value="morning">🌅 Morning Routine</option>
+                                <option value="work">💼 Work / Study</option>
+                                <option value="health">🏋️ Health & Fitness</option>
+                                <option value="personal">👤 Personal</option>
+                                <option value="evening">🌙 Evening Routine</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="task-priority-select">Priority</label>
+                            <select id="task-priority-select">
+                                <option value="low">🟢 Low</option>
+                                <option value="medium" selected>⚡ Medium</option>
+                                <option value="high">🔥 High</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Date Selection with Quick Presets -->
+                    <div class="form-group">
+                        <label for="task-date-input">Remind / Schedule On Date *</label>
+                        <input type="date" id="task-date-input" required>
+                        <div class="date-presets">
+                            <button type="button" class="date-preset-btn" data-preset="today">Today</button>
+                            <button type="button" class="date-preset-btn" data-preset="tomorrow">Tomorrow</button>
+                            <button type="button" class="date-preset-btn" data-preset="in3days">+3 Days</button>
+                            <button type="button" class="date-preset-btn" data-preset="nextweek">Next Week</button>
+                        </div>
+                        <small class="help-text">ℹ️ This task will ONLY remind and appear on your Today's Checklist on this exact day!</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="task-time-input">Remind Time</label>
+                            <input type="time" id="task-time-input">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="task-recurring-select">Repeat Rule</label>
+                            <select id="task-recurring-select">
+                                <option value="none">One time (Specific Day)</option>
+                                <option value="daily">Everyday (Daily)</option>
+                                <option value="weekdays">Mon - Fri (Weekdays)</option>
+                                <option value="weekends">Sat - Sun (Weekends)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Subtasks Section -->
+                    <div class="form-group">
+                        <label>Sub-tasks / Checklist items</label>
+                        <div class="subtask-input-group">
+                            <input type="text" id="subtask-builder-input" placeholder="Add a sub-step...">
+                            <button type="button" class="btn btn-secondary" id="add-subtask-btn">Add</button>
+                        </div>
+                        <ul class="subtask-builder-list" id="subtask-builder-list">
+                            <!-- Items inserted dynamically -->
+                        </ul>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-task-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="save-task-btn">
+                            <i class="fa-solid fa-check"></i> Save Task
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. GOOGLE LOGIN & AUTOMATIC BACKUP FREQUENCY PERMISSION MODAL -->
+        <div class="modal-overlay hide" id="gdrive-permission-modal">
+            <div class="modal-content glass-card permission-modal-card">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="fa-brands fa-google-drive" style="color:#4285F4;"></i> Google Drive Backup Schedule</h3>
+                    <button class="close-modal-btn" id="close-gdrive-perm-modal">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="google-user-card" id="permission-user-card">
+                        <div class="guser-avatar" id="guser-avatar-display">👤</div>
+                        <div class="guser-info">
+                            <strong id="guser-name-display">Google User Account</strong>
+                            <span id="guser-email-display">user@gmail.com</span>
+                        </div>
+                    </div>
+
+                    <p class="perm-desc">RoutineCraft can automatically back up your daily tasks, habits, and streaks directly to your Google Drive.</p>
+
+                    <div class="form-group">
+                        <label>Choose Automatic Backup Frequency:</label>
+                        <div class="backup-frequency-options">
+                            <label class="freq-radio-card active">
+                                <input type="radio" name="backup-freq-choice" value="daily" checked>
+                                <div class="freq-content">
+                                    <strong>⚡ Daily Backup (Recommended)</strong>
+                                    <span>Auto-backs up your tasks & streaks every day.</span>
+                                </div>
+                            </label>
+
+                            <label class="freq-radio-card">
+                                <input type="radio" name="backup-freq-choice" value="weekly">
+                                <div class="freq-content">
+                                    <strong>📅 Weekly Backup</strong>
+                                    <span>Auto-backs up your data once every 7 days.</span>
+                                </div>
+                            </label>
+
+                            <label class="freq-radio-card">
+                                <input type="radio" name="backup-freq-choice" value="custom">
+                                <div class="freq-content">
+                                    <strong>⚙️ Manual / Custom</strong>
+                                    <span>Back up manually whenever you tap Backup.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="skip-gdrive-perm-btn">Skip for Now</button>
+                    <button type="button" class="btn btn-gdrive" id="confirm-gdrive-perm-btn">
+                        <i class="fa-brands fa-google-drive"></i> Enable Backup & Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Customize Profile, Theme & Multi-User Modal -->
+        <div class="modal-overlay hide" id="profile-modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h3 class="modal-title">Accounts & Settings</h3>
+                    <button class="close-modal-btn" id="close-profile-modal">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                
+                <div class="modal-body">
+                    <!-- Multi-User Account Selector -->
+                    <div class="settings-group">
+                        <h4><i class="fa-solid fa-users"></i> Switch User Account</h4>
+                        <div class="users-list-grid" id="users-list-grid">
+                            <!-- Multi-user accounts rendered dynamically -->
+                        </div>
+                        <button class="btn btn-secondary btn-block" id="add-new-account-btn">
+                            <i class="fa-brands fa-google"></i> Sign In / Add Google Account
+                        </button>
+                    </div>
+
+                    <!-- Active Profile Customization -->
+                    <div class="settings-group">
+                        <h4><i class="fa-solid fa-user-gear"></i> Active Profile Details</h4>
+                        <div class="form-group">
+                            <label for="profile-name-input">Your Name</label>
+                            <input type="text" id="profile-name-input" placeholder="Enter your name">
+                        </div>
+                        
+                        <label>Choose Avatar</label>
+                        <div class="avatar-selector">
+                            <button class="avatar-opt" data-avatar="🚀">🚀</button>
+                            <button class="avatar-opt" data-avatar="⚡">⚡</button>
+                            <button class="avatar-opt" data-avatar="🦁">🦁</button>
+                            <button class="avatar-opt" data-avatar="👑">👑</button>
+                            <button class="avatar-opt" data-avatar="🎯">🎯</button>
+                            <button class="avatar-opt" data-avatar="🧘">🧘</button>
+                            <button class="avatar-opt" data-avatar="💼">💼</button>
+                            <button class="avatar-opt" data-avatar="🔥">🔥</button>
+                        </div>
+                    </div>
+
+                    <!-- GOOGLE DRIVE CLOUD BACKUP SECTION -->
+                    <div class="settings-group google-backup-group">
+                        <h4>
+                            <i class="fa-brands fa-google-drive" style="color:#4285F4;"></i> Google Drive Cloud Backup
+                            <span class="badge-beta">Active</span>
+                        </h4>
+                        <p class="settings-desc">Back up your checklist, habits, and streaks securely to your personal Google Drive account.</p>
+                        
+                        <div class="cloud-status-card">
+                            <div class="cloud-status-info">
+                                <i class="fa-solid fa-cloud-arrow-up cloud-icon"></i>
+                                <div>
+                                    <strong id="gdrive-status-title">Google Drive Backup</strong>
+                                    <span id="gdrive-last-backup-text">Last backup: Never</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Backup Schedule Frequency Dropdown -->
+                        <div class="form-group" style="margin-top:8px;">
+                            <label for="backup-frequency-select">Backup Schedule Frequency:</label>
+                            <select id="backup-frequency-select">
+                                <option value="daily">⚡ Daily Backup (Every 24h)</option>
+                                <option value="weekly">📅 Weekly Backup (Every 7 days)</option>
+                                <option value="custom">⚙️ Custom / Manual Backup</option>
+                            </select>
+                        </div>
+
+                        <div class="google-backup-actions">
+                            <button class="btn btn-gdrive" id="gdrive-backup-btn">
+                                <i class="fa-brands fa-google-drive"></i> Backup Now
+                            </button>
+                            <button class="btn btn-secondary" id="gdrive-restore-btn">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> Restore
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Theme Selector -->
+                    <div class="settings-group">
+                        <h4><i class="fa-solid fa-wand-magic-sparkles"></i> App Theme</h4>
+                        <div class="theme-grid">
+                            <button class="theme-card active" data-set-theme="sunset-glow">
+                                <div class="theme-preview sunset-preview"></div>
+                                <span>Pastel Pink Rose</span>
+                            </button>
+                            <button class="theme-card" data-set-theme="dark-glass">
+                                <div class="theme-preview dark-glass-preview"></div>
+                                <span>Midnight Glass</span>
+                            </button>
+                            <button class="theme-card" data-set-theme="neon-cyber">
+                                <div class="theme-preview neon-preview"></div>
+                                <span>Neon Cyber</span>
+                            </button>
+                            <button class="theme-card" data-set-theme="minimal-light">
+                                <div class="theme-preview light-preview"></div>
+                                <span>Minimal Light</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Local Data Backup & Reset -->
+                    <div class="settings-group">
+                        <h4><i class="fa-solid fa-database"></i> Offline File Export / Reset</h4>
+                        <div class="backup-actions">
+                            <button class="btn btn-secondary" id="export-data-btn">
+                                <i class="fa-solid fa-download"></i> Export JSON
+                            </button>
+                            <button class="btn btn-secondary" id="import-data-btn">
+                                <i class="fa-solid fa-upload"></i> Import JSON
+                            </button>
+                            <input type="file" id="import-file-input" accept=".json" class="hide">
+                        </div>
+                        <button class="btn btn-danger-outline" id="reset-data-btn">
+                            <i class="fa-solid fa-arrow-rotate-left"></i> Reset Current User Tasks
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" id="save-profile-btn">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. STATS DASHBOARD MODAL -->
+        <div class="modal-overlay hide" id="analytics-modal">
+            <div class="modal-content glass-card analytics-modal-large">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="fa-solid fa-chart-pie"></i> Productivity Stats & Weekly Planner</h3>
+                    <button class="close-modal-btn" id="close-analytics-modal">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- OVERALL PROGRESS DASHBOARD CARD -->
+                    <section class="overall-progress-card">
+                        <div class="overall-progress-header">
+                            <h3>Overall Progress</h3>
+                        </div>
+                        
+                        <div class="overall-progress-body">
+                            <!-- Left: Mon-Sun Bar Chart with 0-10 Y-Axis Scale -->
+                            <div class="overall-chart-container">
+                                <div class="chart-y-axis">
+                                    <span>10</span>
+                                    <span>8</span>
+                                    <span>6</span>
+                                    <span>4</span>
+                                    <span>2</span>
+                                    <span>0</span>
+                                </div>
+                                <div class="overall-bars-wrapper" id="overall-bars-wrapper">
+                                    <!-- Mon-Sun Bars -->
+                                </div>
+                            </div>
+
+                            <!-- Right: Donut Progress Ring with Completed Ratio -->
+                            <div class="overall-ring-container">
+                                <div class="ring-donut">
+                                    <svg width="84" height="84">
+                                        <circle class="ring-bg" stroke-width="7" r="34" cx="42" cy="42"/>
+                                        <circle class="ring-fill" stroke-width="7" r="34" cx="42" cy="42" id="overall-ring-fill"/>
+                                    </svg>
+                                    <span class="ring-pct-text" id="overall-pct-text">37%</span>
+                                </div>
+                                <div class="overall-ratio-label">
+                                    <span class="ratio-likes"><i class="fa-regular fa-heart"></i> Progress</span>
+                                    <span class="ratio-val" id="overall-ratio-val">24 / 65 completed</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- WEEKLY DAY COLUMNS DASHBOARD -->
+                    <div class="planner-grid-section">
+                        <h4 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
+                            <i class="fa-solid fa-calendar-week" style="color:var(--accent-primary);"></i> Daily Completion & Task Breakdown
+                        </h4>
+                        <div class="weekly-planner-grid" id="weekly-planner-grid">
+                            <!-- Day Columns -->
+                        </div>
+                    </div>
+
+                    <!-- 30-Day Habit Activity Heatmap Matrix Grid -->
+                    <div class="heatmap-section">
+                        <div class="heatmap-header">
+                            <h4><i class="fa-solid fa-border-all"></i> 30-Day Habit Activity Heatmap</h4>
+                            <span class="heatmap-legend">Less <span class="lvl-0"></span><span class="lvl-1"></span><span class="lvl-2"></span><span class="lvl-3"></span> More</span>
+                        </div>
+                        <div class="heatmap-grid" id="heatmap-grid">
+                            <!-- 30 Glowing Tile Boxes -->
+                        </div>
+                    </div>
+
+                    <!-- Category Breakdown Progress Bars -->
+                    <div class="category-breakdown-section">
+                        <h4><i class="fa-solid fa-list-check"></i> Category Distribution</h4>
+                        <div id="category-bars-container" class="category-bars">
+                            <!-- Category progress bars -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="close-analytics-btn">Close Stats</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification Container -->
+        <div class="toast-container" id="toast-container"></div>
+
+    </div>
+
+    <!-- Service Worker Registration for 100% Offline PWA functionality -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker Registered for Offline Mode 🚀', reg.scope))
+                    .catch(err => console.log('SW registration failed: ', err));
+            });
+        }
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>
