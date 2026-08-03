@@ -58,11 +58,13 @@
         <!-- Multi-User Account Bar (Shows logged in Google user email) -->
         <div class="account-status-bar hide" id="account-status-bar">
             <div class="account-info">
-                <i class="fa-brands fa-google-drive" style="color:#4285F4;"></i>
-                <span>Synced as <strong id="account-email-display">user@gmail.com</strong></span>
-                <span class="badge-frequency" id="account-freq-badge">Auto: Daily</span>
+                <i class="fa-brands fa-google" style="color:#4285F4;"></i>
+                <span>Signed in as <strong id="account-email-display">user@gmail.com</strong></span>
             </div>
-            <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-arrows-rotate"></i> Switch</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-arrows-rotate"></i> Switch</button>
+                <button class="switch-account-btn logout-account-btn" id="logout-header-btn" style="background:rgba(225,29,72,0.15); color:#e11d48; border-color:rgba(225,29,72,0.3); font-weight:600;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+            </div>
         </div>
 
         <!-- Progress Overview Ring Card -->

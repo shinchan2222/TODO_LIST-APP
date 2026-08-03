@@ -254,6 +254,7 @@
         accountEmailDisplay: document.getElementById('account-email-display'),
         accountFreqBadge: document.getElementById('account-freq-badge'),
         switchAccountBtn: document.getElementById('switch-account-btn'),
+        logoutHeaderBtn: document.getElementById('logout-header-btn'),
 
         gdrivePermissionModal: document.getElementById('gdrive-permission-modal'),
         closeGdrivePermModalBtn: document.getElementById('close-gdrive-perm-modal'),
@@ -453,9 +454,15 @@
         dom.streakCount.textContent = state.profile.streak || 0;
 
         if (state.profile.isGoogleSynced) {
-            dom.googleBtnText.textContent = 'Account';
+            if (dom.headerGoogleLoginBtn) {
+                dom.headerGoogleLoginBtn.title = `Signed in as ${state.profile.email} — Tap to Sign Out`;
+                dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket" style="color:#e11d48;"></i> <span id="google-btn-text">Sign Out</span>';
+            }
         } else {
-            dom.googleBtnText.textContent = 'Sign In';
+            if (dom.headerGoogleLoginBtn) {
+                dom.headerGoogleLoginBtn.title = 'Sign In with Google';
+                dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-brands fa-google" style="color:#4285F4;"></i> <span id="google-btn-text">Sign In</span>';
+            }
         }
 
         if (state.profile.notificationsEnabled) {
@@ -465,6 +472,36 @@
             dom.notifyBtn.classList.remove('active');
             dom.notifyBtn.setAttribute('aria-pressed', 'false');
         }
+    }
+
+    function logoutUserAccount() {
+        if (window.RC_FIREBASE) {
+            RC_FIREBASE.signOut();
+        }
+
+        const prevEmail = state.profile.email;
+        if (usersStore[prevEmail]) {
+            usersStore[prevEmail].profile.isGoogleSynced = false;
+        }
+
+        activeEmail = 'default_user@routinecraft.app';
+        if (!usersStore[activeEmail]) {
+            usersStore[activeEmail] = {
+                profile: { ...DEFAULT_PROFILE },
+                tasks: [...DEFAULT_TASKS]
+            };
+        }
+        state.profile = usersStore[activeEmail].profile;
+        state.tasks = usersStore[activeEmail].tasks;
+
+        saveState();
+        applyTheme(state.profile.theme);
+        renderHeaderProfile();
+        renderTasks();
+        renderAccountStatusBar();
+        closeProfileModal();
+        closeAuthModal();
+        showToast('Signed out successfully 👋');
     }
 
     function renderAccountStatusBar() {
@@ -1430,8 +1467,18 @@
 
     // --- GOOGLE DRIVE BACKUP BUTTONS ---
     dom.headerGoogleLoginBtn.addEventListener('click', () => {
-        triggerGoogleLogin();
+        if (state.profile.isGoogleSynced) {
+            logoutUserAccount();
+        } else {
+            triggerGoogleLogin();
+        }
     });
+
+    if (dom.logoutHeaderBtn) {
+        dom.logoutHeaderBtn.addEventListener('click', () => {
+            logoutUserAccount();
+        });
+    }
 
     dom.switchAccountBtn.addEventListener('click', () => {
         openProfileModal();
