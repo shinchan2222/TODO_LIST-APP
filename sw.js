@@ -1,5 +1,5 @@
 /* Service Worker for RoutineCraft — Offline Capability + Notification Routing */
-const CACHE_NAME = 'routinecraft-v3';
+const CACHE_NAME = 'routinecraft-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
     './app.js',
     './manifest.json',
     './src/plugins/local-notifications.js',
+    './src/plugins/firebase-auth.js',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];

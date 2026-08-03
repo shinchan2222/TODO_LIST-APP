@@ -650,11 +650,36 @@
         return hash;
     }
 
-    // --- GOOGLE LOGIN & AUTOMATIC BACKUP PERMISSION MODAL ---
+    // --- GOOGLE LOGIN & FIREBASE AUTHENTICATION ---
     function triggerGoogleLogin() {
+        if (window.RC_FIREBASE && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            RC_FIREBASE.signInWithGoogle()
+                .then(function(user) {
+                    state.pendingGoogleUser = {
+                        email: user.email,
+                        name: user.displayName || user.email.split('@')[0],
+                        avatar: user.photoURL ? '👤' : '🌐',
+                        uid: user.uid
+                    };
+                    dom.guserNameDisplay.textContent = state.pendingGoogleUser.name;
+                    dom.guserEmailDisplay.textContent = state.pendingGoogleUser.email;
+                    dom.guserAvatarDisplay.textContent = '🔥';
+                    dom.gdrivePermissionModal.classList.remove('hide');
+                    showToast('Authenticated via Firebase Auth! 🔥');
+                })
+                .catch(function(err) {
+                    console.warn('[RC] Firebase Google Sign-In fallback:', err);
+                    fallbackPromptLogin();
+                });
+        } else {
+            fallbackPromptLogin();
+        }
+    }
+
+    function fallbackPromptLogin() {
         const sampleEmails = ['alex.productivity@gmail.com', 'sarah.daily@gmail.com', 'jordan.planner@gmail.com'];
-        const chosenEmail = prompt("Enter your Google Account Email for Cloud Backup & Sync:", sampleEmails[Math.floor(Math.random() * sampleEmails.length)]);
-        
+        const chosenEmail = prompt("Enter your Account Email for Sync & Backup:", sampleEmails[Math.floor(Math.random() * sampleEmails.length)]);
+
         if (!chosenEmail || !chosenEmail.includes('@')) return;
 
         state.pendingGoogleUser = {
