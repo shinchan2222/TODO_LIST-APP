@@ -4,15 +4,15 @@
 */
 
 window.RC_FIREBASE = {
-  // Placeholder Firebase configuration object.
-  // Replace these values with your actual config from Firebase Console (https://console.firebase.google.com)
+  // Live Firebase Configuration for project "routinecraft-db0af"
   config: {
-    apiKey: "AIzaSy_REPLACE_WITH_YOUR_FIREBASE_API_KEY",
-    authDomain: "routinecraft-todo.firebaseapp.com",
-    projectId: "routinecraft-todo",
-    storageBucket: "routinecraft-todo.appspot.com",
-    messagingSenderId: "123456789000",
-    appId: "1:123456789000:web:abcdef1234567890"
+    apiKey: "AIzaSyCdDR9PeiqtHnWTWuXgFAIJUGi8Xor4ebg",
+    authDomain: "routinecraft-db0af.firebaseapp.com",
+    projectId: "routinecraft-db0af",
+    storageBucket: "routinecraft-db0af.firebasestorage.app",
+    messagingSenderId: "1037852256619",
+    appId: "1:1037852256619:web:92a7d7631af2aa161e042e",
+    measurementId: "G-CGYVEBC2YN"
   },
 
   initialized: false,
@@ -119,3 +119,9 @@ window.RC_FIREBASE = {
     }
   }
 };
+
+// Auto-initialize Firebase if SDK is ready
+if (typeof firebase !== 'undefined') {
+  window.RC_FIREBASE.init();
+}
+
