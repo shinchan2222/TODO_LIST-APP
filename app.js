@@ -254,7 +254,7 @@
         accountEmailDisplay: document.getElementById('account-email-display'),
         accountFreqBadge: document.getElementById('account-freq-badge'),
         switchAccountBtn: document.getElementById('switch-account-btn'),
-        logoutHeaderBtn: document.getElementById('logout-header-btn'),
+        logoutSettingsBtn: document.getElementById('logout-settings-btn'),
 
         gdrivePermissionModal: document.getElementById('gdrive-permission-modal'),
         closeGdrivePermModalBtn: document.getElementById('close-gdrive-perm-modal'),
@@ -455,8 +455,8 @@
 
         if (state.profile.isGoogleSynced) {
             if (dom.headerGoogleLoginBtn) {
-                dom.headerGoogleLoginBtn.title = `Signed in as ${state.profile.email} — Tap to Sign Out`;
-                dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-solid fa-right-from-bracket" style="color:#e11d48;"></i> <span id="google-btn-text">Sign Out</span>';
+                dom.headerGoogleLoginBtn.title = `Signed in as ${state.profile.email} — Tap to manage account`;
+                dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-brands fa-google" style="color:#4285F4;"></i> <span id="google-btn-text">Account</span>';
             }
         } else {
             if (dom.headerGoogleLoginBtn) {
@@ -508,9 +508,10 @@
         if (state.profile.isGoogleSynced) {
             dom.accountStatusBar.classList.remove('hide');
             dom.accountEmailDisplay.textContent = state.profile.email;
-            dom.accountFreqBadge.textContent = `Auto: ${state.profile.backupFrequency.toUpperCase()}`;
+            if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.remove('hide');
         } else {
             dom.accountStatusBar.classList.add('hide');
+            if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.add('hide');
         }
 
         if (state.profile.lastBackupTime) {
@@ -1487,15 +1488,17 @@
     // --- GOOGLE DRIVE BACKUP BUTTONS ---
     dom.headerGoogleLoginBtn.addEventListener('click', () => {
         if (state.profile.isGoogleSynced) {
-            logoutUserAccount();
+            openProfileModal();
         } else {
             triggerGoogleLogin();
         }
     });
 
-    if (dom.logoutHeaderBtn) {
-        dom.logoutHeaderBtn.addEventListener('click', () => {
-            logoutUserAccount();
+    if (dom.logoutSettingsBtn) {
+        dom.logoutSettingsBtn.addEventListener('click', () => {
+            if (confirm(`Sign out of ${state.profile.email || 'your account'}?`)) {
+                logoutUserAccount();
+            }
         });
     }
 

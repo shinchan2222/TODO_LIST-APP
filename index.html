@@ -61,10 +61,7 @@
                 <i class="fa-brands fa-google" style="color:#4285F4;"></i>
                 <span>Signed in as <strong id="account-email-display">user@gmail.com</strong></span>
             </div>
-            <div style="display:flex; gap:6px; align-items:center;">
-                <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-arrows-rotate"></i> Switch</button>
-                <button class="switch-account-btn logout-account-btn" id="logout-header-btn" style="background:rgba(225,29,72,0.15); color:#e11d48; border-color:rgba(225,29,72,0.3); font-weight:600;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
-            </div>
+            <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-gear"></i> Manage Account</button>
         </div>
 
         <!-- Progress Overview Ring Card -->
@@ -419,13 +416,18 @@
                 <div class="modal-body">
                     <!-- Multi-User Account Selector -->
                     <div class="settings-group">
-                        <h4><i class="fa-solid fa-users"></i> Switch User Account</h4>
+                        <h4><i class="fa-solid fa-users"></i> Account & Sync</h4>
                         <div class="users-list-grid" id="users-list-grid">
                             <!-- Multi-user accounts rendered dynamically -->
                         </div>
-                        <button class="btn btn-secondary btn-block" id="add-new-account-btn">
-                            <i class="fa-brands fa-google"></i> Sign In / Add Google Account
-                        </button>
+                        <div style="display:flex; gap:8px; margin-top:8px;">
+                            <button class="btn btn-secondary btn-block" id="add-new-account-btn" style="flex:1;">
+                                <i class="fa-brands fa-google"></i> Sign In / Add Account
+                            </button>
+                            <button class="btn hide" id="logout-settings-btn" style="background:rgba(225,29,72,0.12); color:#e11d48; border:1px solid rgba(225,29,72,0.3); font-weight:700; padding:0 14px;">
+                                <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Active Profile Customization -->
