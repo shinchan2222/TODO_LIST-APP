@@ -312,7 +312,18 @@
         
         fabAddBtn: document.getElementById('fab-add-btn'),
         emptyAddBtn: document.getElementById('empty-add-btn'),
-        bottomNavItems: document.querySelectorAll('.bottom-nav .nav-item'),
+        authModal: document.getElementById('auth-modal'),
+        closeAuthModalBtn: document.getElementById('close-auth-modal'),
+        googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
+        authEmailForm: document.getElementById('auth-email-form'),
+        authNameGroup: document.getElementById('auth-name-group'),
+        authNameInput: document.getElementById('auth-name-input'),
+        authEmailInput: document.getElementById('auth-email-input'),
+        authPasswordInput: document.getElementById('auth-password-input'),
+        authErrorMsg: document.getElementById('auth-error-msg'),
+        authSubmitBtn: document.getElementById('auth-submit-btn'),
+        authToggleBtn: document.getElementById('auth-toggle-btn'),
+        authToggleText: document.getElementById('auth-toggle-text'),
 
         taskModal: document.getElementById('task-modal'),
         taskForm: document.getElementById('task-form'),
@@ -650,30 +661,70 @@
         return hash;
     }
 
-    // --- GOOGLE LOGIN & FIREBASE AUTHENTICATION ---
-    function triggerGoogleLogin() {
-        if (window.RC_FIREBASE && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-            RC_FIREBASE.signInWithGoogle()
-                .then(function(user) {
-                    state.pendingGoogleUser = {
-                        email: user.email,
-                        name: user.displayName || user.email.split('@')[0],
-                        avatar: user.photoURL ? '👤' : '🌐',
-                        uid: user.uid
-                    };
-                    dom.guserNameDisplay.textContent = state.pendingGoogleUser.name;
-                    dom.guserEmailDisplay.textContent = state.pendingGoogleUser.email;
-                    dom.guserAvatarDisplay.textContent = '🔥';
-                    dom.gdrivePermissionModal.classList.remove('hide');
-                    showToast('Authenticated via Firebase Auth! 🔥');
-                })
-                .catch(function(err) {
-                    console.warn('[RC] Firebase Google Sign-In fallback:', err);
-                    fallbackPromptLogin();
-                });
+    // --- FIREBASE AUTHENTICATION & LOGIN MODAL CONTROLLER ---
+    let isSignupMode = false;
+
+    function openAuthModal() {
+        if (!dom.authModal) return;
+        isSignupMode = false;
+        updateAuthModalUI();
+        if (dom.authErrorMsg) dom.authErrorMsg.classList.add('hide');
+        dom.authModal.classList.remove('hide');
+    }
+
+    function closeAuthModal() {
+        if (dom.authModal) dom.authModal.classList.add('hide');
+    }
+
+    function updateAuthModalUI() {
+        if (isSignupMode) {
+            if (dom.authNameGroup) dom.authNameGroup.classList.remove('hide');
+            if (dom.authSubmitBtn) dom.authSubmitBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
+            if (dom.authToggleText) dom.authToggleText.textContent = 'Already have an account?';
+            if (dom.authToggleBtn) dom.authToggleBtn.textContent = 'Sign In';
         } else {
-            fallbackPromptLogin();
+            if (dom.authNameGroup) dom.authNameGroup.classList.add('hide');
+            if (dom.authSubmitBtn) dom.authSubmitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+            if (dom.authToggleText) dom.authToggleText.textContent = "Don't have an account?";
+            if (dom.authToggleBtn) dom.authToggleBtn.textContent = 'Create one';
         }
+    }
+
+    function showAuthError(msg) {
+        if (dom.authErrorMsg) {
+            dom.authErrorMsg.textContent = msg;
+            dom.authErrorMsg.classList.remove('hide');
+        }
+    }
+
+    function triggerGoogleLogin() {
+        openAuthModal();
+    }
+
+    function handleFirebaseUserAuthenticated(user) {
+        const userEmail = user.email;
+        const userName = user.displayName || userEmail.split('@')[0];
+
+        if (!usersStore[userEmail]) {
+            usersStore[userEmail] = {
+                profile: {
+                    ...DEFAULT_PROFILE,
+                    email: userEmail,
+                    name: userName,
+                    avatar: '🔥',
+                    isGoogleSynced: true,
+                    backupFrequency: 'daily',
+                    lastBackupTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+                },
+                tasks: [...DEFAULT_TASKS]
+            };
+        } else {
+            usersStore[userEmail].profile.isGoogleSynced = true;
+            usersStore[userEmail].profile.name = userName;
+        }
+
+        switchUserAccount(userEmail);
+        showToast(`Signed in as ${userEmail}! 🔥`);
     }
 
     function fallbackPromptLogin() {
@@ -1603,6 +1654,72 @@
         dom.emptyAddBtn.addEventListener('click', () => openTaskModal());
         dom.closeTaskModalBtn.addEventListener('click', closeTaskModal);
         dom.cancelTaskBtn.addEventListener('click', closeTaskModal);
+
+        // Firebase Auth Modal Listeners
+        if (dom.closeAuthModalBtn) dom.closeAuthModalBtn.addEventListener('click', closeAuthModal);
+
+        if (dom.authToggleBtn) {
+            dom.authToggleBtn.addEventListener('click', function() {
+                isSignupMode = !isSignupMode;
+                updateAuthModalUI();
+                if (dom.authErrorMsg) dom.authErrorMsg.classList.add('hide');
+            });
+        }
+
+        if (dom.googleLoginModalBtn) {
+            dom.googleLoginModalBtn.addEventListener('click', function() {
+                if (window.RC_FIREBASE && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+                    RC_FIREBASE.signInWithGoogle()
+                        .then(function(user) {
+                            handleFirebaseUserAuthenticated(user);
+                            closeAuthModal();
+                        })
+                        .catch(function(err) {
+                            showAuthError(err.message || 'Google Sign-In failed');
+                        });
+                } else {
+                    fallbackPromptLogin();
+                }
+            });
+        }
+
+        if (dom.authEmailForm) {
+            dom.authEmailForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const email = dom.authEmailInput.value.trim();
+                const password = dom.authPasswordInput.value;
+                const name = dom.authNameInput ? dom.authNameInput.value.trim() : '';
+
+                if (!email || !password) return;
+
+                if (window.RC_FIREBASE && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+                    if (isSignupMode) {
+                        firebase.auth().createUserWithEmailAndPassword(email, password)
+                            .then(function(result) {
+                                if (name && result.user) {
+                                    result.user.updateProfile({ displayName: name });
+                                }
+                                handleFirebaseUserAuthenticated(result.user);
+                                closeAuthModal();
+                            })
+                            .catch(function(err) {
+                                showAuthError(err.message);
+                            });
+                    } else {
+                        firebase.auth().signInWithEmailAndPassword(email, password)
+                            .then(function(result) {
+                                handleFirebaseUserAuthenticated(result.user);
+                                closeAuthModal();
+                            })
+                            .catch(function(err) {
+                                showAuthError(err.message);
+                            });
+                    }
+                } else {
+                    fallbackPromptLogin();
+                }
+            });
+        }
 
         dom.profileTrigger.addEventListener('click', openProfileModal);
         dom.closeProfileModalBtn.addEventListener('click', closeProfileModal);
