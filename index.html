@@ -89,17 +89,12 @@
             </div>
         </section>
 
-        <!-- App Update Available Banner -->
-        <div class="reminder-banner update-banner hide" id="update-banner" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">
-            <div class="reminder-icon"><i class="fa-solid fa-cloud-arrow-down fa-bounce" style="color: #93c5fd;"></i></div>
-            <div class="reminder-text" style="flex:1;">
-                <strong id="update-banner-title" style="color:white;">🎉 New Update Available!</strong>
-                <span id="update-banner-desc" style="color:rgba(255,255,255,0.9); font-size:0.8rem;">Tap to get the latest features from Vercel.</span>
-            </div>
-            <a class="btn btn-sm" id="update-action-btn" href="#" target="_blank" style="background: white; color: #1d4ed8; font-weight: 700; border-radius: 12px; padding: 6px 12px; text-decoration: none; font-size: 0.8rem; margin-right: 6px; white-space: nowrap;">
-                Update Now
-            </a>
-            <button class="reminder-dismiss" id="dismiss-update-btn" style="color: white;"><i class="fa-solid fa-xmark"></i></button>
+        <!-- App Update Available Floating Pill -->
+        <div class="update-toast-pill hide" id="update-banner">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color:#f59e0b;"></i>
+            <span id="update-banner-title" style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">New update available</span>
+            <button type="button" class="update-pill-btn" id="update-action-btn">Refresh</button>
+            <button type="button" class="update-close-btn" id="dismiss-update-btn"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
         <!-- Active Reminder Banner -->

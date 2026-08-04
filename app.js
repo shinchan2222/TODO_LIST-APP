@@ -1255,9 +1255,7 @@
             .then(function(data) {
                 if (data && data.version && data.version > APP_VERSION) {
                     dom.updateBanner.classList.remove('hide');
-                    if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = '🎉 New Update v' + (data.versionName || data.version) + ' Available!';
-                    if (dom.updateBannerDesc) dom.updateBannerDesc.textContent = data.releaseNotes || 'Tap to download the latest update.';
-                    if (dom.updateActionBtn) dom.updateActionBtn.href = data.apkUrl || './RoutineCraft.apk';
+                    if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${data.versionName || data.version} available`;
                 }
             })
             .catch(function() {
@@ -1425,6 +1423,12 @@
     if (dom.dismissUpdateBtn) {
         dom.dismissUpdateBtn.addEventListener('click', () => {
             if (dom.updateBanner) dom.updateBanner.classList.add('hide');
+        });
+    }
+
+    if (dom.updateActionBtn) {
+        dom.updateActionBtn.addEventListener('click', () => {
+            window.location.reload();
         });
     }
 
