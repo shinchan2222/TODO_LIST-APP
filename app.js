@@ -454,12 +454,14 @@
         dom.streakCount.textContent = state.profile.streak || 0;
 
         if (state.profile.isGoogleSynced) {
+            // Once user is signed in, remove/hide the Account button on Home page
             if (dom.headerGoogleLoginBtn) {
-                dom.headerGoogleLoginBtn.title = `Signed in as ${state.profile.email} — Tap to manage account`;
-                dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-brands fa-google" style="color:#4285F4;"></i> <span id="google-btn-text">Account</span>';
+                dom.headerGoogleLoginBtn.classList.add('hide');
             }
         } else {
+            // When signed out, show the Sign In button on Home page
             if (dom.headerGoogleLoginBtn) {
+                dom.headerGoogleLoginBtn.classList.remove('hide');
                 dom.headerGoogleLoginBtn.title = 'Sign In with Google';
                 dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-brands fa-google" style="color:#4285F4;"></i> <span id="google-btn-text">Sign In</span>';
             }
@@ -520,12 +522,13 @@
     }
 
     function renderAccountStatusBar() {
+        // Keep home screen bar hidden for a clean home interface
+        dom.accountStatusBar.classList.add('hide');
+
         if (state.profile.isGoogleSynced) {
-            dom.accountStatusBar.classList.remove('hide');
             dom.accountEmailDisplay.textContent = state.profile.email;
             if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.remove('hide');
         } else {
-            dom.accountStatusBar.classList.add('hide');
             if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.add('hide');
         }
 
