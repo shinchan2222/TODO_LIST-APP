@@ -1,6 +1,6 @@
 {
-  "version": 12,
-  "versionName": "1.2.0",
-  "apkUrl": "./RoutineCraft_v12.apk",
-  "releaseNotes": "Floating update notification, website app download button, and WCAG accessibility improvements."
+  "version": 13,
+  "versionName": "1.3.0",
+  "apkUrl": "./RoutineCraft_v13.apk",
+  "releaseNotes": "Version 1.3.0 with bug fixes and refreshed APK download."
 }

@@ -1,5 +1,5 @@
 /* Service Worker for RoutineCraft — Offline Capability + Notification Routing */
-const CACHE_NAME = 'routinecraft-v5';
+const CACHE_NAME = 'routinecraft-v6';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
