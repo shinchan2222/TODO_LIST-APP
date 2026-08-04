@@ -2034,7 +2034,7 @@ a:focus-visible {
     display: flex;
     align-items: center;
     gap: 10px;
-    background: var(--bg-card);
+    background: var(--card-bg);
     border: 1px solid var(--card-border);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
     border-radius: 30px;

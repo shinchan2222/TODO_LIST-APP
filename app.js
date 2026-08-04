@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 12;
+    const APP_VERSION = 13;
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
