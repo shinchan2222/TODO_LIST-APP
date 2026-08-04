@@ -1280,11 +1280,12 @@
 
     // --- IN-APP UPDATE CHECKER (VIA VERCEL VERSION.JSON) ---
     function checkForAppUpdates(isManualCheck = false) {
-        fetch('./version.json?t=' + Date.now())
+        fetch('https://todo-list-app-eight-pi.vercel.app/version.json?t=' + Date.now())
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data && data.version && data.version > APP_VERSION) {
-                    window.latestApkUrl = data.apkUrl || (`./RoutineCraft_v${data.version}.apk`);
+                    const rawApkUrl = data.apkUrl || (`./RoutineCraft_v${data.version}.apk`);
+                    window.latestApkUrl = new URL(rawApkUrl, 'https://todo-list-app-eight-pi.vercel.app/').href;
                     if (dom.updateBanner) dom.updateBanner.classList.remove('hide');
                     if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${data.versionName || data.version} available`;
 
