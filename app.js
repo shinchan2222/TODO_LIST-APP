@@ -480,8 +480,9 @@
         }
 
         const prevEmail = state.profile.email;
-        if (usersStore[prevEmail]) {
-            usersStore[prevEmail].profile.isGoogleSynced = false;
+        // Delete the signed-out account from local storage so it does not persist in Accounts & Sync
+        if (prevEmail && prevEmail !== 'default_user@routinecraft.app') {
+            delete usersStore[prevEmail];
         }
 
         activeEmail = 'default_user@routinecraft.app';
@@ -494,6 +495,9 @@
         state.profile = usersStore[activeEmail].profile;
         state.tasks = usersStore[activeEmail].tasks;
 
+        localStorage.setItem('routinecraft_active_email', activeEmail);
+        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
+
         saveState();
         applyTheme(state.profile.theme);
         renderHeaderProfile();
@@ -501,7 +505,18 @@
         renderAccountStatusBar();
         closeProfileModal();
         closeAuthModal();
-        showToast('Signed out successfully 👋');
+        showToast('Signed out & account removed from device 👋');
+    }
+
+    function removeUserAccount(emailToRemove) {
+        if (emailToRemove === activeEmail) {
+            logoutUserAccount();
+            return;
+        }
+        delete usersStore[emailToRemove];
+        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
+        renderUsersGrid();
+        showToast(`Removed ${emailToRemove} from device`);
     }
 
     function renderAccountStatusBar() {
@@ -1392,26 +1407,50 @@
     // --- PROFILE & SETTINGS MODAL ---
     function renderUsersGrid() {
         dom.usersListGrid.innerHTML = '';
-        Object.keys(usersStore).forEach(email => {
+        const emails = Object.keys(usersStore);
+
+        emails.forEach(email => {
             const userObj = usersStore[email];
             const isActive = (email === activeEmail);
+            const isDefault = (email === 'default_user@routinecraft.app');
 
             const item = document.createElement('div');
             item.className = `user-account-item ${isActive ? 'active' : ''}`;
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.justifyContent = 'space-between';
+            item.style.padding = '8px 12px';
+
             item.innerHTML = `
-                <div style="display:flex; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; cursor:pointer; flex:1;" class="account-select-area">
                     <span style="font-size:1.1rem;">${userObj.profile.avatar || '👤'}</span>
                     <div style="display:flex; flex-direction:column;">
                         <strong style="font-size:0.86rem; color:var(--text-primary);">${escapeHtml(userObj.profile.name || email)}</strong>
-                        <span style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(email)}</span>
+                        <span style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(isDefault ? 'Local Guest Profile' : email)}</span>
                     </div>
                 </div>
-                ${isActive ? '<span style="font-size:0.74rem; font-weight:700; color:var(--accent-primary);"><i class="fa-solid fa-check"></i> Active</span>' : '<span style="font-size:0.74rem; color:var(--text-muted);">Select</span>'}
+                <div style="display:flex; align-items:center; gap:8px;">
+                    ${isActive ? '<span style="font-size:0.74rem; font-weight:700; color:var(--accent-primary);"><i class="fa-solid fa-check"></i> Active</span>' : '<span style="font-size:0.74rem; color:var(--text-muted); cursor:pointer;" class="account-select-area">Select</span>'}
+                    ${!isDefault ? `<button type="button" class="action-btn delete-acc-btn" data-email="${escapeHtml(email)}" title="Remove account from device" style="background:none; border:none; color:var(--accent-danger); cursor:pointer; padding:4px 6px;"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+                </div>
             `;
 
-            item.addEventListener('click', () => {
-                if (!isActive) switchUserAccount(email);
+            item.querySelectorAll('.account-select-area').forEach(el => {
+                el.addEventListener('click', () => {
+                    if (!isActive) switchUserAccount(email);
+                });
             });
+
+            const delBtn = item.querySelector('.delete-acc-btn');
+            if (delBtn) {
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Remove account ${email} from this device?`)) {
+                        removeUserAccount(email);
+                    }
+                });
+            }
+
             dom.usersListGrid.appendChild(item);
         });
     }
