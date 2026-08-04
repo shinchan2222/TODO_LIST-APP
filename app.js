@@ -1850,13 +1850,19 @@
                             }
                         })
                         .catch(function(err) {
-                            console.warn('[Google Auth Error]', err);
-                            if (err.message === 'BROWSER_STORAGE_RESTRICTED' || (err.message && err.message.includes('popup-closed-by-user'))) {
+                            const errStr = (err && err.message) ? err.message : String(err);
+                            if (
+                                errStr === 'BROWSER_STORAGE_RESTRICTED' ||
+                                errStr.includes('initial state') ||
+                                errStr.includes('sessionStorage') ||
+                                errStr.includes('popup-closed-by-user') ||
+                                errStr.includes('closed by')
+                            ) {
                                 closeAuthModal();
-                                showToast('Mobile storage restriction detected. Opening Direct Email Sign-In... 📧');
+                                showToast('Mobile browser storage restriction detected. Opening Direct Email Sign-In... 📧');
                                 setTimeout(fallbackPromptLogin, 300);
                             } else {
-                                showAuthError(err.message || 'Google Sign-In failed');
+                                showAuthError(errStr || 'Google Sign-In failed');
                             }
                         });
                 } else {

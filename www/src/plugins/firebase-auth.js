@@ -94,46 +94,21 @@ window.RC_FIREBASE = {
     provider.addScope('profile');
     provider.addScope('email');
 
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.Capacitor;
-
-    // On mobile devices, try redirect first to avoid popup-closed-by-user errors
-    if (isMobile) {
-      try {
-        console.log('[RC_FIREBASE] Mobile environment detected, trying popup first...');
-        const result = await firebase.auth().signInWithPopup(provider);
-        return result.user;
-      } catch (error) {
-        if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-blocked') {
-          console.log('[RC_FIREBASE] Mobile popup closed/blocked. Trying redirect flow...');
-          try {
-            await firebase.auth().signInWithRedirect(provider);
-            return null;
-          } catch (redirectErr) {
-            console.warn('[RC_FIREBASE] Redirect error:', redirectErr.message);
-            throw new Error('BROWSER_STORAGE_RESTRICTED');
-          }
-        }
-        if (error.message && error.message.includes('initial state')) {
-          throw new Error('BROWSER_STORAGE_RESTRICTED');
-        }
-        throw error;
-      }
-    }
-
-    // Desktop popup flow
     try {
       const result = await firebase.auth().signInWithPopup(provider);
       console.log('[RC_FIREBASE] Google Sign-In successful:', result.user.email);
       return result.user;
     } catch (error) {
-      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-        console.log('[RC_FIREBASE] Desktop popup closed by user.');
-        throw new Error('Sign-in popup was closed before completing. Please try again.');
-      }
-      if (error.message && error.message.includes('initial state')) {
+      console.warn('[RC_FIREBASE] Google Sign-In error details:', error.code, error.message);
+      if (
+        error.code === 'auth/popup-closed-by-user' ||
+        error.code === 'auth/cancelled-popup-request' ||
+        error.code === 'auth/popup-blocked' ||
+        error.code === 'auth/missing-initial-state' ||
+        (error.message && (error.message.includes('initial state') || error.message.includes('sessionStorage') || error.message.includes('closed by the user')))
+      ) {
         throw new Error('BROWSER_STORAGE_RESTRICTED');
       }
-      console.error('[RC_FIREBASE] Google Sign-In error:', error);
       throw error;
     }
   },
