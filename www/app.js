@@ -404,6 +404,9 @@
 
         // Listen for Firebase auth state changes on launch
         if (window.RC_FIREBASE) {
+            RC_FIREBASE.checkRedirectResult().then(function(user) {
+                if (user) handleFirebaseUserAuthenticated(user);
+            });
             RC_FIREBASE.onAuthStateChanged(function(user) {
                 if (user && !state.profile.isGoogleSynced) {
                     handleFirebaseUserAuthenticated(user);
@@ -1841,11 +1844,20 @@
                 if (window.RC_FIREBASE && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
                     RC_FIREBASE.signInWithGoogle()
                         .then(function(user) {
-                            handleFirebaseUserAuthenticated(user);
-                            closeAuthModal();
+                            if (user) {
+                                handleFirebaseUserAuthenticated(user);
+                                closeAuthModal();
+                            }
                         })
                         .catch(function(err) {
-                            showAuthError(err.message || 'Google Sign-In failed');
+                            console.warn('[Google Auth Error]', err);
+                            if (err.message === 'BROWSER_STORAGE_RESTRICTED' || (err.message && err.message.includes('popup-closed-by-user'))) {
+                                closeAuthModal();
+                                showToast('Mobile storage restriction detected. Opening Direct Email Sign-In... 📧');
+                                setTimeout(fallbackPromptLogin, 300);
+                            } else {
+                                showAuthError(err.message || 'Google Sign-In failed');
+                            }
                         });
                 } else {
                     fallbackPromptLogin();

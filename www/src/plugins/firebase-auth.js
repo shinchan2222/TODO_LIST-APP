@@ -66,22 +66,73 @@ window.RC_FIREBASE = {
   },
 
   /**
-   * Sign In with Google Popup
+   * Handle redirect result if user returned from Google redirect sign-in.
+   */
+  async checkRedirectResult() {
+    if (!this.initialized && !this.init()) return null;
+    try {
+      const result = await firebase.auth().getRedirectResult();
+      if (result && result.user) {
+        console.log('[RC_FIREBASE] Redirect sign-in successful:', result.user.email);
+        return result.user;
+      }
+    } catch (err) {
+      console.warn('[RC_FIREBASE] Redirect result warning:', err.message);
+    }
+    return null;
+  },
+
+  /**
+   * Sign In with Google (Popup with Mobile Redirect & Storage Fallback)
    */
   async signInWithGoogle() {
     if (!this.initialized && !this.init()) {
-      throw new Error('Firebase not configured. Please add your Firebase config credentials.');
+      throw new Error('Firebase not initialized.');
     }
 
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('profile');
     provider.addScope('email');
 
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.Capacitor;
+
+    // On mobile devices, try redirect first to avoid popup-closed-by-user errors
+    if (isMobile) {
+      try {
+        console.log('[RC_FIREBASE] Mobile environment detected, trying popup first...');
+        const result = await firebase.auth().signInWithPopup(provider);
+        return result.user;
+      } catch (error) {
+        if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-blocked') {
+          console.log('[RC_FIREBASE] Mobile popup closed/blocked. Trying redirect flow...');
+          try {
+            await firebase.auth().signInWithRedirect(provider);
+            return null;
+          } catch (redirectErr) {
+            console.warn('[RC_FIREBASE] Redirect error:', redirectErr.message);
+            throw new Error('BROWSER_STORAGE_RESTRICTED');
+          }
+        }
+        if (error.message && error.message.includes('initial state')) {
+          throw new Error('BROWSER_STORAGE_RESTRICTED');
+        }
+        throw error;
+      }
+    }
+
+    // Desktop popup flow
     try {
       const result = await firebase.auth().signInWithPopup(provider);
       console.log('[RC_FIREBASE] Google Sign-In successful:', result.user.email);
       return result.user;
     } catch (error) {
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        console.log('[RC_FIREBASE] Desktop popup closed by user.');
+        throw new Error('Sign-in popup was closed before completing. Please try again.');
+      }
+      if (error.message && error.message.includes('initial state')) {
+        throw new Error('BROWSER_STORAGE_RESTRICTED');
+      }
       console.error('[RC_FIREBASE] Google Sign-In error:', error);
       throw error;
     }
