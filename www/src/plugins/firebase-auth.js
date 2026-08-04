@@ -99,17 +99,8 @@ window.RC_FIREBASE = {
       console.log('[RC_FIREBASE] Google Sign-In successful:', result.user.email);
       return result.user;
     } catch (error) {
-      console.warn('[RC_FIREBASE] Google Sign-In error details:', error.code, error.message);
-      if (
-        error.code === 'auth/popup-closed-by-user' ||
-        error.code === 'auth/cancelled-popup-request' ||
-        error.code === 'auth/popup-blocked' ||
-        error.code === 'auth/missing-initial-state' ||
-        (error.message && (error.message.includes('initial state') || error.message.includes('sessionStorage') || error.message.includes('closed by the user')))
-      ) {
-        throw new Error('BROWSER_STORAGE_RESTRICTED');
-      }
-      throw error;
+      console.warn('[RC_FIREBASE] Google Sign-In caught error:', error ? (error.message || error) : 'unknown');
+      throw new Error('BROWSER_STORAGE_RESTRICTED');
     }
   },
 

@@ -760,8 +760,21 @@
     }
 
     function showAuthError(msg) {
+        const str = String(msg || '');
+        if (
+            str.includes('initial state') ||
+            str.includes('sessionStorage') ||
+            str.includes('popup-closed') ||
+            str.includes('closed by') ||
+            str.includes('RESTRICTED')
+        ) {
+            closeAuthModal();
+            showToast('Mobile browser storage restriction detected. Opening Direct Email Sign-In... 📧');
+            setTimeout(fallbackPromptLogin, 300);
+            return;
+        }
         if (dom.authErrorMsg) {
-            dom.authErrorMsg.textContent = msg;
+            dom.authErrorMsg.textContent = str;
             dom.authErrorMsg.classList.remove('hide');
         }
     }
