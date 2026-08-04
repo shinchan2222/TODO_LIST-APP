@@ -226,7 +226,7 @@
 
                 <div class="modal-body" style="text-align:center;">
                     <div style="font-size:3rem; margin-bottom:12px;">🚀</div>
-                    <p class="auth-subtitle">Sign in with your Google account to back up your habits, sync tasks across devices, and track your streaks.</p>
+                    <p class="auth-subtitle">Sign in to back up your habits, sync tasks across devices, and track your streaks.</p>
 
                     <!-- Error / Status Message Alert -->
                     <div class="auth-error-msg hide" id="auth-error-msg"></div>
@@ -236,8 +236,29 @@
                         <i class="fa-brands fa-google" style="color:#4285F4; font-size:1.1rem;"></i> Sign In with Google
                     </button>
 
+                    <div style="display:flex; align-items:center; margin:16px 0; gap:10px;">
+                        <div style="flex:1; height:1px; background:var(--card-border);"></div>
+                        <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">or email account</span>
+                        <div style="flex:1; height:1px; background:var(--card-border);"></div>
+                    </div>
+
+                    <!-- Direct In-App Email & Name Input Form -->
+                    <div style="display:flex; flex-direction:column; gap:10px; text-align:left;">
+                        <div>
+                            <label for="auth-email-input" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Email Address</label>
+                            <input type="email" id="auth-email-input" class="form-control" placeholder="yourname@gmail.com" style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-primary); font-size:0.9rem;">
+                        </div>
+                        <div>
+                            <label for="auth-name-input" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Your Name (Optional)</label>
+                            <input type="text" id="auth-name-input" class="form-control" placeholder="Productivity Hero" style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-primary); font-size:0.9rem;">
+                        </div>
+                        <button type="button" class="btn btn-primary btn-block" id="auth-email-submit-btn" style="margin-top:6px; padding:12px; font-weight:700; background:var(--accent-primary);">
+                            <i class="fa-solid fa-user-check"></i> Sign In / Create Account
+                        </button>
+                    </div>
+
                     <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:16px; opacity:0.8;">
-                        🔒 Safe & Secure. Your data is backed up directly to your Google account.
+                        🔒 Safe & Secure. Your habits and streaks are backed up to your account.
                     </p>
                 </div>
             </div>

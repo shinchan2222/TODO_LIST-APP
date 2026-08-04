@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 13;
+    const APP_VERSION = 14;
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
@@ -28,6 +28,20 @@
         avatar: '🚀',
         theme: 'sunset-glow',
         streak: 5,
+        completedDates: [
+            getPastDateStr(5),
+            getPastDateStr(4),
+            getPastDateStr(3),
+            getPastDateStr(2),
+            getPastDateStr(1)
+        ],
+        completionHistory: {
+            [getPastDateStr(5)]: 3,
+            [getPastDateStr(4)]: 4,
+            [getPastDateStr(3)]: 3,
+            [getPastDateStr(2)]: 5,
+            [getPastDateStr(1)]: 4
+        },
         lastActiveDate: getTodayStr(),
         totalCompletedCount: 24,
         notificationsEnabled: true,
@@ -202,13 +216,19 @@
     let usersStore = JSON.parse(localStorage.getItem('routinecraft_users')) || {};
     let activeEmail = localStorage.getItem('routinecraft_active_email') || 'default_user@routinecraft.app';
 
-    if (savedVersion < APP_VERSION || !usersStore[activeEmail]) {
+    if (!usersStore[activeEmail]) {
         usersStore[activeEmail] = {
             profile: JSON.parse(localStorage.getItem('routinecraft_profile')) || { ...DEFAULT_PROFILE },
             tasks: JSON.parse(localStorage.getItem('routinecraft_tasks')) || [...DEFAULT_TASKS]
         };
         localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
         localStorage.setItem('routinecraft_active_email', activeEmail);
+        localStorage.setItem('routinecraft_version', APP_VERSION.toString());
+    } else if (savedVersion < APP_VERSION) {
+        Object.keys(usersStore).forEach(email => {
+            usersStore[email].profile = { ...DEFAULT_PROFILE, ...usersStore[email].profile };
+        });
+        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
         localStorage.setItem('routinecraft_version', APP_VERSION.toString());
     }
 
@@ -359,7 +379,15 @@
         heatmapGrid: document.getElementById('heatmap-grid'),
         categoryBarsContainer: document.getElementById('category-bars-container'),
 
-        toastContainer: document.getElementById('toast-container')
+        toastContainer: document.getElementById('toast-container'),
+
+        authModal: document.getElementById('auth-modal'),
+        closeAuthModalBtn: document.getElementById('close-auth-modal'),
+        googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
+        authEmailInput: document.getElementById('auth-email-input'),
+        authNameInput: document.getElementById('auth-name-input'),
+        authEmailSubmitBtn: document.getElementById('auth-email-submit-btn'),
+        authErrorMsg: document.getElementById('auth-error-msg')
     };
 
     function scrollToTaskChecklist() {
@@ -422,6 +450,7 @@
 
     // --- STORAGE & MULTI-USER ---
     function saveState() {
+        updateStreakAndHistory();
         usersStore[activeEmail] = {
             profile: state.profile,
             tasks: state.tasks
@@ -475,6 +504,62 @@
             state.profile.lastActiveDate = today;
             saveState();
         }
+    }
+
+    function calculateStreak(completedDates = []) {
+        if (!completedDates || completedDates.length === 0) return 0;
+        const todayStr = getTodayStr();
+        const yesterdayStr = getPastDateStr(1);
+        
+        let currentCheckDate = new Date();
+        let streak = 0;
+        
+        if (completedDates.includes(todayStr)) {
+            streak = 1;
+            currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+        } else if (completedDates.includes(yesterdayStr)) {
+            streak = 1;
+            currentCheckDate.setDate(currentCheckDate.getDate() - 2);
+        } else {
+            return 0;
+        }
+        
+        while (true) {
+            const checkStr = currentCheckDate.toISOString().split('T')[0];
+            if (completedDates.includes(checkStr)) {
+                streak++;
+                currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+        return streak;
+    }
+
+    function updateStreakAndHistory() {
+        const todayStr = getTodayStr();
+        state.profile.completedDates = state.profile.completedDates || [];
+        state.profile.completionHistory = state.profile.completionHistory || {};
+
+        const completedToday = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
+        state.profile.completionHistory[todayStr] = completedToday;
+
+        const todayTasks = state.tasks.filter(t => isTaskToday(t));
+        const allCompleted = todayTasks.length > 0 && todayTasks.every(t => t.completed);
+
+        if (allCompleted) {
+            if (!state.profile.completedDates.includes(todayStr)) {
+                state.profile.completedDates.push(todayStr);
+            }
+        } else {
+            const idx = state.profile.completedDates.indexOf(todayStr);
+            if (idx > -1) {
+                state.profile.completedDates.splice(idx, 1);
+            }
+        }
+
+        state.profile.streak = calculateStreak(state.profile.completedDates);
+        if (dom.streakCount) dom.streakCount.textContent = state.profile.streak || 0;
     }
 
     // --- TIME BASED GREETING ---
@@ -810,22 +895,34 @@
         setTimeout(scrollToTaskChecklist, 200);
     }
 
-    function fallbackPromptLogin() {
-        const sampleEmails = ['alex.productivity@gmail.com', 'sarah.daily@gmail.com', 'jordan.planner@gmail.com'];
-        const chosenEmail = prompt("Enter your Account Email for Sync & Backup:", sampleEmails[Math.floor(Math.random() * sampleEmails.length)]);
+    function handleDirectEmailLogin(emailInput, nameInput) {
+        if (!emailInput || !emailInput.includes('@')) {
+            showAuthError('Please enter a valid email address.');
+            return;
+        }
 
-        if (!chosenEmail || !chosenEmail.includes('@')) return;
+        const email = emailInput.trim();
+        const name = (nameInput && nameInput.trim()) ? nameInput.trim() : email.split('@')[0].replace('.', ' ');
 
         state.pendingGoogleUser = {
-            email: chosenEmail.trim(),
-            name: chosenEmail.split('@')[0].replace('.', ' '),
-            avatar: '🌐'
+            email: email,
+            name: name,
+            avatar: '⚡'
         };
 
-        dom.guserNameDisplay.textContent = state.pendingGoogleUser.name;
-        dom.guserEmailDisplay.textContent = state.pendingGoogleUser.email;
-        dom.guserAvatarDisplay.textContent = '🌐';
+        dom.guserNameDisplay.textContent = name;
+        dom.guserEmailDisplay.textContent = email;
+        dom.guserAvatarDisplay.textContent = '⚡';
         dom.gdrivePermissionModal.classList.remove('hide');
+        closeAuthModal();
+    }
+
+    function fallbackPromptLogin() {
+        // Automatically prefill input fields inside the Auth Modal instead of prompt()
+        if (dom.authModal) {
+            dom.authModal.classList.remove('hide');
+            if (dom.authEmailInput) dom.authEmailInput.focus();
+        }
     }
 
     function confirmGoogleBackupPermission() {
@@ -942,13 +1039,27 @@
 
         dom.overallBarsWrapper.innerHTML = '';
         const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const currentDayIdx = (new Date().getDay() + 6) % 7;
-
-        const mockTaskCounts = [8, 9, 7, 6, 8, 9, 7];
-        mockTaskCounts[currentDayIdx] = Math.max(3, completedAll);
+        
+        // Find Monday of the current week
+        const curr = new Date();
+        const first = curr.getDate() - ((curr.getDay() + 6) % 7);
+        
+        const realTaskCounts = [];
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(curr.getFullYear(), curr.getMonth(), first + i);
+            const dayStr = day.toISOString().split('T')[0];
+            
+            let count = 0;
+            if (dayStr === getTodayStr()) {
+                count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
+            } else {
+                count = (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
+            }
+            realTaskCounts.push(count);
+        }
 
         weekDays.forEach((dayName, idx) => {
-            const count = mockTaskCounts[idx];
+            const count = realTaskCounts[idx];
             const heightPct = Math.min(100, (count / 10) * 100);
 
             const col = document.createElement('div');
@@ -1744,15 +1855,19 @@
         for (let i = 29; i >= 0; i--) {
             const tile = document.createElement('div');
             const tileDate = getPastDateStr(i);
-            
+            let count = 0;
+            if (tileDate === getTodayStr()) {
+                count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
+            } else {
+                count = (state.profile.completionHistory && state.profile.completionHistory[tileDate]) || 0;
+            }
+
             let lvlClass = 'lvl-0';
-            if (i === 0) {
-                lvlClass = completed > 0 ? (completed > 3 ? 'lvl-3' : 'lvl-2') : 'lvl-1';
-            } else if (i % 3 === 0 || i % 7 === 0) {
-                lvlClass = 'lvl-2';
-            } else if (i % 2 === 0) {
+            if (count > 0 && count <= 2) {
                 lvlClass = 'lvl-1';
-            } else if (i % 5 === 0) {
+            } else if (count >= 3 && count <= 4) {
+                lvlClass = 'lvl-2';
+            } else if (count >= 5) {
                 lvlClass = 'lvl-3';
             }
 
@@ -1880,8 +1995,17 @@
                             }
                         });
                 } else {
-                    fallbackPromptLogin();
+                    closeAuthModal();
+                    setTimeout(fallbackPromptLogin, 300);
                 }
+            });
+        }
+
+        if (dom.authEmailSubmitBtn) {
+            dom.authEmailSubmitBtn.addEventListener('click', function() {
+                const email = dom.authEmailInput.value;
+                const name = dom.authNameInput.value;
+                handleDirectEmailLogin(email, name);
             });
         }
 
