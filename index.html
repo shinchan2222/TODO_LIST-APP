@@ -528,6 +528,28 @@
                         </div>
                     </div>
 
+                    <!-- APP UPDATES & VERSION SECTION -->
+                    <div class="settings-group">
+                        <h4><i class="fa-solid fa-cloud-arrow-down"></i> App Updates</h4>
+                        <div class="cloud-status-card" style="margin-bottom:10px;">
+                            <div class="cloud-status-info" id="update-settings-status-box">
+                                <i class="fa-solid fa-circle-check cloud-icon" id="update-settings-icon" style="color:var(--accent-success);"></i>
+                                <div>
+                                    <strong id="update-settings-title">App is up to date</strong>
+                                    <span id="update-settings-subtext">Version 12 (Latest)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" class="btn btn-secondary btn-block" id="check-update-settings-btn" style="flex:1;">
+                                <i class="fa-solid fa-rotate"></i> Check for Updates
+                            </button>
+                            <button type="button" class="btn btn-primary btn-block hide" id="apply-update-settings-btn" style="flex:1; background:var(--accent-primary);">
+                                <i class="fa-solid fa-sparkles"></i> Update Now
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Local Data Backup & Reset -->
                     <div class="settings-group">
                         <h4><i class="fa-solid fa-database"></i> Offline File Export / Reset</h4>

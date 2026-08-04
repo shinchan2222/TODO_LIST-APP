@@ -297,6 +297,11 @@
         updateBannerDesc: document.getElementById('update-banner-desc'),
         updateActionBtn: document.getElementById('update-action-btn'),
         dismissUpdateBtn: document.getElementById('dismiss-update-btn'),
+        updateSettingsTitle: document.getElementById('update-settings-title'),
+        updateSettingsSubtext: document.getElementById('update-settings-subtext'),
+        updateSettingsIcon: document.getElementById('update-settings-icon'),
+        checkUpdateSettingsBtn: document.getElementById('check-update-settings-btn'),
+        applyUpdateSettingsBtn: document.getElementById('apply-update-settings-btn'),
 
         searchInput: document.getElementById('search-input'),
         clearSearchBtn: document.getElementById('clear-search-btn'),
@@ -1248,18 +1253,41 @@
     }
 
     // --- IN-APP UPDATE CHECKER (VIA VERCEL VERSION.JSON) ---
-    function checkForAppUpdates() {
-        if (!dom.updateBanner) return;
+    function checkForAppUpdates(isManualCheck = false) {
         fetch('./version.json?t=' + Date.now())
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data && data.version && data.version > APP_VERSION) {
-                    dom.updateBanner.classList.remove('hide');
+                    if (dom.updateBanner) dom.updateBanner.classList.remove('hide');
                     if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${data.versionName || data.version} available`;
+
+                    // Update Settings Modal section
+                    if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = `Update v${data.versionName || data.version} Available! 🎉`;
+                    if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = data.releaseNotes || 'Tap "Update Now" to get the latest version.';
+                    if (dom.updateSettingsIcon) {
+                        dom.updateSettingsIcon.className = 'fa-solid fa-wand-magic-sparkles cloud-icon';
+                        dom.updateSettingsIcon.style.color = '#f59e0b';
+                    }
+                    if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.add('hide');
+                    if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.remove('hide');
+                    if (isManualCheck) showToast(`New update v${data.versionName || data.version} available! 🚀`);
+                } else {
+                    if (dom.updateBanner) dom.updateBanner.classList.add('hide');
+
+                    // Update Settings Modal section: Already Up to Date
+                    if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = 'App is up to date';
+                    if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = `RoutineCraft v${APP_VERSION}.0 (Build ${APP_VERSION}) — Latest`;
+                    if (dom.updateSettingsIcon) {
+                        dom.updateSettingsIcon.className = 'fa-solid fa-circle-check cloud-icon';
+                        dom.updateSettingsIcon.style.color = 'var(--accent-success)';
+                    }
+                    if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.remove('hide');
+                    if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.add('hide');
+                    if (isManualCheck) showToast('You are running the latest version! ✨');
                 }
             })
             .catch(function() {
-                // Silently ignore if offline or fetch fails
+                if (isManualCheck) showToast('Unable to check for updates offline 📶');
             });
     }
 
@@ -1428,6 +1456,19 @@
 
     if (dom.updateActionBtn) {
         dom.updateActionBtn.addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
+
+    if (dom.checkUpdateSettingsBtn) {
+        dom.checkUpdateSettingsBtn.addEventListener('click', () => {
+            showToast('Checking for updates... 🔄');
+            checkForAppUpdates(true);
+        });
+    }
+
+    if (dom.applyUpdateSettingsBtn) {
+        dom.applyUpdateSettingsBtn.addEventListener('click', () => {
             window.location.reload();
         });
     }
