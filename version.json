@@ -1,6 +1,6 @@
 {
   "version": 12,
   "versionName": "1.2.0",
-  "apkUrl": "https://todo-list-app-eight-pi.vercel.app/RoutineCraft.apk",
-  "releaseNotes": "Enhanced Android/PWA notifications, customizable daily summary times, and WCAG accessibility improvements."
+  "apkUrl": "./RoutineCraft.apk?v=12",
+  "releaseNotes": "Floating update notification, website app download button, and WCAG accessibility improvements."
 }
