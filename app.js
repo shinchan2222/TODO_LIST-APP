@@ -1268,6 +1268,7 @@
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data && data.version && data.version > APP_VERSION) {
+                    window.latestApkUrl = data.apkUrl || (`./RoutineCraft_v${data.version}.apk`);
                     if (dom.updateBanner) dom.updateBanner.classList.remove('hide');
                     if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${data.versionName || data.version} available`;
 
@@ -1464,10 +1465,23 @@
         });
     }
 
-    if (dom.updateActionBtn) {
-        dom.updateActionBtn.addEventListener('click', () => {
+    function handleApplyUpdate() {
+        if (window.latestApkUrl && (window.Capacitor || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent))) {
+            showToast('Downloading latest APK update... 📥');
+            const link = document.createElement('a');
+            link.href = window.latestApkUrl;
+            link.download = window.latestApkUrl.split('/').pop() || 'RoutineCraft.apk';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            showToast('Updating web app assets... 🚀');
             window.location.reload();
-        });
+        }
+    }
+
+    if (dom.updateActionBtn) {
+        dom.updateActionBtn.addEventListener('click', handleApplyUpdate);
     }
 
     if (dom.checkUpdateSettingsBtn) {
@@ -1478,9 +1492,7 @@
     }
 
     if (dom.applyUpdateSettingsBtn) {
-        dom.applyUpdateSettingsBtn.addEventListener('click', () => {
-            window.location.reload();
-        });
+        dom.applyUpdateSettingsBtn.addEventListener('click', handleApplyUpdate);
     }
 
     // --- PROFILE & SETTINGS MODAL ---
