@@ -369,8 +369,18 @@
         }
     }
 
+    function checkNativePlatform() {
+        const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+                         window.location.protocol === 'capacitor:' ||
+                         window.location.protocol === 'file:';
+        if (isNative) {
+            document.querySelectorAll('.hide-on-native').forEach(el => el.classList.add('hide'));
+        }
+    }
+
     // --- INIT APP ---
     function init() {
+        checkNativePlatform();
         checkDailyReset();
         applyTheme(state.profile.theme);
         updateGreeting();
