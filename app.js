@@ -313,6 +313,7 @@
         
         fabAddBtn: document.getElementById('fab-add-btn'),
         emptyAddBtn: document.getElementById('empty-add-btn'),
+        bottomNavItems: document.querySelectorAll('.bottom-nav .nav-item'),
         authModal: document.getElementById('auth-modal'),
         closeAuthModalBtn: document.getElementById('close-auth-modal'),
         googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
@@ -522,23 +523,22 @@
     }
 
     function renderAccountStatusBar() {
-        // Keep home screen bar hidden for a clean home interface
-        dom.accountStatusBar.classList.add('hide');
+        if (dom.accountStatusBar) dom.accountStatusBar.classList.add('hide');
 
         if (state.profile.isGoogleSynced) {
-            dom.accountEmailDisplay.textContent = state.profile.email;
+            if (dom.accountEmailDisplay) dom.accountEmailDisplay.textContent = state.profile.email;
             if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.remove('hide');
         } else {
             if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.add('hide');
         }
 
         if (state.profile.lastBackupTime) {
-            dom.gdriveLastBackupText.textContent = `Last backup: ${state.profile.lastBackupTime}`;
-            dom.gdriveStatusTitle.textContent = `Google Drive Backup (${state.profile.backupFrequency.toUpperCase()})`;
+            if (dom.gdriveLastBackupText) dom.gdriveLastBackupText.textContent = `Last backup: ${state.profile.lastBackupTime}`;
+            if (dom.gdriveStatusTitle) dom.gdriveStatusTitle.textContent = `Google Drive Backup (${state.profile.backupFrequency.toUpperCase()})`;
         } else {
-            dom.gdriveLastBackupText.textContent = 'Last backup: Never';
+            if (dom.gdriveLastBackupText) dom.gdriveLastBackupText.textContent = 'Last backup: Never';
         }
-        dom.backupFrequencySelect.value = state.profile.backupFrequency || 'daily';
+        if (dom.backupFrequencySelect) dom.backupFrequencySelect.value = state.profile.backupFrequency || 'daily';
     }
 
     // --- NOTIFICATION SCHEDULING: ANDROID (CAPACITOR) + PWA FALLBACK ---
@@ -833,14 +833,12 @@
 
     function performManualBackup() {
         performAutoBackup();
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `routinecraft_gdrive_backup_${getTodayStr()}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        showToast(`Backed up to Google Drive (${state.profile.email})! ☁️`);
+        const nowStr = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+        state.profile.lastBackupTime = nowStr;
+        state.profile.lastBackupTimestamp = Date.now();
+        saveState();
+        renderAccountStatusBar();
+        showToast(`☁️ Backup synced to Google Drive (${state.profile.email || 'Cloud Account'})!`);
     }
 
     // --- THEME ENGINE ---
@@ -1544,9 +1542,11 @@
         });
     }
 
-    dom.switchAccountBtn.addEventListener('click', () => {
-        openProfileModal();
-    });
+    if (dom.switchAccountBtn) {
+        dom.switchAccountBtn.addEventListener('click', () => {
+            openProfileModal();
+        });
+    }
 
     dom.addNewAccountBtn.addEventListener('click', () => {
         triggerGoogleLogin();
@@ -1771,22 +1771,24 @@
         dom.closeAnalyticsModalBtn.addEventListener('click', closeAnalyticsModal);
         dom.closeAnalyticsBtn.addEventListener('click', closeAnalyticsModal);
 
-        dom.bottomNavItems.forEach(nav => {
-            nav.addEventListener('click', () => {
-                const view = nav.dataset.nav;
-                closeAllModals();
-                setActiveNav(view);
+        if (dom.bottomNavItems && dom.bottomNavItems.length > 0) {
+            dom.bottomNavItems.forEach(nav => {
+                nav.addEventListener('click', () => {
+                    const view = nav.dataset.nav;
+                    closeAllModals();
+                    setActiveNav(view);
 
-                if (view === 'tasks') {
-                    renderTasks();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                } else if (view === 'analytics') {
-                    openAnalyticsModal();
-                } else if (view === 'settings') {
-                    openProfileModal();
-                }
+                    if (view === 'tasks') {
+                        renderTasks();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else if (view === 'analytics') {
+                        openAnalyticsModal();
+                    } else if (view === 'settings') {
+                        openProfileModal();
+                    }
+                });
             });
-        });
+        }
 
         // Handle notification clicks routed from the Service Worker
         if ('serviceWorker' in navigator) {
