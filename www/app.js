@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 11;
+    const APP_VERSION = 13;
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
@@ -31,6 +31,7 @@
         lastActiveDate: getTodayStr(),
         totalCompletedCount: 24,
         notificationsEnabled: true,
+        summaryNotificationTime: '20:00',
         lastBackupTime: null,
         backupFrequency: 'daily',
         isGoogleSynced: false
@@ -253,6 +254,7 @@
         accountEmailDisplay: document.getElementById('account-email-display'),
         accountFreqBadge: document.getElementById('account-freq-badge'),
         switchAccountBtn: document.getElementById('switch-account-btn'),
+        logoutSettingsBtn: document.getElementById('logout-settings-btn'),
 
         gdrivePermissionModal: document.getElementById('gdrive-permission-modal'),
         closeGdrivePermModalBtn: document.getElementById('close-gdrive-perm-modal'),
@@ -290,6 +292,17 @@
         reminderDesc: document.getElementById('reminder-desc'),
         dismissReminderBtn: document.getElementById('dismiss-reminder-btn'),
 
+        updateBanner: document.getElementById('update-banner'),
+        updateBannerTitle: document.getElementById('update-banner-title'),
+        updateBannerDesc: document.getElementById('update-banner-desc'),
+        updateActionBtn: document.getElementById('update-action-btn'),
+        dismissUpdateBtn: document.getElementById('dismiss-update-btn'),
+        updateSettingsTitle: document.getElementById('update-settings-title'),
+        updateSettingsSubtext: document.getElementById('update-settings-subtext'),
+        updateSettingsIcon: document.getElementById('update-settings-icon'),
+        checkUpdateSettingsBtn: document.getElementById('check-update-settings-btn'),
+        applyUpdateSettingsBtn: document.getElementById('apply-update-settings-btn'),
+
         searchInput: document.getElementById('search-input'),
         clearSearchBtn: document.getElementById('clear-search-btn'),
         categoriesContainer: document.getElementById('categories-container'),
@@ -306,6 +319,10 @@
         fabAddBtn: document.getElementById('fab-add-btn'),
         emptyAddBtn: document.getElementById('empty-add-btn'),
         bottomNavItems: document.querySelectorAll('.bottom-nav .nav-item'),
+        authModal: document.getElementById('auth-modal'),
+        closeAuthModalBtn: document.getElementById('close-auth-modal'),
+        googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
+        authErrorMsg: document.getElementById('auth-error-msg'),
 
         taskModal: document.getElementById('task-modal'),
         taskForm: document.getElementById('task-form'),
@@ -345,8 +362,25 @@
         toastContainer: document.getElementById('toast-container')
     };
 
+    function scrollToTaskChecklist() {
+        const target = document.querySelector('.controls-section') || document.getElementById('current-view-title');
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function checkNativePlatform() {
+        const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+                         window.location.protocol === 'capacitor:' ||
+                         window.location.protocol === 'file:';
+        if (isNative) {
+            document.querySelectorAll('.hide-on-native').forEach(el => el.classList.add('hide'));
+        }
+    }
+
     // --- INIT APP ---
     function init() {
+        checkNativePlatform();
         checkDailyReset();
         applyTheme(state.profile.theme);
         updateGreeting();
@@ -355,8 +389,32 @@
         renderAccountStatusBar();
         checkAutoBackupSchedule();
         checkReminderNotification();
-        scheduleNativeLocalNotifications();
+        checkForAppUpdates();
+        // Register Android notification channels, then schedule
+        if (window.RC_NOTIFICATIONS) {
+            window.RC_NOTIFICATIONS.registerChannels().then(() => {
+                scheduleNativeLocalNotifications();
+                scheduleSummaryNotification();
+            });
+        } else {
+            scheduleNativeLocalNotifications();
+            scheduleSummaryNotification();
+        }
         setupEventListeners();
+
+        // Listen for Firebase auth state changes on launch
+        if (window.RC_FIREBASE) {
+            RC_FIREBASE.onAuthStateChanged(function(user) {
+                if (user && !state.profile.isGoogleSynced) {
+                    handleFirebaseUserAuthenticated(user);
+                }
+            });
+        }
+
+        // For returning signed in users, start page directly at Today's Checklist & Reminders
+        if (state.profile.isGoogleSynced) {
+            setTimeout(scrollToTaskChecklist, 350);
+        }
     }
 
     // --- STORAGE & MULTI-USER ---
@@ -433,93 +491,313 @@
         dom.streakCount.textContent = state.profile.streak || 0;
 
         if (state.profile.isGoogleSynced) {
-            dom.googleBtnText.textContent = 'Account';
+            // Once user is signed in, remove/hide the Account button on Home page
+            if (dom.headerGoogleLoginBtn) {
+                dom.headerGoogleLoginBtn.classList.add('hide');
+            }
         } else {
-            dom.googleBtnText.textContent = 'Sign In';
+            // When signed out, show the Sign In button on Home page
+            if (dom.headerGoogleLoginBtn) {
+                dom.headerGoogleLoginBtn.classList.remove('hide');
+                dom.headerGoogleLoginBtn.title = 'Sign In with Google';
+                dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-brands fa-google" style="color:#4285F4;"></i> <span id="google-btn-text">Sign In</span>';
+            }
         }
 
         if (state.profile.notificationsEnabled) {
             dom.notifyBtn.classList.add('active');
+            dom.notifyBtn.setAttribute('aria-pressed', 'true');
         } else {
             dom.notifyBtn.classList.remove('active');
+            dom.notifyBtn.setAttribute('aria-pressed', 'false');
         }
+    }
+
+    function logoutUserAccount() {
+        if (window.RC_FIREBASE) {
+            RC_FIREBASE.signOut();
+        }
+
+        const prevEmail = state.profile.email;
+        // Delete the signed-out account from local storage so it does not persist in Accounts & Sync
+        if (prevEmail && prevEmail !== 'default_user@routinecraft.app') {
+            delete usersStore[prevEmail];
+        }
+
+        activeEmail = 'default_user@routinecraft.app';
+        if (!usersStore[activeEmail]) {
+            usersStore[activeEmail] = {
+                profile: { ...DEFAULT_PROFILE },
+                tasks: [...DEFAULT_TASKS]
+            };
+        }
+        state.profile = usersStore[activeEmail].profile;
+        state.tasks = usersStore[activeEmail].tasks;
+
+        localStorage.setItem('routinecraft_active_email', activeEmail);
+        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
+
+        saveState();
+        applyTheme(state.profile.theme);
+        renderHeaderProfile();
+        renderTasks();
+        renderAccountStatusBar();
+        closeProfileModal();
+        closeAuthModal();
+        showToast('Signed out & account removed from device 👋');
+    }
+
+    function removeUserAccount(emailToRemove) {
+        if (emailToRemove === activeEmail) {
+            logoutUserAccount();
+            return;
+        }
+        delete usersStore[emailToRemove];
+        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
+        renderUsersGrid();
+        showToast(`Removed ${emailToRemove} from device`);
     }
 
     function renderAccountStatusBar() {
+        if (dom.accountStatusBar) dom.accountStatusBar.classList.add('hide');
+
         if (state.profile.isGoogleSynced) {
-            dom.accountStatusBar.classList.remove('hide');
-            dom.accountEmailDisplay.textContent = state.profile.email;
-            dom.accountFreqBadge.textContent = `Auto: ${state.profile.backupFrequency.toUpperCase()}`;
+            if (dom.accountEmailDisplay) dom.accountEmailDisplay.textContent = state.profile.email;
+            if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.remove('hide');
         } else {
-            dom.accountStatusBar.classList.add('hide');
+            if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.add('hide');
         }
 
         if (state.profile.lastBackupTime) {
-            dom.gdriveLastBackupText.textContent = `Last backup: ${state.profile.lastBackupTime}`;
-            dom.gdriveStatusTitle.textContent = `Google Drive Backup (${state.profile.backupFrequency.toUpperCase()})`;
+            if (dom.gdriveLastBackupText) dom.gdriveLastBackupText.textContent = `Last backup: ${state.profile.lastBackupTime}`;
+            if (dom.gdriveStatusTitle) dom.gdriveStatusTitle.textContent = `Google Drive Backup (${state.profile.backupFrequency.toUpperCase()})`;
         } else {
-            dom.gdriveLastBackupText.textContent = 'Last backup: Never';
+            if (dom.gdriveLastBackupText) dom.gdriveLastBackupText.textContent = 'Last backup: Never';
         }
-        dom.backupFrequencySelect.value = state.profile.backupFrequency || 'daily';
+        if (dom.backupFrequencySelect) dom.backupFrequencySelect.value = state.profile.backupFrequency || 'daily';
     }
 
-    // --- NATIVE MOBILE & PWA LOCAL PUSH NOTIFICATIONS ---
+    // --- NOTIFICATION SCHEDULING: ANDROID (CAPACITOR) + PWA FALLBACK ---
+
+    // Active PWA setTimeout handles keyed by task ID (or '__summary__')
+    const _pwaTimerHandles = {};
+
+    function requestPwaPermission() {
+        if (!('Notification' in window)) return Promise.resolve(false);
+        if (Notification.permission === 'granted') return Promise.resolve(true);
+        if (Notification.permission === 'denied') return Promise.resolve(false);
+        return Notification.requestPermission().then(function(r) { return r === 'granted'; });
+    }
+
+    function showPwaNotification(title, body, channelId) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        var n = new Notification(title, { body: body, tag: channelId || 'task_reminder', renotify: true });
+        n.onclick = function() { window.focus(); n.close(); };
+    }
+
+    function schedulePwaTaskReminder(task) {
+        if (_pwaTimerHandles[task.id]) {
+            clearTimeout(_pwaTimerHandles[task.id]);
+            delete _pwaTimerHandles[task.id];
+        }
+        if (!task.dueTime || task.completed) return;
+        var p = task.dueTime.split(':');
+        var fireAt = new Date();
+        fireAt.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
+        var msUntil = fireAt.getTime() - Date.now();
+        if (msUntil > 0 && msUntil < 86400000) {
+            _pwaTimerHandles[task.id] = setTimeout(function() {
+                if (!state.profile.notificationsEnabled) return;
+                var t = state.tasks.find(function(x) { return x.id === task.id; });
+                if (t && !t.completed) {
+                    showPwaNotification(
+                        '\uD83D\uDD14 Task Reminder: ' + t.title,
+                        'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
+                        'task_reminder'
+                    );
+                }
+                delete _pwaTimerHandles[task.id];
+            }, msUntil);
+        }
+    }
+
+    /** Cancel all timers and native notification for a given task. */
+    function cancelNotificationForTask(taskId) {
+        if (_pwaTimerHandles[taskId]) {
+            clearTimeout(_pwaTimerHandles[taskId]);
+            delete _pwaTimerHandles[taskId];
+        }
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+            window.Capacitor.Plugins.LocalNotifications
+                .cancel({ notifications: [{ id: Math.abs(hashCode(taskId)) }] })
+                .catch(function() {});
+        }
+    }
+
     function scheduleNativeLocalNotifications() {
         if (!state.profile.notificationsEnabled) return;
+        var todayPending = state.tasks.filter(function(t) { return !t.completed && isTaskToday(t); });
+        var CHANNELS = (window.RC_NOTIFICATIONS && window.RC_NOTIFICATIONS.CHANNELS) ? window.RC_NOTIFICATIONS.CHANNELS : {};
 
-        // 1. Capacitor Native Android Push Notifications
+        // 1. Capacitor Android path
         if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
-            const { LocalNotifications } = window.Capacitor.Plugins;
-            
-            LocalNotifications.requestPermissions().then(permission => {
-                if (permission.display === 'granted') {
-                    const todayPending = state.tasks.filter(t => !t.completed && isTaskToday(t));
-                    
-                    const notificationList = todayPending.map((t, idx) => {
-                        const dueHour = t.dueTime ? parseInt(t.dueTime.split(':')[0], 10) : 9;
-                        const dueMin = t.dueTime ? parseInt(t.dueTime.split(':')[1], 10) : 0;
-
-                        const scheduledDate = new Date();
-                        scheduledDate.setHours(dueHour, dueMin, 0, 0);
-
-                        if (scheduledDate.getTime() < Date.now()) {
-                            scheduledDate.setTime(Date.now() + 5000 + (idx * 2000));
-                        }
-
-                        return {
-                            id: Math.abs(hashCode(t.id)),
-                            title: `🔔 Task Reminder: ${t.title}`,
-                            body: `Time to complete your ${CATEGORIES[t.category]?.label || 'daily'} goal!`,
-                            schedule: { at: scheduledDate },
-                            smallIcon: 'ic_stat_name',
-                            iconColor: '#ec4899'
-                        };
-                    });
-
-                    if (notificationList.length > 0) {
-                        LocalNotifications.schedule({ notifications: notificationList })
-                            .then(() => console.log(`Scheduled ${notificationList.length} native Android notifications`))
-                            .catch(err => console.warn('Native notification scheduling failed:', err));
+            var LN = window.Capacitor.Plugins.LocalNotifications;
+            LN.requestPermissions().then(function(perm) {
+                if (perm.display !== 'granted') return;
+                var cancelList = todayPending.map(function(t) { return { id: Math.abs(hashCode(t.id)) }; });
+                var cancelP = cancelList.length > 0 ? LN.cancel({ notifications: cancelList }).catch(function(){}) : Promise.resolve();
+                cancelP.then(function() {
+                    var notifList = todayPending
+                        .filter(function(t) { return !!t.dueTime; })
+                        .map(function(t) {
+                            var p = t.dueTime.split(':');
+                            var d = new Date();
+                            d.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
+                            if (d.getTime() <= Date.now()) return null;
+                            var ch = CHANNELS.task_reminder || {};
+                            return {
+                                id: Math.abs(hashCode(t.id)),
+                                title: '\uD83D\uDD14 Task Reminder: ' + t.title,
+                                body: 'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
+                                schedule: { at: d },
+                                channelId: ch.id || 'task_reminder',
+                                smallIcon: ch.icon || 'ic_stat_name',
+                                iconColor: '#ec4899',
+                                extra: { taskId: t.id }
+                            };
+                        }).filter(Boolean);
+                    if (notifList.length > 0) {
+                        LN.schedule({ notifications: notifList })
+                            .then(function() { console.log('[RC] Scheduled ' + notifList.length + ' Android notifications'); })
+                            .catch(function(e) { console.warn('[RC] Android scheduling failed:', e); });
                     }
-                }
+                });
             });
+            return;
         }
+
+        // 2. PWA / Browser fallback
+        Object.keys(_pwaTimerHandles).forEach(function(id) {
+            if (id !== '__summary__') { clearTimeout(_pwaTimerHandles[id]); delete _pwaTimerHandles[id]; }
+        });
+        requestPwaPermission().then(function(granted) {
+            if (!granted) return;
+            todayPending.forEach(function(task) { schedulePwaTaskReminder(task); });
+        });
+    }
+
+    function scheduleSummaryNotification() {
+        if (!state.profile.notificationsEnabled) return;
+        var timeStr = state.profile.summaryNotificationTime || '20:00';
+        var p = timeStr.split(':');
+        var fireAt = new Date();
+        fireAt.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
+        var msUntil = fireAt.getTime() - Date.now();
+        if (msUntil <= 0) return;
+
+        if (_pwaTimerHandles['__summary__']) { clearTimeout(_pwaTimerHandles['__summary__']); }
+
+        var completed = state.tasks.filter(function(t) { return t.completed; }).length;
+        var total = state.tasks.filter(function(t) { return isTaskToday(t) || t.completed; }).length;
+
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+            var LN = window.Capacitor.Plugins.LocalNotifications;
+            var CHANNELS = (window.RC_NOTIFICATIONS && window.RC_NOTIFICATIONS.CHANNELS) ? window.RC_NOTIFICATIONS.CHANNELS : {};
+            var ch = CHANNELS.summary || {};
+            LN.cancel({ notifications: [{ id: 99999 }] }).catch(function(){}).then(function() {
+                LN.schedule({
+                    notifications: [{
+                        id: 99999,
+                        title: '\uD83D\uDCCA RoutineCraft Daily Summary',
+                        body: 'You completed ' + completed + ' of ' + total + ' tasks today. Keep the streak going! \uD83D\uDD25',
+                        schedule: { at: fireAt },
+                        channelId: ch.id || 'summary',
+                        smallIcon: ch.icon || 'ic_summary',
+                        iconColor: '#ec4899'
+                    }]
+                }).catch(function(){});
+            });
+            return;
+        }
+
+        requestPwaPermission().then(function(granted) {
+            if (!granted) return;
+            _pwaTimerHandles['__summary__'] = setTimeout(function() {
+                if (!state.profile.notificationsEnabled) return;
+                var c = state.tasks.filter(function(t) { return t.completed; }).length;
+                var tot = state.tasks.filter(function(t) { return isTaskToday(t) || t.completed; }).length;
+                showPwaNotification(
+                    '\uD83D\uDCCA RoutineCraft Daily Summary',
+                    'You completed ' + c + ' of ' + tot + ' tasks today. Keep the streak going! \uD83D\uDD25',
+                    'summary'
+                );
+                delete _pwaTimerHandles['__summary__'];
+            }, msUntil);
+        });
     }
 
     function hashCode(str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
+        var hash = 0;
+        for (var i = 0; i < str.length; i++) {
             hash = (hash << 5) - hash + str.charCodeAt(i);
             hash |= 0;
         }
         return hash;
     }
 
-    // --- GOOGLE LOGIN & AUTOMATIC BACKUP PERMISSION MODAL ---
+    // --- GOOGLE FIREBASE AUTHENTICATION MODAL CONTROLLER ---
+    function openAuthModal() {
+        if (!dom.authModal) return;
+        if (dom.authErrorMsg) dom.authErrorMsg.classList.add('hide');
+        dom.authModal.classList.remove('hide');
+    }
+
+    function closeAuthModal() {
+        if (dom.authModal) dom.authModal.classList.add('hide');
+    }
+
+    function showAuthError(msg) {
+        if (dom.authErrorMsg) {
+            dom.authErrorMsg.textContent = msg;
+            dom.authErrorMsg.classList.remove('hide');
+        }
+    }
+
     function triggerGoogleLogin() {
+        openAuthModal();
+    }
+
+    function handleFirebaseUserAuthenticated(user) {
+        const userEmail = user.email;
+        const userName = user.displayName || userEmail.split('@')[0];
+
+        if (!usersStore[userEmail]) {
+            usersStore[userEmail] = {
+                profile: {
+                    ...DEFAULT_PROFILE,
+                    email: userEmail,
+                    name: userName,
+                    avatar: '🔥',
+                    isGoogleSynced: true,
+                    backupFrequency: 'daily',
+                    lastBackupTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+                },
+                tasks: [...DEFAULT_TASKS]
+            };
+        } else {
+            usersStore[userEmail].profile.isGoogleSynced = true;
+            usersStore[userEmail].profile.name = userName;
+        }
+
+        switchUserAccount(userEmail);
+        showToast(`Signed in as ${userEmail}! 🔥`);
+        setTimeout(scrollToTaskChecklist, 200);
+    }
+
+    function fallbackPromptLogin() {
         const sampleEmails = ['alex.productivity@gmail.com', 'sarah.daily@gmail.com', 'jordan.planner@gmail.com'];
-        const chosenEmail = prompt("Enter your Google Account Email for Cloud Backup & Sync:", sampleEmails[Math.floor(Math.random() * sampleEmails.length)]);
-        
+        const chosenEmail = prompt("Enter your Account Email for Sync & Backup:", sampleEmails[Math.floor(Math.random() * sampleEmails.length)]);
+
         if (!chosenEmail || !chosenEmail.includes('@')) return;
 
         state.pendingGoogleUser = {
@@ -592,14 +870,12 @@
 
     function performManualBackup() {
         performAutoBackup();
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `routinecraft_gdrive_backup_${getTodayStr()}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        showToast(`Backed up to Google Drive (${state.profile.email})! ☁️`);
+        const nowStr = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+        state.profile.lastBackupTime = nowStr;
+        state.profile.lastBackupTimestamp = Date.now();
+        saveState();
+        renderAccountStatusBar();
+        showToast(`☁️ Backup synced to Google Drive (${state.profile.email || 'Cloud Account'})!`);
     }
 
     // --- THEME ENGINE ---
@@ -896,18 +1172,22 @@
     }
 
     function toggleTaskComplete(taskId, isCompleted) {
-        const task = state.tasks.find(t => t.id === taskId);
+        var task = state.tasks.find(function(t) { return t.id === taskId; });
         if (task) {
             task.completed = isCompleted;
             task.completedAt = isCompleted ? new Date().toISOString() : null;
 
             if (task.subtasks) {
-                task.subtasks.forEach(s => s.completed = isCompleted);
+                task.subtasks.forEach(function(s) { s.completed = isCompleted; });
             }
 
             if (isCompleted) {
                 state.profile.totalCompletedCount = (state.profile.totalCompletedCount || 0) + 1;
-                showToast('Task completed! 🎉');
+                cancelNotificationForTask(taskId); // cancel scheduled reminder
+                showToast('Task completed! \uD83C\uDF89');
+            } else {
+                // Re-schedule reminder if task is unchecked
+                schedulePwaTaskReminder(task);
             }
 
             saveState();
@@ -969,23 +1249,56 @@
 
     // --- REMINDER BANNER & NOTIFICATIONS ---
     function checkReminderNotification() {
-        const todayPending = state.tasks.filter(t => !t.completed && isTaskToday(t));
+        var todayPending = state.tasks.filter(function(t) { return !t.completed && isTaskToday(t); });
         if (todayPending.length > 0) {
             dom.reminderBanner.classList.remove('hide');
-            dom.reminderTitle.textContent = `🔔 Task Reminder for Today!`;
-            dom.reminderDesc.textContent = `You have ${todayPending.length} task(s) scheduled for today (${todayPending[0].title}).`;
+            var firstTaskTitle = todayPending[0].title;
+            dom.reminderTitle.textContent = `🎯 Next Goal: "${firstTaskTitle}"`;
+            dom.reminderDesc.textContent = todayPending.length === 1 
+                ? '1 task pending for today' 
+                : `${todayPending.length} tasks pending for today`;
         } else {
             dom.reminderBanner.classList.add('hide');
         }
+    }
 
-        if (state.profile.notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
-            if (todayPending.length > 0) {
-                new Notification('RoutineCraft Reminder 🔔', {
-                    body: `You have ${todayPending.length} task(s) due today!`,
-                    icon: '🚀'
-                });
-            }
-        }
+    // --- IN-APP UPDATE CHECKER (VIA VERCEL VERSION.JSON) ---
+    function checkForAppUpdates(isManualCheck = false) {
+        fetch('./version.json?t=' + Date.now())
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data && data.version && data.version > APP_VERSION) {
+                    if (dom.updateBanner) dom.updateBanner.classList.remove('hide');
+                    if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${data.versionName || data.version} available`;
+
+                    // Update Settings Modal section
+                    if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = `Update v${data.versionName || data.version} Available! 🎉`;
+                    if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = data.releaseNotes || 'Tap "Update Now" to get the latest version.';
+                    if (dom.updateSettingsIcon) {
+                        dom.updateSettingsIcon.className = 'fa-solid fa-wand-magic-sparkles cloud-icon';
+                        dom.updateSettingsIcon.style.color = '#f59e0b';
+                    }
+                    if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.add('hide');
+                    if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.remove('hide');
+                    if (isManualCheck) showToast(`New update v${data.versionName || data.version} available! 🚀`);
+                } else {
+                    if (dom.updateBanner) dom.updateBanner.classList.add('hide');
+
+                    // Update Settings Modal section: Already Up to Date
+                    if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = 'App is up to date';
+                    if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = `RoutineCraft v${APP_VERSION}.0 (Build ${APP_VERSION}) — Latest`;
+                    if (dom.updateSettingsIcon) {
+                        dom.updateSettingsIcon.className = 'fa-solid fa-circle-check cloud-icon';
+                        dom.updateSettingsIcon.style.color = 'var(--accent-success)';
+                    }
+                    if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.remove('hide');
+                    if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.add('hide');
+                    if (isManualCheck) showToast('You are running the latest version! ✨');
+                }
+            })
+            .catch(function() {
+                if (isManualCheck) showToast('Unable to check for updates offline 📶');
+            });
     }
 
     // --- TASK MODAL & FORM ---
@@ -1116,19 +1429,28 @@
     });
 
     // --- NOTIFICATION PERMISSION TOGGLE ---
-    dom.notifyBtn.addEventListener('click', () => {
+    dom.notifyBtn.addEventListener('click', function() {
         state.profile.notificationsEnabled = !state.profile.notificationsEnabled;
         saveState();
         renderHeaderProfile();
-        
+
         if (state.profile.notificationsEnabled) {
-            scheduleNativeLocalNotifications();
-            if ('Notification' in window && Notification.permission !== 'granted') {
-                Notification.requestPermission();
-            }
-            showToast('Mobile notifications enabled! 🔔');
+            requestPwaPermission().then(function(granted) {
+                scheduleNativeLocalNotifications();
+                scheduleSummaryNotification();
+                if (granted) {
+                    showToast('Notifications enabled! \uD83D\uDD14');
+                } else {
+                    showToast('Notifications enabled \u2014 allow in browser for PWA alerts \uD83D\uDD14');
+                }
+            });
         } else {
-            showToast('Mobile notifications muted');
+            // Clear all PWA timers
+            Object.keys(_pwaTimerHandles).forEach(function(id) {
+                clearTimeout(_pwaTimerHandles[id]);
+                delete _pwaTimerHandles[id];
+            });
+            showToast('Notifications muted');
         }
     });
 
@@ -1136,46 +1458,119 @@
         dom.reminderBanner.classList.add('hide');
     });
 
+    if (dom.dismissUpdateBtn) {
+        dom.dismissUpdateBtn.addEventListener('click', () => {
+            if (dom.updateBanner) dom.updateBanner.classList.add('hide');
+        });
+    }
+
+    if (dom.updateActionBtn) {
+        dom.updateActionBtn.addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
+
+    if (dom.checkUpdateSettingsBtn) {
+        dom.checkUpdateSettingsBtn.addEventListener('click', () => {
+            showToast('Checking for updates... 🔄');
+            checkForAppUpdates(true);
+        });
+    }
+
+    if (dom.applyUpdateSettingsBtn) {
+        dom.applyUpdateSettingsBtn.addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
+
     // --- PROFILE & SETTINGS MODAL ---
     function renderUsersGrid() {
         dom.usersListGrid.innerHTML = '';
-        Object.keys(usersStore).forEach(email => {
+        const emails = Object.keys(usersStore);
+
+        emails.forEach(email => {
             const userObj = usersStore[email];
             const isActive = (email === activeEmail);
+            const isDefault = (email === 'default_user@routinecraft.app');
 
             const item = document.createElement('div');
             item.className = `user-account-item ${isActive ? 'active' : ''}`;
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.justifyContent = 'space-between';
+            item.style.padding = '8px 12px';
+
             item.innerHTML = `
-                <div style="display:flex; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; cursor:pointer; flex:1;" class="account-select-area">
                     <span style="font-size:1.1rem;">${userObj.profile.avatar || '👤'}</span>
                     <div style="display:flex; flex-direction:column;">
                         <strong style="font-size:0.86rem; color:var(--text-primary);">${escapeHtml(userObj.profile.name || email)}</strong>
-                        <span style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(email)}</span>
+                        <span style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(isDefault ? 'Local Guest Profile' : email)}</span>
                     </div>
                 </div>
-                ${isActive ? '<span style="font-size:0.74rem; font-weight:700; color:var(--accent-primary);"><i class="fa-solid fa-check"></i> Active</span>' : '<span style="font-size:0.74rem; color:var(--text-muted);">Select</span>'}
+                <div style="display:flex; align-items:center; gap:8px;">
+                    ${isActive ? '<span style="font-size:0.74rem; font-weight:700; color:var(--accent-primary);"><i class="fa-solid fa-check"></i> Active</span>' : '<span style="font-size:0.74rem; color:var(--text-muted); cursor:pointer;" class="account-select-area">Select</span>'}
+                    ${!isDefault ? `<button type="button" class="action-btn delete-acc-btn" data-email="${escapeHtml(email)}" title="Remove account from device" style="background:none; border:none; color:var(--accent-danger); cursor:pointer; padding:4px 6px;"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+                </div>
             `;
 
-            item.addEventListener('click', () => {
-                if (!isActive) switchUserAccount(email);
+            item.querySelectorAll('.account-select-area').forEach(el => {
+                el.addEventListener('click', () => {
+                    if (!isActive) switchUserAccount(email);
+                });
             });
+
+            const delBtn = item.querySelector('.delete-acc-btn');
+            if (delBtn) {
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Remove account ${email} from this device?`)) {
+                        removeUserAccount(email);
+                    }
+                });
+            }
+
             dom.usersListGrid.appendChild(item);
         });
     }
 
+    function closeAllModals() {
+        if (dom.taskModal) dom.taskModal.classList.add('hide');
+        if (dom.profileModal) dom.profileModal.classList.add('hide');
+        if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
+        if (dom.authModal) dom.authModal.classList.add('hide');
+        if (dom.gdrivePermissionModal) dom.gdrivePermissionModal.classList.add('hide');
+    }
+
+    function setActiveNav(navName) {
+        if (!dom.bottomNavItems) return;
+        dom.bottomNavItems.forEach(n => {
+            if (n.dataset.nav === navName) n.classList.add('active');
+            else n.classList.remove('active');
+        });
+    }
+
     function openProfileModal() {
+        closeAllModals();
+        setActiveNav('settings');
         dom.profileNameInput.value = state.profile.name;
-        dom.avatarOpts.forEach(opt => {
+        dom.avatarOpts.forEach(function(opt) {
             if (opt.dataset.avatar === state.profile.avatar) opt.classList.add('active');
             else opt.classList.remove('active');
         });
+        // Populate notification summary time
+        var summaryInput = document.getElementById('summary-notif-time-input');
+        if (summaryInput) {
+            summaryInput.value = state.profile.summaryNotificationTime || '20:00';
+        }
         renderAccountStatusBar();
         renderUsersGrid();
         dom.profileModal.classList.remove('hide');
     }
 
     function closeProfileModal() {
-        dom.profileModal.classList.add('hide');
+        if (dom.profileModal) dom.profileModal.classList.add('hide');
+        setActiveNav('tasks');
     }
 
     dom.avatarOpts.forEach(opt => {
@@ -1192,23 +1587,44 @@
         });
     });
 
-    dom.saveProfileBtn.addEventListener('click', () => {
+    dom.saveProfileBtn.addEventListener('click', function() {
         state.profile.name = dom.profileNameInput.value.trim() || 'Productivity Hero';
         state.profile.backupFrequency = dom.backupFrequencySelect.value;
+        // Read summary notification time from UI if the input exists
+        var summaryInput = document.getElementById('summary-notif-time-input');
+        if (summaryInput && summaryInput.value) {
+            state.profile.summaryNotificationTime = summaryInput.value;
+        }
         saveState();
         renderHeaderProfile();
+        // Re-schedule summary with potentially new time
+        scheduleSummaryNotification();
         closeProfileModal();
-        showToast('Settings & Backup schedule saved!');
+        showToast('Settings & notifications saved! \uD83D\uDD14');
     });
 
     // --- GOOGLE DRIVE BACKUP BUTTONS ---
     dom.headerGoogleLoginBtn.addEventListener('click', () => {
-        triggerGoogleLogin();
+        if (state.profile.isGoogleSynced) {
+            openProfileModal();
+        } else {
+            triggerGoogleLogin();
+        }
     });
 
-    dom.switchAccountBtn.addEventListener('click', () => {
-        openProfileModal();
-    });
+    if (dom.logoutSettingsBtn) {
+        dom.logoutSettingsBtn.addEventListener('click', () => {
+            if (confirm(`Sign out of ${state.profile.email || 'your account'}?`)) {
+                logoutUserAccount();
+            }
+        });
+    }
+
+    if (dom.switchAccountBtn) {
+        dom.switchAccountBtn.addEventListener('click', () => {
+            openProfileModal();
+        });
+    }
 
     dom.addNewAccountBtn.addEventListener('click', () => {
         triggerGoogleLogin();
@@ -1288,6 +1704,8 @@
 
     // --- OPEN STATS ANALYTICS DASHBOARD MODAL ---
     function openAnalyticsModal() {
+        closeAllModals();
+        setActiveNav('analytics');
         renderOverallProgressCard();
         renderWeeklyPlannerGrid();
 
@@ -1340,7 +1758,8 @@
     }
 
     function closeAnalyticsModal() {
-        dom.analyticsModal.classList.add('hide');
+        if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
+        setActiveNav('tasks');
     }
 
     // --- EVENT LISTENERS ---
@@ -1402,6 +1821,26 @@
         dom.closeTaskModalBtn.addEventListener('click', closeTaskModal);
         dom.cancelTaskBtn.addEventListener('click', closeTaskModal);
 
+        // Firebase Auth Modal Listeners
+        if (dom.closeAuthModalBtn) dom.closeAuthModalBtn.addEventListener('click', closeAuthModal);
+
+        if (dom.googleLoginModalBtn) {
+            dom.googleLoginModalBtn.addEventListener('click', function() {
+                if (window.RC_FIREBASE && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+                    RC_FIREBASE.signInWithGoogle()
+                        .then(function(user) {
+                            handleFirebaseUserAuthenticated(user);
+                            closeAuthModal();
+                        })
+                        .catch(function(err) {
+                            showAuthError(err.message || 'Google Sign-In failed');
+                        });
+                } else {
+                    fallbackPromptLogin();
+                }
+            });
+        }
+
         dom.profileTrigger.addEventListener('click', openProfileModal);
         dom.closeProfileModalBtn.addEventListener('click', closeProfileModal);
         dom.quickThemeBtn.addEventListener('click', openProfileModal);
@@ -1410,21 +1849,47 @@
         dom.closeAnalyticsModalBtn.addEventListener('click', closeAnalyticsModal);
         dom.closeAnalyticsBtn.addEventListener('click', closeAnalyticsModal);
 
-        dom.bottomNavItems.forEach(nav => {
-            nav.addEventListener('click', () => {
-                dom.bottomNavItems.forEach(n => n.classList.remove('active'));
-                nav.classList.add('active');
-                const view = nav.dataset.nav;
+        if (dom.bottomNavItems && dom.bottomNavItems.length > 0) {
+            dom.bottomNavItems.forEach(nav => {
+                nav.addEventListener('click', () => {
+                    const view = nav.dataset.nav;
+                    closeAllModals();
+                    setActiveNav(view);
 
-                if (view === 'tasks') {
-                    renderTasks();
-                } else if (view === 'analytics') {
-                    openAnalyticsModal();
-                } else if (view === 'settings') {
-                    openProfileModal();
+                    if (view === 'tasks') {
+                        renderTasks();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else if (view === 'analytics') {
+                        openAnalyticsModal();
+                    } else if (view === 'settings') {
+                        openProfileModal();
+                    }
+                });
+            });
+        }
+
+        // Handle notification clicks routed from the Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'NOTIF_CLICK') {
+                    var channelId = event.data.channelId;
+                    if (channelId === 'summary') {
+                        openAnalyticsModal();
+                    } else if (channelId === 'backup_completed') {
+                        openProfileModal();
+                    } else {
+                        // task_reminder — ensure today view is active
+                        state.activeFilter = 'today';
+                        dom.filterTabs.forEach(function(t) {
+                            if (t.dataset.filter === 'today') t.classList.add('active');
+                            else t.classList.remove('active');
+                        });
+                        renderTasks();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                 }
             });
-        });
+        }
     }
 
     function showToast(msg) {

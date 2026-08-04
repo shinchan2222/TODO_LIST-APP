@@ -14,6 +14,11 @@
     <!-- Font Awesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase App & Auth SDK (v10 compat for browser authentication) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="src/plugins/firebase-auth.js"></script>
+
     <!-- Google Identity Services API for Multi-User Google Sign-In & Drive Backup -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -34,11 +39,15 @@
             </div>
 
             <div class="header-actions">
+                <a href="./RoutineCraft_v13.apk" download="RoutineCraft_v13.apk" class="icon-btn download-apk-btn hide-on-native" id="website-download-app-btn" title="Download Android App APK" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; background:rgba(61,220,132,0.12); border:1px solid rgba(61,220,132,0.3); padding:4px 10px; border-radius:18px;">
+                    <i class="fa-brands fa-android" style="color:#3DDC84; font-size:1rem;"></i>
+                    <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary);">Get App</span>
+                </a>
                 <button class="icon-btn google-login-btn" id="header-google-login-btn" title="Sign In with Google">
                     <i class="fa-brands fa-google"></i> <span id="google-btn-text">Sign In</span>
                 </button>
-                <button class="icon-btn notify-badge" id="notify-btn" title="Toggle Reminders / Notifications">
-                    <i class="fa-solid fa-bell"></i>
+                <button class="icon-btn notify-badge" id="notify-btn" title="Toggle Reminders / Notifications" aria-label="Toggle notifications" aria-pressed="true">
+                    <i class="fa-solid fa-bell" aria-hidden="true"></i>
                 </button>
                 <button class="icon-btn streak-badge" id="streak-btn" title="View Stats & Overall Progress">
                     <i class="fa-solid fa-fire fire-icon"></i>
@@ -50,15 +59,6 @@
             </div>
         </header>
 
-        <!-- Multi-User Account Bar (Shows logged in Google user email) -->
-        <div class="account-status-bar hide" id="account-status-bar">
-            <div class="account-info">
-                <i class="fa-brands fa-google-drive" style="color:#4285F4;"></i>
-                <span>Synced as <strong id="account-email-display">user@gmail.com</strong></span>
-                <span class="badge-frequency" id="account-freq-badge">Auto: Daily</span>
-            </div>
-            <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-arrows-rotate"></i> Switch</button>
-        </div>
 
         <!-- Progress Overview Ring Card -->
         <section class="progress-card">
@@ -92,6 +92,14 @@
                 <span class="progress-percentage" id="progress-percentage-text">0%</span>
             </div>
         </section>
+
+        <!-- App Update Available Floating Pill -->
+        <div class="update-toast-pill hide" id="update-banner">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color:#f59e0b;"></i>
+            <span id="update-banner-title" style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">New update available</span>
+            <button type="button" class="update-pill-btn" id="update-action-btn">Refresh</button>
+            <button type="button" class="update-close-btn" id="dismiss-update-btn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
 
         <!-- Active Reminder Banner -->
         <div class="reminder-banner hide" id="reminder-banner">
@@ -197,12 +205,43 @@
                 <span>Stats</span>
             </button>
             <button class="nav-item" data-nav="settings">
-                <i class="fa-solid fa-sliders"></i>
-                <span>Customize</span>
+                <i class="fa-solid fa-gear"></i>
+                <span>Settings</span>
             </button>
         </nav>
 
         <!-- MODALS -->
+
+        <!-- 0. FIREBASE AUTHENTICATION & LOGIN MODAL (GOOGLE EXCLUSIVE) -->
+        <div class="modal-overlay hide" id="auth-modal">
+            <div class="modal-content glass-card auth-modal-card">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="auth-modal-heading">
+                        <i class="fa-brands fa-google" style="color:#4285F4;"></i> Sign In with Google
+                    </h3>
+                    <button class="close-modal-btn" id="close-auth-modal">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body" style="text-align:center;">
+                    <div style="font-size:3rem; margin-bottom:12px;">🚀</div>
+                    <p class="auth-subtitle">Sign in with your Google account to back up your habits, sync tasks across devices, and track your streaks.</p>
+
+                    <!-- Error / Status Message Alert -->
+                    <div class="auth-error-msg hide" id="auth-error-msg"></div>
+
+                    <!-- Google Sign-In Primary Button -->
+                    <button type="button" class="btn btn-google-full" id="google-login-modal-btn" style="margin-top:10px;">
+                        <i class="fa-brands fa-google" style="color:#4285F4; font-size:1.1rem;"></i> Sign In with Google
+                    </button>
+
+                    <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:16px; opacity:0.8;">
+                        🔒 Safe & Secure. Your data is backed up directly to your Google account.
+                    </p>
+                </div>
+            </div>
+        </div>
 
         <!-- 1. Add / Edit Task Modal -->
         <div class="modal-overlay hide" id="task-modal">
@@ -218,7 +257,7 @@
                     
                     <div class="form-group">
                         <label for="task-title-input">Task Title *</label>
-                        <input type="text" id="task-title-input" required placeholder="e.g. Gym workout">
+                        <input type="text" id="task-title-input" required placeholder="e.g. Gym workout" aria-required="true" autocomplete="off">
                     </div>
 
                     <div class="form-row">
@@ -368,13 +407,18 @@
                 <div class="modal-body">
                     <!-- Multi-User Account Selector -->
                     <div class="settings-group">
-                        <h4><i class="fa-solid fa-users"></i> Switch User Account</h4>
+                        <h4><i class="fa-solid fa-users"></i> Account & Sync</h4>
                         <div class="users-list-grid" id="users-list-grid">
                             <!-- Multi-user accounts rendered dynamically -->
                         </div>
-                        <button class="btn btn-secondary btn-block" id="add-new-account-btn">
-                            <i class="fa-brands fa-google"></i> Sign In / Add Google Account
-                        </button>
+                        <div style="display:flex; gap:8px; margin-top:8px;">
+                            <button class="btn btn-secondary btn-block" id="add-new-account-btn" style="flex:1;">
+                                <i class="fa-brands fa-google"></i> Sign In / Add Account
+                            </button>
+                            <button class="btn hide" id="logout-settings-btn" style="background:rgba(225,29,72,0.12); color:#e11d48; border:1px solid rgba(225,29,72,0.3); font-weight:700; padding:0 14px;">
+                                <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Active Profile Customization -->
@@ -437,26 +481,86 @@
                     </div>
 
                     <!-- Theme Selector -->
-                    <div class="settings-group">
-                        <h4><i class="fa-solid fa-wand-magic-sparkles"></i> App Theme</h4>
-                        <div class="theme-grid">
-                            <button class="theme-card active" data-set-theme="sunset-glow">
-                                <div class="theme-preview sunset-preview"></div>
+                    <div class="settings-group" role="group" aria-labelledby="theme-settings-heading">
+                        <h4 id="theme-settings-heading"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> App Theme</h4>
+                        <div class="theme-grid" role="radiogroup" aria-label="Choose app theme">
+                            <button class="theme-card active" data-set-theme="sunset-glow" aria-label="Pastel Pink Rose theme" role="radio" aria-checked="true">
+                                <div class="theme-preview sunset-preview" aria-hidden="true"></div>
                                 <span>Pastel Pink Rose</span>
                             </button>
-                            <button class="theme-card" data-set-theme="dark-glass">
-                                <div class="theme-preview dark-glass-preview"></div>
+                            <button class="theme-card" data-set-theme="dark-glass" aria-label="Midnight Glass theme" role="radio" aria-checked="false">
+                                <div class="theme-preview dark-glass-preview" aria-hidden="true"></div>
                                 <span>Midnight Glass</span>
                             </button>
-                            <button class="theme-card" data-set-theme="neon-cyber">
-                                <div class="theme-preview neon-preview"></div>
+                            <button class="theme-card" data-set-theme="neon-cyber" aria-label="Neon Cyber theme" role="radio" aria-checked="false">
+                                <div class="theme-preview neon-preview" aria-hidden="true"></div>
                                 <span>Neon Cyber</span>
                             </button>
-                            <button class="theme-card" data-set-theme="minimal-light">
-                                <div class="theme-preview light-preview"></div>
+                            <button class="theme-card" data-set-theme="minimal-light" aria-label="Minimal Light theme" role="radio" aria-checked="false">
+                                <div class="theme-preview light-preview" aria-hidden="true"></div>
                                 <span>Minimal Light</span>
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Notification Schedule Settings -->
+                    <div class="settings-group" role="group" aria-labelledby="notif-settings-heading">
+                        <h4 id="notif-settings-heading">
+                            <i class="fa-solid fa-bell" aria-hidden="true"></i> Notification Schedule
+                        </h4>
+                        <p class="settings-desc">Set when you'd like your daily summary and task reminders to fire.</p>
+
+                        <div class="form-group">
+                            <label for="summary-notif-time-input">
+                                <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Daily Summary Time
+                            </label>
+                            <input
+                                type="time"
+                                id="summary-notif-time-input"
+                                value="20:00"
+                                aria-label="Time for daily summary notification"
+                                aria-describedby="summary-notif-help"
+                            >
+                            <small class="help-text" id="summary-notif-help">
+                                📊 You'll get a summary of today's completed tasks at this time.
+                            </small>
+                        </div>
+
+                        <div class="notif-info-card">
+                            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                            <span>Individual task reminders fire at each task's scheduled time. Enable notifications with the <strong>🔔 bell</strong> button in the header.</span>
+                        </div>
+                    </div>
+
+                    <!-- APP UPDATES & VERSION SECTION -->
+                    <div class="settings-group">
+                        <h4><i class="fa-solid fa-cloud-arrow-down"></i> App Updates</h4>
+                        <div class="cloud-status-card" style="margin-bottom:10px;">
+                            <div class="cloud-status-info" id="update-settings-status-box">
+                                <i class="fa-solid fa-circle-check cloud-icon" id="update-settings-icon" style="color:var(--accent-success);"></i>
+                                <div>
+                                    <strong id="update-settings-title">App is up to date</strong>
+                                    <span id="update-settings-subtext">Version 13 (Latest)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" class="btn btn-secondary btn-block" id="check-update-settings-btn" style="flex:1;">
+                                <i class="fa-solid fa-rotate"></i> Check for Updates
+                            </button>
+                            <button type="button" class="btn btn-primary btn-block hide" id="apply-update-settings-btn" style="flex:1; background:var(--accent-primary);">
+                                <i class="fa-solid fa-sparkles"></i> Update Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- DOWNLOAD ANDROID APP (WEBSITE ONLY) -->
+                    <div class="settings-group hide-on-native" id="website-download-section">
+                        <h4><i class="fa-brands fa-android" style="color:#3DDC84;"></i> Android App Download</h4>
+                        <p class="settings-desc">Download the standalone Android app APK for native offline tracking & reminders.</p>
+                        <a href="./RoutineCraft_v13.apk" download="RoutineCraft_v13.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
+                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v13.apk
+                        </a>
                     </div>
 
                     <!-- Local Data Backup & Reset -->
@@ -584,6 +688,7 @@
             });
         }
     </script>
+    <script src="src/plugins/local-notifications.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
