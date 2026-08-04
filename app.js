@@ -357,6 +357,13 @@
         toastContainer: document.getElementById('toast-container')
     };
 
+    function scrollToTaskChecklist() {
+        const target = document.querySelector('.controls-section') || document.getElementById('current-view-title');
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
     // --- INIT APP ---
     function init() {
         checkDailyReset();
@@ -379,6 +386,20 @@
             scheduleSummaryNotification();
         }
         setupEventListeners();
+
+        // Listen for Firebase auth state changes on launch
+        if (window.RC_FIREBASE) {
+            RC_FIREBASE.onAuthStateChanged(function(user) {
+                if (user && !state.profile.isGoogleSynced) {
+                    handleFirebaseUserAuthenticated(user);
+                }
+            });
+        }
+
+        // For returning signed in users, start page directly at Today's Checklist & Reminders
+        if (state.profile.isGoogleSynced) {
+            setTimeout(scrollToTaskChecklist, 350);
+        }
     }
 
     // --- STORAGE & MULTI-USER ---
@@ -755,6 +776,7 @@
 
         switchUserAccount(userEmail);
         showToast(`Signed in as ${userEmail}! 🔥`);
+        setTimeout(scrollToTaskChecklist, 200);
     }
 
     function fallbackPromptLogin() {
@@ -1215,13 +1237,14 @@
         var todayPending = state.tasks.filter(function(t) { return !t.completed && isTaskToday(t); });
         if (todayPending.length > 0) {
             dom.reminderBanner.classList.remove('hide');
-            dom.reminderTitle.textContent = '\uD83D\uDD14 Task Reminder for Today!';
-            dom.reminderDesc.textContent = 'You have ' + todayPending.length + ' task(s) scheduled for today (' + todayPending[0].title + ').';
+            var firstTaskTitle = todayPending[0].title;
+            dom.reminderTitle.textContent = `🎯 Next Goal: "${firstTaskTitle}"`;
+            dom.reminderDesc.textContent = todayPending.length === 1 
+                ? '1 task pending for today' 
+                : `${todayPending.length} tasks pending for today`;
         } else {
             dom.reminderBanner.classList.add('hide');
         }
-        // Note: scheduled reminders are handled by scheduleNativeLocalNotifications()
-        // to avoid firing noisy immediate notifications on every page load/task change.
     }
 
     // --- IN-APP UPDATE CHECKER (VIA VERCEL VERSION.JSON) ---
