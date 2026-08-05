@@ -54,7 +54,6 @@ window.RC_NOTIFICATIONS = {
       sound: ch.sound,
       importance: ch.importance,
       vibrationPattern: ch.vibrationPattern,
-      smallIcon: ch.icon,
       enableLights: true,
       lightColor: '#ec4899'
     }));

@@ -749,7 +749,6 @@
                                 body: 'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
                                 schedule: { at: d },
                                 channelId: ch.id || 'task_reminder',
-                                smallIcon: ch.icon || 'ic_stat_name',
                                 iconColor: '#ec4899',
                                 extra: { taskId: t.id }
                             };
@@ -800,7 +799,6 @@
                         body: 'You completed ' + completed + ' of ' + total + ' tasks today. Keep the streak going! \uD83D\uDD25',
                         schedule: { at: fireAt },
                         channelId: ch.id || 'summary',
-                        smallIcon: ch.icon || 'ic_summary',
                         iconColor: '#ec4899'
                     }]
                 }).catch(function(){});
