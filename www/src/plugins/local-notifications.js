@@ -60,7 +60,10 @@ window.RC_NOTIFICATIONS = {
     }));
 
     try {
-      await LocalNotifications.createChannel({ channels: channelList });
+      // Capacitor createChannel takes a single channel object, not an array
+      for (const ch of channelList) {
+        await LocalNotifications.createChannel(ch);
+      }
       console.log(`[RC_NOTIFICATIONS] ${channelList.length} Android channels registered.`);
     } catch (err) {
       console.warn('[RC_NOTIFICATIONS] Channel registration failed:', err);

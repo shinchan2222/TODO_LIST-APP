@@ -17,6 +17,7 @@
     <!-- Firebase App & Auth SDK (v10 compat for browser authentication) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="src/plugins/firebase-auth.js"></script>
 
     <!-- Google Identity Services API for Multi-User Google Sign-In & Drive Backup -->
@@ -703,13 +704,14 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
+                // Hardcode version query to force update SW cache
+                navigator.serviceWorker.register('./sw.js?v=15')
                     .then(reg => console.log('Service Worker Registered for Offline Mode 🚀', reg.scope))
                     .catch(err => console.log('SW registration failed: ', err));
             });
         }
     </script>
-    <script src="src/plugins/local-notifications.js"></script>
-    <script src="app.js"></script>
+    <script src="src/plugins/local-notifications.js?v=15"></script>
+    <script src="app.js?v=15"></script>
 </body>
 </html>

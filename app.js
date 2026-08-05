@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 14;
+    const APP_VERSION = 15;
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
@@ -978,17 +978,23 @@
         state.profile.lastBackupTimestamp = Date.now();
         saveState();
         renderAccountStatusBar();
-        console.log(`Auto-backup completed for ${state.profile.email} (${state.profile.backupFrequency})`);
+
+        if (window.firebase && window.firebase.database && state.profile.isGoogleSynced) {
+            try {
+                // Use a safe key (replace '.' with '_')
+                const safeEmailKey = (state.profile.email || 'unknown').replace(/\./g, '_');
+                firebase.database().ref('users/' + safeEmailKey).set(state)
+                    .then(() => console.log(`[FIREBASE] Auto-backup completed for ${state.profile.email}`))
+                    .catch(err => console.error('[FIREBASE] Backup error:', err));
+            } catch (e) {
+                console.error('[FIREBASE] Backup exception:', e);
+            }
+        }
     }
 
     function performManualBackup() {
         performAutoBackup();
-        const nowStr = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-        state.profile.lastBackupTime = nowStr;
-        state.profile.lastBackupTimestamp = Date.now();
-        saveState();
-        renderAccountStatusBar();
-        showToast(`☁️ Backup synced to Google Drive (${state.profile.email || 'Cloud Account'})!`);
+        showToast(`☁️ Backup synced to Firebase Cloud (${state.profile.email || 'Cloud Account'})!`);
     }
 
     // --- THEME ENGINE ---
@@ -1791,15 +1797,42 @@
     });
 
     // --- LOCAL DATA IMPORT / EXPORT / RESET ---
-    dom.exportDataBtn.addEventListener('click', () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `routinecraft_backup_${state.profile.name}_${getTodayStr()}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        showToast('Backup file saved! 💾');
+    dom.exportDataBtn.addEventListener('click', async () => {
+        const jsonString = JSON.stringify(state, null, 2);
+        const fileName = `routinecraft_backup_${state.profile.name}_${getTodayStr()}.json`;
+
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
+            try {
+                const { Filesystem, Share } = window.Capacitor.Plugins;
+                const result = await Filesystem.writeFile({
+                    path: fileName,
+                    data: jsonString,
+                    directory: 'CACHE',
+                    encoding: 'utf8'
+                });
+                
+                await Share.share({
+                    title: 'RoutineCraft Backup',
+                    text: 'Here is your local JSON backup.',
+                    url: result.uri,
+                    dialogTitle: 'Save or Share Backup'
+                });
+                showToast('Backup shared! 💾');
+            } catch (err) {
+                console.error('Capacitor export error:', err);
+                showToast('Failed to export on mobile.');
+            }
+        } else {
+            // Web / PWA fallback
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", fileName);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('Backup file saved! 💾');
+        }
     });
 
     dom.importDataBtn.addEventListener('click', () => {

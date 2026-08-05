@@ -1,19 +1,23 @@
 /* Service Worker for RoutineCraft — Offline Capability + Notification Routing */
-const CACHE_NAME = 'routinecraft-v8';
+const CACHE_NAME = 'routinecraft-v9';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './style.css',
     './app.js',
     './manifest.json',
-    './src/plugins/local-notifications.js',
     './src/plugins/firebase-auth.js',
+    './src/plugins/local-notifications.js',
+    './assets/icons/icon-72x72.png',
+    './assets/icons/icon-192x192.png',
+    './assets/icons/icon-512x512.png',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
 ];
 
 // Install Event
 self.addEventListener('install', (e) => {
+    self.skipWaiting();
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
@@ -21,7 +25,6 @@ self.addEventListener('install', (e) => {
             });
         })
     );
-    self.skipWaiting();
 });
 
 // Activate Event — clear old caches
