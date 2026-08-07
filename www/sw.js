@@ -1,12 +1,12 @@
 /* Service Worker for RoutineCraft — Offline Capability + Notification Routing */
-const CACHE_NAME = 'routinecraft-v9';
+const CACHE_NAME = 'routinecraft-v16';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './style.css',
     './app.js',
     './manifest.json',
-    './src/plugins/firebase-auth.js',
+    './src/firebase.js',
     './src/plugins/local-notifications.js',
     './assets/icons/icon-72x72.png',
     './assets/icons/icon-192x192.png',

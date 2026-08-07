@@ -1,6 +1,6 @@
 {
-  "version": 15,
-  "versionName": "1.5.0",
-  "apkUrl": "./RoutineCraft_v15.apk",
-  "releaseNotes": "Fixed Push Notifications natively, implemented Firebase Cloud Sync, and enabled native JSON export."
+  "version": 16,
+  "versionName": "1.6.0",
+  "apkUrl": "./RoutineCraft_v16.apk",
+  "releaseNotes": "Version 16 release: Refined update notification system, improved offline persistence, enhanced push reminders, and optimized performance across all views."
 }

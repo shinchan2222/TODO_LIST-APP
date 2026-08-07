@@ -18,7 +18,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <script src="src/plugins/firebase-auth.js"></script>
+    <script src="src/firebase.js"></script>
+    <script src="src/plugins/storage-helper.js"></script>
 
     <!-- Google Identity Services API for Multi-User Google Sign-In & Drive Backup -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -40,7 +41,7 @@
             </div>
 
             <div class="header-actions">
-                <a href="./RoutineCraft_v14.apk" download="RoutineCraft_v14.apk" class="icon-btn download-apk-btn hide-on-native" id="website-download-app-btn" title="Download Android App APK" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; background:rgba(61,220,132,0.12); border:1px solid rgba(61,220,132,0.3); padding:4px 10px; border-radius:18px;">
+                <a href="./RoutineCraft_v16.apk" download="RoutineCraft_v16.apk" class="icon-btn download-apk-btn hide-on-native" id="website-download-app-btn" title="Download Android App APK" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; background:rgba(61,220,132,0.12); border:1px solid rgba(61,220,132,0.3); padding:4px 10px; border-radius:18px;">
                     <i class="fa-brands fa-android" style="color:#3DDC84; font-size:1rem;"></i>
                     <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary);">Get App</span>
                 </a>
@@ -561,8 +562,8 @@
                             <div class="cloud-status-info" id="update-settings-status-box">
                                 <i class="fa-solid fa-circle-check cloud-icon" id="update-settings-icon" style="color:var(--accent-success);"></i>
                                 <div>
-                                    <strong id="update-settings-title">App is up to date</strong>
-                                    <span id="update-settings-subtext">Version 14 (Latest)</span>
+                                    <strong id="update-settings-title">Already in latest version</strong>
+                                    <span id="update-settings-subtext">RoutineCraft v1.6.0 (Build 16) — Latest</span>
                                 </div>
                             </div>
                         </div>
@@ -580,8 +581,8 @@
                     <div class="settings-group hide-on-native" id="website-download-section">
                         <h4><i class="fa-brands fa-android" style="color:#3DDC84;"></i> Android App Download</h4>
                         <p class="settings-desc">Download the standalone Android app APK for native offline tracking & reminders.</p>
-                        <a href="./RoutineCraft_v15.apk" download="RoutineCraft_v15.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
-                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v15.apk
+                        <a href="./RoutineCraft_v16.apk" download="RoutineCraft_v16.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
+                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v16.apk
                         </a>
                     </div>
 
@@ -705,13 +706,13 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Hardcode version query to force update SW cache
-                navigator.serviceWorker.register('./sw.js?v=15')
+                navigator.serviceWorker.register('./sw.js?v=16')
                     .then(reg => console.log('Service Worker Registered for Offline Mode 🚀', reg.scope))
                     .catch(err => console.log('SW registration failed: ', err));
             });
         }
     </script>
-    <script src="src/plugins/local-notifications.js?v=15"></script>
-    <script src="app.js?v=15"></script>
+    <script src="src/plugins/local-notifications.js?v=16"></script>
+    <script src="app.js?v=16"></script>
 </body>
 </html>

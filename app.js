@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 15;
+    const APP_VERSION = 16;
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
@@ -429,6 +429,16 @@
             scheduleSummaryNotification();
         }
         setupEventListeners();
+
+        // Auto‑login from persisted session
+        if (typeof getItem === 'function') {
+            const persisted = getItem('rc_user');
+            if (persisted && persisted.email) {
+                // Simulate a Firebase user object
+                const fakeUser = { email: persisted.email, displayName: persisted.name };
+                handleFirebaseUserAuthenticated(fakeUser);
+            }
+        }
 
         // Listen for Firebase auth state changes on launch
         if (window.RC_FIREBASE) {
@@ -870,6 +880,11 @@
         const userEmail = user.email;
         const userName = user.displayName || userEmail.split('@')[0];
 
+        // Persist user session using storage helper
+        if (typeof saveItem === 'function') {
+            saveItem('rc_user', { email: userEmail, name: userName });
+        }
+
         if (!usersStore[userEmail]) {
             usersStore[userEmail] = {
                 profile: {
@@ -901,6 +916,11 @@
 
         const email = emailInput.trim();
         const name = (nameInput && nameInput.trim()) ? nameInput.trim() : email.split('@')[0].replace('.', ' ');
+
+        // Persist email login session
+        if (typeof saveItem === 'function') {
+            saveItem('rc_user', { email: email, name: name });
+        }
 
         state.pendingGoogleUser = {
             email: email,
@@ -1393,45 +1413,60 @@
         }
     }
 
-    // --- IN-APP UPDATE CHECKER (VIA VERCEL VERSION.JSON) ---
+    // --- IN-APP UPDATE CHECKER (VIA VERCEL / RELATIVE VERSION.JSON) ---
     function checkForAppUpdates(isManualCheck = false) {
-        fetch('https://todo-list-app-eight-pi.vercel.app/version.json?t=' + Date.now())
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data && data.version && data.version > APP_VERSION) {
-                    const rawApkUrl = data.apkUrl || (`./RoutineCraft_v${data.version}.apk`);
-                    window.latestApkUrl = new URL(rawApkUrl, 'https://todo-list-app-eight-pi.vercel.app/').href;
-                    if (dom.updateBanner) dom.updateBanner.classList.remove('hide');
-                    if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${data.versionName || data.version} available`;
+        const relativeUrl = './version.json?t=' + Date.now();
+        const remoteUrl = 'https://todo-list-app-eight-pi.vercel.app/version.json?t=' + Date.now();
 
-                    // Update Settings Modal section
-                    if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = `Update v${data.versionName || data.version} Available! 🎉`;
-                    if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = data.releaseNotes || 'Tap "Update Now" to get the latest version.';
-                    if (dom.updateSettingsIcon) {
-                        dom.updateSettingsIcon.className = 'fa-solid fa-wand-magic-sparkles cloud-icon';
-                        dom.updateSettingsIcon.style.color = '#f59e0b';
-                    }
-                    if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.add('hide');
-                    if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.remove('hide');
-                    if (isManualCheck) showToast(`New update v${data.versionName || data.version} available! 🚀`);
-                } else {
-                    if (dom.updateBanner) dom.updateBanner.classList.add('hide');
+        let highestData = null;
 
-                    // Update Settings Modal section: Already Up to Date
-                    if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = 'App is up to date';
-                    if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = `RoutineCraft v${APP_VERSION}.0 (Build ${APP_VERSION}) — Latest`;
-                    if (dom.updateSettingsIcon) {
-                        dom.updateSettingsIcon.className = 'fa-solid fa-circle-check cloud-icon';
-                        dom.updateSettingsIcon.style.color = 'var(--accent-success)';
-                    }
-                    if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.remove('hide');
-                    if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.add('hide');
-                    if (isManualCheck) showToast('You are running the latest version! ✨');
+        function evaluate(data) {
+            if (data && typeof data.version === 'number') {
+                if (!highestData || data.version > highestData.version) {
+                    highestData = data;
                 }
-            })
-            .catch(function() {
-                if (isManualCheck) showToast('Unable to check for updates offline 📶');
-            });
+            }
+        }
+
+        Promise.all([
+            fetch(relativeUrl).then(res => res.json()).then(evaluate).catch(() => null),
+            fetch(remoteUrl).then(res => res.json()).then(evaluate).catch(() => null)
+        ]).finally(function() {
+            if (highestData && highestData.version && highestData.version > APP_VERSION) {
+                const rawApkUrl = highestData.apkUrl || (`./RoutineCraft_v${highestData.version}.apk`);
+                try {
+                    window.latestApkUrl = new URL(rawApkUrl, 'https://todo-list-app-eight-pi.vercel.app/').href;
+                } catch(e) {
+                    window.latestApkUrl = rawApkUrl;
+                }
+                if (dom.updateBanner) dom.updateBanner.classList.remove('hide');
+                if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${highestData.versionName || highestData.version} available`;
+
+                // Update Settings Modal section
+                if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = `Update v${highestData.versionName || highestData.version} Available! 🎉`;
+                if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = highestData.releaseNotes || 'Tap "Update Now" to get the latest version.';
+                if (dom.updateSettingsIcon) {
+                    dom.updateSettingsIcon.className = 'fa-solid fa-wand-magic-sparkles cloud-icon';
+                    dom.updateSettingsIcon.style.color = '#f59e0b';
+                }
+                if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.add('hide');
+                if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.remove('hide');
+                if (isManualCheck) showToast(`New update v${highestData.versionName || highestData.version} available! 🚀`);
+            } else {
+                if (dom.updateBanner) dom.updateBanner.classList.add('hide');
+
+                // Update Settings Modal section: Already in latest version
+                if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = 'Already in latest version';
+                if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = `RoutineCraft v${(highestData && highestData.versionName) ? highestData.versionName : '1.6.0'} (Build ${APP_VERSION}) — Latest`;
+                if (dom.updateSettingsIcon) {
+                    dom.updateSettingsIcon.className = 'fa-solid fa-circle-check cloud-icon';
+                    dom.updateSettingsIcon.style.color = 'var(--accent-success)';
+                }
+                if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.remove('hide');
+                if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.add('hide');
+                if (isManualCheck) showToast('Already in latest version! ✨');
+            }
+        });
     }
 
     // --- TASK MODAL & FORM ---
