@@ -1417,6 +1417,13 @@
     function checkForAppUpdates(isManualCheck = false) {
         const relativeUrl = './version.json?t=' + Date.now();
         const remoteUrl = 'https://todo-list-app-eight-pi.vercel.app/version.json?t=' + Date.now();
+        const fetchOpts = {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        };
 
         let highestData = null;
 
@@ -1429,8 +1436,8 @@
         }
 
         Promise.all([
-            fetch(relativeUrl).then(res => res.json()).then(evaluate).catch(() => null),
-            fetch(remoteUrl).then(res => res.json()).then(evaluate).catch(() => null)
+            fetch(relativeUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null),
+            fetch(remoteUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null)
         ]).finally(function() {
             if (highestData && highestData.version && highestData.version > APP_VERSION) {
                 const rawApkUrl = highestData.apkUrl || (`./RoutineCraft_v${highestData.version}.apk`);

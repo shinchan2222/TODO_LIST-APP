@@ -44,28 +44,43 @@ self.addEventListener('activate', (e) => {
     self.clients.claim();
 });
 
-// Fetch Event (Cache First, Network Fallback)
+// Fetch Event — Network-First Strategy (No-Cache for version.json, Network-First for Assets, Offline Cache Fallback)
 self.addEventListener('fetch', (e) => {
+    const url = new URL(e.request.url);
+
+    // Bypass cache completely for version.json & update requests
+    if (url.pathname.endsWith('version.json') || url.searchParams.has('t')) {
+        e.respondWith(
+            fetch(e.request, { cache: 'no-store' }).catch(() => {
+                return caches.match(e.request);
+            })
+        );
+        return;
+    }
+
+    // Network-First Strategy for all app assets
     e.respondWith(
-        caches.match(e.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
-            }
-            return fetch(e.request).then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+        fetch(e.request)
+            .then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
                     const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => {
                         cache.put(e.request, responseToCache);
                     });
                 }
                 return networkResponse;
-            }).catch(() => {
-                // If offline and request fails, fallback to cached index.html
-                if (e.request.mode === 'navigate') {
-                    return caches.match('./index.html');
-                }
-            });
-        })
+            })
+            .catch(() => {
+                // If offline or network fails, fallback to cached assets
+                return caches.match(e.request).then((cachedResponse) => {
+                    if (cachedResponse) {
+                        return cachedResponse;
+                    }
+                    if (e.request.mode === 'navigate') {
+                        return caches.match('./index.html');
+                    }
+                });
+            })
     );
 });
 
