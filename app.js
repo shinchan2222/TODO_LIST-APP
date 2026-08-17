@@ -1985,7 +1985,7 @@
             fetch(githubRawUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null)
         ]).finally(function() {
             if (highestData && highestData.version && highestData.version > APP_VERSION) {
-                const rawApkUrl = highestData.apkUrl || (`https://github.com/shinchan2222/TODO_LIST-APP/raw/main/RoutineCraft_v${highestData.version}.apk`);
+                const rawApkUrl = highestData.apkUrl || (`https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v${highestData.version}.apk`);
                 try {
                     window.latestApkUrl = new URL(rawApkUrl, 'https://todo-list-app-eight-pi.vercel.app/').href;
                 } catch(e) {
@@ -2009,7 +2009,7 @@
 
                 // Update Settings Modal section: Already in latest version
                 if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = 'Already in latest version';
-                if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = `RoutineCraft v${(highestData && highestData.versionName) ? highestData.versionName : '1.6.0'} (Build ${APP_VERSION}) — Latest`;
+                if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = `RoutineCraft v${(highestData && highestData.versionName) ? highestData.versionName : '1.8.0'} (Build ${APP_VERSION}) — Latest`;
                 if (dom.updateSettingsIcon) {
                     dom.updateSettingsIcon.className = 'fa-solid fa-circle-check cloud-icon';
                     dom.updateSettingsIcon.style.color = 'var(--accent-success)';

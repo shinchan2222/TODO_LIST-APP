@@ -1,6 +1,6 @@
 {
   "version": 18,
   "versionName": "1.8.0",
-  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/raw/main/RoutineCraft_v18.apk",
+  "apkUrl": "https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v18.apk",
   "releaseNotes": "Version 18 (Power Productivity Release): Added Rich Lock Screen Notification Actions (Mark Done / Snooze), Pomodoro Focus Timer with Ambient Soundscapes, Streak Freeze Tokens & Rest Days, Synthesized Audio/Haptic FX, and CSV & Printable PDF Habit Reports."
 }
