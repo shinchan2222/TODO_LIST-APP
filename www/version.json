@@ -1,6 +1,6 @@
 {
   "version": 17,
   "versionName": "1.7.0",
-  "apkUrl": "./RoutineCraft_v17.apk",
+  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/raw/main/RoutineCraft_v17.apk",
   "releaseNotes": "Version 17 release: Added Native Android Google Sign-In, 1-Month & All-Time Stats & History Explorer, persistent repeating notifications, Neon Cyber default theme, and instant cache-free updates."
 }

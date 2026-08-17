@@ -1562,10 +1562,11 @@
         }
     }
 
-    // --- IN-APP UPDATE CHECKER (VIA VERCEL / RELATIVE VERSION.JSON) ---
+    // --- IN-APP UPDATE CHECKER (VIA VERCEL / GITHUB RAW / RELATIVE VERSION.JSON) ---
     function checkForAppUpdates(isManualCheck = false) {
         const relativeUrl = './version.json?t=' + Date.now();
         const remoteUrl = 'https://todo-list-app-eight-pi.vercel.app/version.json?t=' + Date.now();
+        const githubRawUrl = 'https://raw.githubusercontent.com/shinchan2222/TODO_LIST-APP/main/version.json?t=' + Date.now();
         const fetchOpts = {
             cache: 'no-store',
             headers: {
@@ -1586,10 +1587,11 @@
 
         Promise.all([
             fetch(relativeUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null),
-            fetch(remoteUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null)
+            fetch(remoteUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null),
+            fetch(githubRawUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null)
         ]).finally(function() {
             if (highestData && highestData.version && highestData.version > APP_VERSION) {
-                const rawApkUrl = highestData.apkUrl || (`./RoutineCraft_v${highestData.version}.apk`);
+                const rawApkUrl = highestData.apkUrl || (`https://github.com/shinchan2222/TODO_LIST-APP/raw/main/RoutineCraft_v${highestData.version}.apk`);
                 try {
                     window.latestApkUrl = new URL(rawApkUrl, 'https://todo-list-app-eight-pi.vercel.app/').href;
                 } catch(e) {
