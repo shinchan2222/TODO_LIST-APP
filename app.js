@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 16;
+    const APP_VERSION = 17; // updated version
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
@@ -26,7 +26,7 @@
         email: 'default_user@routinecraft.app',
         name: 'Productivity Hero',
         avatar: '🚀',
-        theme: 'sunset-glow',
+        theme: 'neon-cyber',
         streak: 5,
         completedDates: [
             getPastDateStr(5),
@@ -44,6 +44,8 @@
         },
         lastActiveDate: getTodayStr(),
         totalCompletedCount: 24,
+        memberSince: getPastDateStr(30),
+        bestStreak: 5,
         notificationsEnabled: true,
         summaryNotificationTime: '20:00',
         lastBackupTime: null,
@@ -224,12 +226,13 @@
         localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
         localStorage.setItem('routinecraft_active_email', activeEmail);
         localStorage.setItem('routinecraft_version', APP_VERSION.toString());
-    } else if (savedVersion < APP_VERSION) {
+    } else {
         Object.keys(usersStore).forEach(email => {
-            usersStore[email].profile = { ...DEFAULT_PROFILE, ...usersStore[email].profile };
+            if (!usersStore[email].profile.theme || usersStore[email].profile.theme === 'sunset-glow') {
+                usersStore[email].profile.theme = 'neon-cyber';
+            }
         });
         localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
-        localStorage.setItem('routinecraft_version', APP_VERSION.toString());
     }
 
     // --- CURRENT ACTIVE USER STATE ---
@@ -241,7 +244,8 @@
         searchQuery: '',
         sortBy: 'default',
         tempSubtasks: [],
-        pendingGoogleUser: null
+        pendingGoogleUser: null,
+        statsTimeRange: 'week'
     };
 
     state.tasks.forEach(t => {
@@ -376,7 +380,21 @@
         analyticsModal: document.getElementById('analytics-modal'),
         closeAnalyticsModalBtn: document.getElementById('close-analytics-modal'),
         closeAnalyticsBtn: document.getElementById('close-analytics-btn'),
+        statsTimeRangeTabs: document.querySelectorAll('#stats-time-range-tabs .tab-btn'),
+        statsMemberSinceVal: document.getElementById('stats-member-since-val'),
+        statsLifetimeCompletedVal: document.getElementById('stats-lifetime-completed-val'),
+        statsBestStreakVal: document.getElementById('stats-best-streak-val'),
+        statsActiveDaysVal: document.getElementById('stats-active-days-val'),
+        statsChartTitle: document.getElementById('stats-chart-title'),
+        heatmapSectionTitle: document.getElementById('heatmap-section-title'),
         heatmapGrid: document.getElementById('heatmap-grid'),
+        heatmapDayDetail: document.getElementById('heatmap-day-detail'),
+        heatmapDetailDate: document.getElementById('heatmap-detail-date'),
+        heatmapDetailTasksList: document.getElementById('heatmap-detail-tasks-list'),
+        closeHeatmapDetailBtn: document.getElementById('close-heatmap-detail-btn'),
+        historyDaysList: document.getElementById('history-days-list'),
+        historyTotalDaysCount: document.getElementById('history-total-days-count'),
+        weeklyPlannerSection: document.getElementById('weekly-planner-section'),
         categoryBarsContainer: document.getElementById('category-bars-container'),
 
         toastContainer: document.getElementById('toast-container'),
@@ -384,9 +402,6 @@
         authModal: document.getElementById('auth-modal'),
         closeAuthModalBtn: document.getElementById('close-auth-modal'),
         googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
-        authEmailInput: document.getElementById('auth-email-input'),
-        authNameInput: document.getElementById('auth-name-input'),
-        authEmailSubmitBtn: document.getElementById('auth-email-submit-btn'),
         authErrorMsg: document.getElementById('auth-error-msg')
     };
 
@@ -429,6 +444,18 @@
             scheduleSummaryNotification();
         }
         setupEventListeners();
+
+        // Load persisted state
+        loadAppState();
+
+        // Clear stale service‑worker caches on every launch (as requested)
+        if ("caches" in window) {
+            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+        }
+        // Optionally unregister old SWs to force fresh install
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+            navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+        }
 
         // Auto‑login from persisted session
         if (typeof getItem === 'function') {
@@ -551,13 +578,26 @@
         state.profile.completedDates = state.profile.completedDates || [];
         state.profile.completionHistory = state.profile.completionHistory || {};
 
+        // 1. Calculate today's completed tasks
         const completedToday = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
         state.profile.completionHistory[todayStr] = completedToday;
 
+        // 2. Also register completion counts for any specific past or scheduled dates
+        state.tasks.forEach(t => {
+            if (t.completed) {
+                const compDate = t.completedAt ? t.completedAt.split('T')[0] : t.dueDate;
+                if (compDate) {
+                    const countForDate = state.tasks.filter(x => x.completed && ((x.completedAt && x.completedAt.startsWith(compDate)) || x.dueDate === compDate)).length;
+                    state.profile.completionHistory[compDate] = countForDate;
+                }
+            }
+        });
+
+        // 3. Update completedDates for streak
         const todayTasks = state.tasks.filter(t => isTaskToday(t));
         const allCompleted = todayTasks.length > 0 && todayTasks.every(t => t.completed);
 
-        if (allCompleted) {
+        if (allCompleted || completedToday > 0) {
             if (!state.profile.completedDates.includes(todayStr)) {
                 state.profile.completedDates.push(todayStr);
             }
@@ -702,19 +742,29 @@
         var p = task.dueTime.split(':');
         var fireAt = new Date();
         fireAt.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
+        if (fireAt.getTime() <= Date.now()) {
+            if (task.recurring && task.recurring !== 'none') {
+                fireAt.setDate(fireAt.getDate() + 1);
+            } else {
+                return;
+            }
+        }
         var msUntil = fireAt.getTime() - Date.now();
-        if (msUntil > 0 && msUntil < 86400000) {
+        if (msUntil > 0 && msUntil < 86400000 * 7) {
             _pwaTimerHandles[task.id] = setTimeout(function() {
                 if (!state.profile.notificationsEnabled) return;
                 var t = state.tasks.find(function(x) { return x.id === task.id; });
                 if (t && !t.completed) {
                     showPwaNotification(
-                        '\uD83D\uDD14 Task Reminder: ' + t.title,
+                        '🔔 Task Reminder: ' + t.title,
                         'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
                         'task_reminder'
                     );
                 }
                 delete _pwaTimerHandles[task.id];
+                if (t && t.recurring && t.recurring !== 'none') {
+                    schedulePwaTaskReminder(t);
+                }
             }, msUntil);
         }
     }
@@ -734,7 +784,7 @@
 
     function scheduleNativeLocalNotifications() {
         if (!state.profile.notificationsEnabled) return;
-        var todayPending = state.tasks.filter(function(t) { return !t.completed && isTaskToday(t); });
+        var activeTasks = state.tasks.filter(function(t) { return !t.completed && (isTaskToday(t) || isTaskUpcoming(t) || (t.recurring && t.recurring !== 'none')); });
         var CHANNELS = (window.RC_NOTIFICATIONS && window.RC_NOTIFICATIONS.CHANNELS) ? window.RC_NOTIFICATIONS.CHANNELS : {};
 
         // 1. Capacitor Android path
@@ -742,24 +792,43 @@
             var LN = window.Capacitor.Plugins.LocalNotifications;
             LN.requestPermissions().then(function(perm) {
                 if (perm.display !== 'granted') return;
-                var cancelList = todayPending.map(function(t) { return { id: Math.abs(hashCode(t.id)) }; });
+                var cancelList = activeTasks.map(function(t) { return { id: Math.abs(hashCode(t.id)) }; });
                 var cancelP = cancelList.length > 0 ? LN.cancel({ notifications: cancelList }).catch(function(){}) : Promise.resolve();
                 cancelP.then(function() {
-                    var notifList = todayPending
+                    var notifList = activeTasks
                         .filter(function(t) { return !!t.dueTime; })
                         .map(function(t) {
                             var p = t.dueTime.split(':');
                             var d = new Date();
+                            if (t.dueDate) {
+                                var dp = t.dueDate.split('-');
+                                if (dp.length === 3) {
+                                    d = new Date(parseInt(dp[0], 10), parseInt(dp[1], 10) - 1, parseInt(dp[2], 10));
+                                }
+                            }
                             d.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
-                            if (d.getTime() <= Date.now()) return null;
+
+                            var isDaily = (t.recurring === 'daily');
+                            if (d.getTime() <= Date.now()) {
+                                if (t.recurring && t.recurring !== 'none') {
+                                    d.setDate(new Date().getDate() + 1);
+                                    d.setMonth(new Date().getMonth());
+                                    d.setFullYear(new Date().getFullYear());
+                                } else {
+                                    return null;
+                                }
+                            }
                             var ch = CHANNELS.task_reminder || {};
+                            var sched = { at: d };
+                            if (isDaily) sched.every = 'day';
+
                             return {
                                 id: Math.abs(hashCode(t.id)),
-                                title: '\uD83D\uDD14 Task Reminder: ' + t.title,
+                                title: '🔔 Task Reminder: ' + t.title,
                                 body: 'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
-                                schedule: { at: d },
+                                schedule: sched,
                                 channelId: ch.id || 'task_reminder',
-                                iconColor: '#ec4899',
+                                iconColor: '#00f2fe',
                                 extra: { taskId: t.id }
                             };
                         }).filter(Boolean);
@@ -779,7 +848,7 @@
         });
         requestPwaPermission().then(function(granted) {
             if (!granted) return;
-            todayPending.forEach(function(task) { schedulePwaTaskReminder(task); });
+            activeTasks.forEach(function(task) { schedulePwaTaskReminder(task); });
         });
     }
 
@@ -789,8 +858,9 @@
         var p = timeStr.split(':');
         var fireAt = new Date();
         fireAt.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
-        var msUntil = fireAt.getTime() - Date.now();
-        if (msUntil <= 0) return;
+        if (fireAt.getTime() <= Date.now()) {
+            fireAt.setDate(fireAt.getDate() + 1);
+        }
 
         if (_pwaTimerHandles['__summary__']) { clearTimeout(_pwaTimerHandles['__summary__']); }
 
@@ -805,29 +875,30 @@
                 LN.schedule({
                     notifications: [{
                         id: 99999,
-                        title: '\uD83D\uDCCA RoutineCraft Daily Summary',
-                        body: 'You completed ' + completed + ' of ' + total + ' tasks today. Keep the streak going! \uD83D\uDD25',
-                        schedule: { at: fireAt },
+                        title: '📊 RoutineCraft Daily Summary',
+                        body: 'You completed ' + completed + ' of ' + total + ' tasks today. Keep the streak going! 🔥',
+                        schedule: { at: fireAt, every: 'day' },
                         channelId: ch.id || 'summary',
-                        iconColor: '#ec4899'
+                        iconColor: '#00f2fe'
                     }]
                 }).catch(function(){});
             });
             return;
         }
 
+        var msUntil = fireAt.getTime() - Date.now();
         requestPwaPermission().then(function(granted) {
-            if (!granted) return;
+            if (!granted || msUntil <= 0) return;
             _pwaTimerHandles['__summary__'] = setTimeout(function() {
                 if (!state.profile.notificationsEnabled) return;
                 var c = state.tasks.filter(function(t) { return t.completed; }).length;
                 var tot = state.tasks.filter(function(t) { return isTaskToday(t) || t.completed; }).length;
                 showPwaNotification(
-                    '\uD83D\uDCCA RoutineCraft Daily Summary',
-                    'You completed ' + c + ' of ' + tot + ' tasks today. Keep the streak going! \uD83D\uDD25',
+                    '📊 RoutineCraft Daily Summary',
+                    'You completed ' + c + ' of ' + tot + ' tasks today. Keep the streak going! 🔥',
                     'summary'
                 );
-                delete _pwaTimerHandles['__summary__'];
+                scheduleSummaryNotification();
             }, msUntil);
         });
     }
@@ -854,21 +925,15 @@
 
     function showAuthError(msg) {
         const str = String(msg || '');
-        if (
-            str.includes('initial state') ||
-            str.includes('sessionStorage') ||
-            str.includes('popup-closed') ||
-            str.includes('closed by') ||
-            str.includes('RESTRICTED')
-        ) {
-            closeAuthModal();
-            showToast('Mobile browser storage restriction detected. Opening Direct Email Sign-In... 📧');
-            setTimeout(fallbackPromptLogin, 300);
+        if (str.includes('popup-closed-by-user') || str.includes('closed by user')) {
+            showToast('Google Sign-In was cancelled.');
             return;
         }
         if (dom.authErrorMsg) {
-            dom.authErrorMsg.textContent = str;
+            dom.authErrorMsg.textContent = str || 'Sign-In failed. Please try again.';
             dom.authErrorMsg.classList.remove('hide');
+        } else {
+            showToast(str || 'Google Sign-In failed. Please try again.');
         }
     }
 
@@ -905,42 +970,8 @@
 
         switchUserAccount(userEmail);
         showToast(`Signed in as ${userEmail}! 🔥`);
-        setTimeout(scrollToTaskChecklist, 200);
-    }
-
-    function handleDirectEmailLogin(emailInput, nameInput) {
-        if (!emailInput || !emailInput.includes('@')) {
-            showAuthError('Please enter a valid email address.');
-            return;
-        }
-
-        const email = emailInput.trim();
-        const name = (nameInput && nameInput.trim()) ? nameInput.trim() : email.split('@')[0].replace('.', ' ');
-
-        // Persist email login session
-        if (typeof saveItem === 'function') {
-            saveItem('rc_user', { email: email, name: name });
-        }
-
-        state.pendingGoogleUser = {
-            email: email,
-            name: name,
-            avatar: '⚡'
-        };
-
-        dom.guserNameDisplay.textContent = name;
-        dom.guserEmailDisplay.textContent = email;
-        dom.guserAvatarDisplay.textContent = '⚡';
-        dom.gdrivePermissionModal.classList.remove('hide');
         closeAuthModal();
-    }
-
-    function fallbackPromptLogin() {
-        // Automatically prefill input fields inside the Auth Modal instead of prompt()
-        if (dom.authModal) {
-            dom.authModal.classList.remove('hide');
-            if (dom.authEmailInput) dom.authEmailInput.focus();
-        }
+        setTimeout(scrollToTaskChecklist, 200);
     }
 
     function confirmGoogleBackupPermission() {
@@ -1030,26 +1061,92 @@
     }
 
     // --- HELPER DATE COMPARISONS ---
+    function isTaskScheduledForDate(task, dateStr) {
+        if (!task || !dateStr) return false;
+        const taskStartDate = task.dueDate || (task.createdAt ? task.createdAt.split('T')[0] : getTodayStr());
+        
+        // Rule: A task cannot appear on days before its start / creation date
+        if (dateStr < taskStartDate) {
+            return false;
+        }
+
+        const recurring = task.recurring || 'none';
+        if (recurring === 'none') {
+            return task.dueDate === dateStr;
+        }
+
+        const d = new Date(dateStr + 'T00:00:00');
+        const dayOfWeek = d.getDay(); // 0 is Sun, 6 is Sat
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+
+        if (recurring === 'daily') {
+            return true;
+        } else if (recurring === 'weekdays') {
+            return !isWeekend;
+        } else if (recurring === 'weekends') {
+            return isWeekend;
+        }
+
+        return false;
+    }
+
     function isTaskOverdue(task) {
-        if (task.completed || task.recurring !== 'none') return false;
+        if (task.completed) return false;
+        if (task.recurring && task.recurring !== 'none') return false;
         const today = getTodayStr();
-        return task.dueDate && task.dueDate < today;
+        return Boolean(task.dueDate && task.dueDate < today);
     }
 
     function isTaskToday(task) {
         const today = getTodayStr();
-        if (task.recurring !== 'none') return true;
-        return task.dueDate === today;
+        return isTaskScheduledForDate(task, today);
     }
 
     function isTaskUpcoming(task) {
-        if (task.completed || task.recurring !== 'none') return false;
+        if (task.completed) return false;
         const today = getTodayStr();
-        return task.dueDate && task.dueDate > today;
+        return Boolean(task.dueDate && task.dueDate > today);
     }
 
-    // --- RENDER OVERALL PROGRESS DASHBOARD CARD (Matching Instagram Screenshot) ---
+    // --- RENDER STATS MILESTONES (All-Time / Member Since Data) ---
+    function renderStatsMilestones() {
+        if (!dom.statsMemberSinceVal) return;
+        
+        let memberDateStr = state.profile.memberSince || getPastDateStr(30);
+        try {
+            const d = new Date(memberDateStr + 'T00:00:00');
+            dom.statsMemberSinceVal.textContent = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+        } catch(e) {
+            dom.statsMemberSinceVal.textContent = memberDateStr;
+        }
+
+        const currentCompleted = state.tasks.filter(t => t.completed).length;
+        const totalCompleted = Math.max(state.profile.totalCompletedCount || 0, currentCompleted);
+        dom.statsLifetimeCompletedVal.textContent = `${totalCompleted} task${totalCompleted === 1 ? '' : 's'}`;
+
+        const best = Math.max(state.profile.bestStreak || 0, state.profile.streak || 0, calculateStreak(state.profile.completedDates));
+        state.profile.bestStreak = best;
+        dom.statsBestStreakVal.textContent = `${best} day${best === 1 ? '' : 's'}`;
+
+        const activeDatesSet = new Set(state.profile.completedDates || []);
+        if (state.profile.completionHistory) {
+            Object.keys(state.profile.completionHistory).forEach(d => {
+                if (state.profile.completionHistory[d] > 0) activeDatesSet.add(d);
+            });
+        }
+        state.tasks.forEach(t => {
+            if (t.completed) {
+                const compD = t.completedAt ? t.completedAt.split('T')[0] : t.dueDate;
+                if (compD) activeDatesSet.add(compD);
+            }
+        });
+        const activeCount = Math.max(activeDatesSet.size, 1);
+        dom.statsActiveDaysVal.textContent = `${activeCount} day${activeCount === 1 ? '' : 's'}`;
+    }
+
+    // --- RENDER OVERALL PROGRESS DASHBOARD CARD (Range Aware: Week / Month / All-Time) ---
     function renderOverallProgressCard() {
+        const range = state.statsTimeRange || 'week';
         const totalAll = state.tasks.length;
         const completedAll = state.tasks.filter(t => t.completed).length;
         const overallPct = totalAll === 0 ? 0 : Math.round((completedAll / totalAll) * 100);
@@ -1060,57 +1157,109 @@
         const circumference = 213.62;
         const offset = circumference - (overallPct / 100) * circumference;
         dom.overallRingFill.style.strokeDashoffset = offset;
-
         dom.overallBarsWrapper.innerHTML = '';
-        const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        
-        // Find Monday of the current week
-        const curr = new Date();
-        const first = curr.getDate() - ((curr.getDay() + 6) % 7);
-        
-        const realTaskCounts = [];
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(curr.getFullYear(), curr.getMonth(), first + i);
-            const dayStr = day.toISOString().split('T')[0];
+
+        if (range === 'week') {
+            if (dom.statsChartTitle) dom.statsChartTitle.textContent = "This Week's Progress";
+            const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const now = new Date();
+            const mondayOffset = ((now.getDay() + 6) % 7);
+            const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset);
             
-            let count = 0;
-            if (dayStr === getTodayStr()) {
-                count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
-            } else {
-                count = (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
+            const realTaskCounts = [];
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + i);
+                const dayStr = day.toISOString().split('T')[0];
+                let count = 0;
+                if (dayStr === getTodayStr()) {
+                    count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
+                } else {
+                    const tasksDoneOnDate = state.tasks.filter(t => t.completed && ((t.completedAt && t.completedAt.startsWith(dayStr)) || t.dueDate === dayStr)).length;
+                    const historyCount = (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
+                    count = Math.max(tasksDoneOnDate, historyCount);
+                }
+                realTaskCounts.push(count);
             }
-            realTaskCounts.push(count);
+
+            weekDays.forEach((dayName, idx) => {
+                const count = realTaskCounts[idx];
+                const heightPct = Math.min(100, (count / 10) * 100);
+                const col = document.createElement('div');
+                col.className = 'overall-bar-col';
+                col.innerHTML = `
+                    <div class="overall-bar-track" title="${dayName}: ${count} completed">
+                        <div class="overall-bar-fill" style="height: ${heightPct}%;"></div>
+                    </div>
+                    <span class="overall-bar-day">${dayName}</span>
+                `;
+                dom.overallBarsWrapper.appendChild(col);
+            });
+        } else if (range === 'month') {
+            if (dom.statsChartTitle) dom.statsChartTitle.textContent = "Last 30 Days (5-Day Intervals)";
+            const intervals = ['Day 1-5', '6-10', '11-15', '16-20', '21-25', '26-30'];
+            for (let b = 5; b >= 0; b--) {
+                let intervalTotal = 0;
+                for (let d = 0; d < 5; d++) {
+                    const daysAgo = b * 5 + d;
+                    const dayStr = getPastDateStr(daysAgo);
+                    let count = 0;
+                    if (dayStr === getTodayStr()) {
+                        count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
+                    } else {
+                        const tasksDoneOnDate = state.tasks.filter(t => t.completed && ((t.completedAt && t.completedAt.startsWith(dayStr)) || t.dueDate === dayStr)).length;
+                        const historyCount = (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
+                        count = Math.max(tasksDoneOnDate, historyCount);
+                    }
+                    intervalTotal += count;
+                }
+                const label = intervals[5 - b];
+                const heightPct = Math.min(100, (intervalTotal / 20) * 100);
+                const col = document.createElement('div');
+                col.className = 'overall-bar-col';
+                col.innerHTML = `
+                    <div class="overall-bar-track" title="${label}: ${intervalTotal} completed">
+                        <div class="overall-bar-fill" style="height: ${heightPct}%;"></div>
+                    </div>
+                    <span class="overall-bar-day" style="font-size:0.65rem;">${label}</span>
+                `;
+                dom.overallBarsWrapper.appendChild(col);
+            }
+        } else {
+            // 'all' time
+            if (dom.statsChartTitle) dom.statsChartTitle.textContent = "All-Time Category Breakdown";
+            Object.keys(CATEGORIES).forEach(catKey => {
+                const catInfo = CATEGORIES[catKey];
+                const catTasks = state.tasks.filter(t => t.category === catKey);
+                const catDone = catTasks.filter(t => t.completed).length;
+                const catPct = catTasks.length === 0 ? 0 : Math.round((catDone / catTasks.length) * 100);
+
+                const col = document.createElement('div');
+                col.className = 'overall-bar-col';
+                col.innerHTML = `
+                    <div class="overall-bar-track" title="${catInfo.label}: ${catDone}/${catTasks.length}">
+                        <div class="overall-bar-fill" style="height: ${catPct}%; background:${catInfo.color};"></div>
+                    </div>
+                    <span class="overall-bar-day" style="font-size:0.65rem;">${catKey.substring(0, 4)}</span>
+                `;
+                dom.overallBarsWrapper.appendChild(col);
+            });
         }
-
-        weekDays.forEach((dayName, idx) => {
-            const count = realTaskCounts[idx];
-            const heightPct = Math.min(100, (count / 10) * 100);
-
-            const col = document.createElement('div');
-            col.className = 'overall-bar-col';
-            col.innerHTML = `
-                <div class="overall-bar-track">
-                    <div class="overall-bar-fill" style="height: ${heightPct}%;"></div>
-                </div>
-                <span class="overall-bar-day">${dayName}</span>
-            `;
-            dom.overallBarsWrapper.appendChild(col);
-        });
     }
 
     // --- RENDER WEEKLY PLANNER DAY COLUMNS (Inside Stats Modal) ---
     function renderWeeklyPlannerGrid() {
         dom.weeklyPlannerGrid.innerHTML = '';
-        const curr = new Date();
-        const first = curr.getDate() - ((curr.getDay() + 6) % 7);
+        const now = new Date();
+        const mondayOffset = ((now.getDay() + 6) % 7);
+        const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset);
 
         for (let i = 0; i < 7; i++) {
-            const nextDay = new Date(curr.setDate(first + i));
+            const nextDay = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + i);
             const dayStr = nextDay.toISOString().split('T')[0];
             const dayName = nextDay.toLocaleDateString('en-US', { weekday: 'long' });
             const dateFormatted = nextDay.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-            const dayTasks = state.tasks.filter(t => t.dueDate === dayStr || (t.recurring === 'daily' && isTaskToday(t)));
+            const dayTasks = state.tasks.filter(t => isTaskScheduledForDate(t, dayStr));
             const dayTotal = dayTasks.length;
             const dayCompleted = dayTasks.filter(t => t.completed).length;
             const dayPct = dayTotal === 0 ? 0 : Math.round((dayCompleted / dayTotal) * 100);
@@ -1650,7 +1799,21 @@
             document.body.removeChild(link);
         } else {
             showToast('Updating web app assets... 🚀');
-            window.location.reload();
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for (let registration of registrations) {
+                        registration.update();
+                    }
+                });
+            }
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) caches.delete(name);
+                });
+            }
+            setTimeout(() => {
+                window.location.reload();
+            }, 350);
         }
     }
 
@@ -1895,6 +2058,11 @@
                     renderTasks();
                     closeProfileModal();
                     showToast('Backup restored successfully! 🎉');
+                    // After restoring data, refresh notifications to reflect new tasks
+                    if (state.profile.notificationsEnabled) {
+                        scheduleNativeLocalNotifications();
+                        scheduleSummaryNotification();
+                    }
                 } else {
                     alert('Invalid backup file format.');
                 }
@@ -1916,13 +2084,128 @@
     });
 
     // --- OPEN STATS ANALYTICS DASHBOARD MODAL ---
+    function showHeatmapDayDetail(dateStr) {
+        if (!dom.heatmapDayDetail) return;
+        const d = new Date(dateStr + 'T00:00:00');
+        const formattedDate = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        
+        dom.heatmapDetailDate.textContent = formattedDate;
+        dom.heatmapDetailTasksList.innerHTML = '';
+
+        const matchingTasks = state.tasks.filter(t => {
+            return isTaskScheduledForDate(t, dateStr) || 
+                   (t.completed && ((t.completedAt && t.completedAt.startsWith(dateStr)) || t.dueDate === dateStr));
+        });
+
+        if (matchingTasks.length === 0) {
+            const historyCount = (state.profile.completionHistory && state.profile.completionHistory[dateStr]) || 0;
+            if (historyCount > 0) {
+                dom.heatmapDetailTasksList.innerHTML = `<div style="color:var(--text-muted); padding:4px 0;"><i class="fa-solid fa-check" style="color:var(--accent-success);"></i> ${historyCount} completed tasks recorded in history.</div>`;
+            } else {
+                dom.heatmapDetailTasksList.innerHTML = `<div style="color:var(--text-muted); padding:4px 0;">No tasks recorded for this day.</div>`;
+            }
+        } else {
+            matchingTasks.forEach(task => {
+                const item = document.createElement('div');
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.justifyContent = 'space-between';
+                item.style.padding = '4px 0';
+                item.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="${task.completed ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}" style="color:${task.completed ? 'var(--accent-success)' : 'var(--text-muted)'};"></i>
+                        <span style="text-decoration:${task.completed ? 'line-through' : 'none'}; color:${task.completed ? 'var(--text-secondary)' : 'var(--text-primary)'};">${escapeHtml(task.title)}</span>
+                    </div>
+                    <span style="font-size:0.72rem; color:var(--text-secondary);">${task.dueTime || ''}</span>
+                `;
+                dom.heatmapDetailTasksList.appendChild(item);
+            });
+        }
+
+        dom.heatmapDayDetail.classList.remove('hide');
+    }
+
+    function renderHistoryLog() {
+        if (!dom.historyDaysList) return;
+        dom.historyDaysList.innerHTML = '';
+
+        const allRecordedDates = new Set(state.profile.completedDates || []);
+        if (state.profile.completionHistory) {
+            Object.keys(state.profile.completionHistory).forEach(d => allRecordedDates.add(d));
+        }
+        state.tasks.forEach(t => {
+            if (t.dueDate) allRecordedDates.add(t.dueDate);
+            if (t.completedAt) allRecordedDates.add(t.completedAt.split('T')[0]);
+        });
+
+        const sortedDates = Array.from(allRecordedDates)
+            .filter(d => Boolean(d) && d <= getTodayStr())
+            .sort((a, b) => b.localeCompare(a));
+
+        if (dom.historyTotalDaysCount) {
+            dom.historyTotalDaysCount.textContent = `${sortedDates.length} Days Recorded`;
+        }
+
+        if (sortedDates.length === 0) {
+            dom.historyDaysList.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:0.85rem;">No past activity recorded yet. Complete tasks to build your history!</div>`;
+            return;
+        }
+
+        sortedDates.slice(0, 30).forEach(dayStr => {
+            const d = new Date(dayStr + 'T00:00:00');
+            const dayFormatted = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+            
+            const dayTasks = state.tasks.filter(t => {
+                return (t.dueDate === dayStr) || (t.completed && t.completedAt && t.completedAt.startsWith(dayStr));
+            });
+
+            const completedCount = dayTasks.filter(t => t.completed).length || (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
+            const totalCount = Math.max(dayTasks.length, completedCount);
+
+            const card = document.createElement('div');
+            card.className = 'history-day-card';
+            card.style.cursor = 'pointer';
+
+            let tasksListPreview = '';
+            if (dayTasks.length > 0) {
+                tasksListPreview = dayTasks.slice(0, 3).map(t => `
+                    <div class="history-task-item">
+                        <i class="${t.completed ? 'fa-solid fa-check' : 'fa-regular fa-circle'}"></i>
+                        <span style="text-decoration:${t.completed ? 'line-through' : 'none'};">${escapeHtml(t.title)}</span>
+                    </div>
+                `).join('');
+                if (dayTasks.length > 3) {
+                    tasksListPreview += `<span style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">+${dayTasks.length - 3} more tasks</span>`;
+                }
+            } else if (completedCount > 0) {
+                tasksListPreview = `<div class="history-task-item"><i class="fa-solid fa-check"></i> <span>${completedCount} tasks completed</span></div>`;
+            }
+
+            card.innerHTML = `
+                <div class="history-day-header">
+                    <span class="history-day-title">${dayStr === getTodayStr() ? "Today (" + dayFormatted + ")" : dayFormatted}</span>
+                    <span class="history-day-badge">${completedCount} / ${totalCount} Done</span>
+                </div>
+                <div>${tasksListPreview}</div>
+            `;
+
+            card.addEventListener('click', () => {
+                showHeatmapDayDetail(dayStr);
+            });
+
+            dom.historyDaysList.appendChild(card);
+        });
+    }
+
     function openAnalyticsModal() {
         closeAllModals();
         setActiveNav('analytics');
+        renderStatsMilestones();
         renderOverallProgressCard();
         renderWeeklyPlannerGrid();
+        renderHistoryLog();
 
-        const completed = state.tasks.filter(t => t.completed).length;
+        if (dom.heatmapDayDetail) dom.heatmapDayDetail.classList.add('hide');
 
         dom.heatmapGrid.innerHTML = '';
         for (let i = 29; i >= 0; i--) {
@@ -1932,7 +2215,9 @@
             if (tileDate === getTodayStr()) {
                 count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
             } else {
-                count = (state.profile.completionHistory && state.profile.completionHistory[tileDate]) || 0;
+                const tasksDoneOnDate = state.tasks.filter(t => t.completed && ((t.completedAt && t.completedAt.startsWith(tileDate)) || t.dueDate === tileDate)).length;
+                const historyCount = (state.profile.completionHistory && state.profile.completionHistory[tileDate]) || 0;
+                count = Math.max(tasksDoneOnDate, historyCount);
             }
 
             let lvlClass = 'lvl-0';
@@ -1945,7 +2230,11 @@
             }
 
             tile.className = `heatmap-tile ${lvlClass}`;
-            tile.title = `${tileDate}: Activity Level`;
+            tile.title = `${tileDate}: ${count} task${count === 1 ? '' : 's'} completed (Click to inspect)`;
+            tile.style.cursor = 'pointer';
+            tile.addEventListener('click', () => {
+                showHeatmapDayDetail(tileDate);
+            });
             dom.heatmapGrid.appendChild(tile);
         }
 
@@ -2053,32 +2342,11 @@
                         })
                         .catch(function(err) {
                             const errStr = (err && err.message) ? err.message : String(err);
-                            if (
-                                errStr === 'BROWSER_STORAGE_RESTRICTED' ||
-                                errStr.includes('initial state') ||
-                                errStr.includes('sessionStorage') ||
-                                errStr.includes('popup-closed-by-user') ||
-                                errStr.includes('closed by')
-                            ) {
-                                closeAuthModal();
-                                showToast('Mobile browser storage restriction detected. Opening Direct Email Sign-In... 📧');
-                                setTimeout(fallbackPromptLogin, 300);
-                            } else {
-                                showAuthError(errStr || 'Google Sign-In failed');
-                            }
+                            showAuthError(errStr || 'Google Sign-In failed');
                         });
                 } else {
-                    closeAuthModal();
-                    setTimeout(fallbackPromptLogin, 300);
+                    showAuthError('Firebase Authentication is loading, please try again in a moment.');
                 }
-            });
-        }
-
-        if (dom.authEmailSubmitBtn) {
-            dom.authEmailSubmitBtn.addEventListener('click', function() {
-                const email = dom.authEmailInput.value;
-                const name = dom.authNameInput.value;
-                handleDirectEmailLogin(email, name);
             });
         }
 
@@ -2106,6 +2374,24 @@
                         openProfileModal();
                     }
                 });
+            });
+        }
+
+        // Enhanced Stats Time-Range Switcher
+        if (dom.statsTimeRangeTabs && dom.statsTimeRangeTabs.length > 0) {
+            dom.statsTimeRangeTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    dom.statsTimeRangeTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    state.statsTimeRange = tab.dataset.statsRange || 'week';
+                    renderOverallProgressCard();
+                });
+            });
+        }
+
+        if (dom.closeHeatmapDetailBtn) {
+            dom.closeHeatmapDetailBtn.addEventListener('click', () => {
+                if (dom.heatmapDayDetail) dom.heatmapDayDetail.classList.add('hide');
             });
         }
 

@@ -57,23 +57,80 @@ export const RC_FIREBASE = {
     }
   },
 
-  /** Sign‑in with Google (popup) */
+  /** Initialize GoogleAuth for Native Android */
+  async initGoogleAuth() {
+    const googleAuthPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) || window.GoogleAuth;
+    if (googleAuthPlugin && typeof googleAuthPlugin.initialize === 'function') {
+      try {
+        await googleAuthPlugin.initialize({
+          clientId: "1037852256619-web.apps.googleusercontent.com",
+          scopes: ["profile", "email"],
+          grantOfflineAccess: true
+        });
+        console.log("[RC_FIREBASE] Native GoogleAuth plugin initialized.");
+      } catch (e) {
+        console.warn("[RC_FIREBASE] GoogleAuth init warning:", e);
+      }
+    }
+  },
+
+  /** Sign‑in with Google (Native Android Account Picker or Web Popup) */
   async signInWithGoogle() {
-    if (!this.initialized && !this.init()) throw new Error("Firebase not init");
+    if (!this.initialized && !this.init()) throw new Error("Firebase not initialized");
+
+    const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+                     window.location.protocol === 'capacitor:' ||
+                     window.location.protocol === 'file:';
+
+    const googleAuthPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) || window.GoogleAuth;
+
+    // 1. Native Android flow using device Google Play Services
+    if (isNative && googleAuthPlugin) {
+      try {
+        console.log("[RC_FIREBASE] Starting Native Android Google Sign-In...");
+        const googleUser = await googleAuthPlugin.signIn();
+        if (!googleUser) throw new Error("Google Sign-In cancelled");
+
+        const idToken = (googleUser.authentication && googleUser.authentication.idToken) || googleUser.idToken;
+        if (idToken && firebase.auth && firebase.auth.GoogleAuthProvider) {
+          const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+          const userCred = await firebase.auth().signInWithCredential(credential);
+          return userCred.user;
+        }
+
+        return {
+          email: googleUser.email,
+          displayName: googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : googleUser.email.split('@')[0]),
+          photoURL: googleUser.imageUrl || googleUser.photoURL || null,
+          uid: googleUser.id || googleUser.uid || googleUser.email
+        };
+      } catch (nativeErr) {
+        console.warn("[RC_FIREBASE] Native Google Sign-In error:", nativeErr);
+        throw nativeErr;
+      }
+    }
+
+    // 2. Web Browser flow
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope("profile");
     provider.addScope("email");
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const result = await firebase.auth().signInWithPopup(provider);
       return result.user;
     } catch (e) {
-      console.warn("[RC_FIREBASE] Google sign‑in error:", e?.message);
-      throw new Error("BROWSER_STORAGE_RESTRICTED");
+      console.warn("[RC_FIREBASE] Web Google sign‑in error:", e?.message);
+      throw e;
     }
   },
 
   /** Sign‑out */
   async signOut() {
+    const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const googleAuthPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) || window.GoogleAuth;
+    if (isNative && googleAuthPlugin && typeof googleAuthPlugin.signOut === 'function') {
+      try { await googleAuthPlugin.signOut(); } catch (e) {}
+    }
     if (firebase?.auth) await firebase.auth().signOut();
     this.currentUser = null;
     console.log("[RC_FIREBASE] Signed out");
@@ -81,5 +138,8 @@ export const RC_FIREBASE = {
 };
 
 // Auto‑initialize if firebase SDK is already present
-if (typeof firebase !== "undefined") RC_FIREBASE.init();
+if (typeof firebase !== "undefined") {
+  RC_FIREBASE.init();
+  RC_FIREBASE.initGoogleAuth();
+}
 window.RC_FIREBASE = RC_FIREBASE;

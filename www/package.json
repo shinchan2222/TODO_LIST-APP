@@ -1,0 +1,23 @@
+{
+  "name": "routinecraft",
+  "version": "1.7.0",
+  "description": "RoutineCraft - Personal Daily Task Checklist & Habit Tracker",
+  "main": "app.js",
+  "scripts": {
+    "start": "npx http-server ./ -p 8080"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/local-notifications": "^8.2.1",
+    "@capacitor/share": "^8.0.1",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
+  }
+}

@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0">
     <title>RoutineCraft - Personal Daily Task & Habit Tracker</title>
     <meta name="description" content="A modern, mobile-friendly multi-user daily task checklist with Google Sign-In, automatic Google Drive cloud backup schedules (Daily, Weekly, Custom), custom themes, and visual analytics.">
-    <meta name="theme-color" content="#ec4899">
+    <meta name="theme-color" content="#0d131a">
     <link rel="manifest" href="manifest.json">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,12 +22,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="src/firebase.js"></script>
-    <script src="src/plugins/storage-helper.js"></script>
 
     <!-- Google Identity Services API for Multi-User Google Sign-In & Drive Backup -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body data-theme="sunset-glow">
+<body data-theme="neon-cyber">
     <div class="app-container">
 
         <!-- Top Header & Profile Bar with Multi-User Support -->
@@ -231,39 +230,18 @@
 
                 <div class="modal-body" style="text-align:center;">
                     <div style="font-size:3rem; margin-bottom:12px;">🚀</div>
-                    <p class="auth-subtitle">Sign in to back up your habits, sync tasks across devices, and track your streaks.</p>
+                    <p class="auth-subtitle">Sign in with your Google account to back up your habits, sync tasks across devices, and track your streaks.</p>
 
                     <!-- Error / Status Message Alert -->
                     <div class="auth-error-msg hide" id="auth-error-msg"></div>
 
                     <!-- Google Sign-In Primary Button -->
-                    <button type="button" class="btn btn-google-full" id="google-login-modal-btn" style="margin-top:10px;">
+                    <button type="button" class="btn btn-google-full" id="google-login-modal-btn" style="margin-top:14px; width:100%;">
                         <i class="fa-brands fa-google" style="color:#4285F4; font-size:1.1rem;"></i> Sign In with Google
                     </button>
 
-                    <div style="display:flex; align-items:center; margin:16px 0; gap:10px;">
-                        <div style="flex:1; height:1px; background:var(--card-border);"></div>
-                        <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">or email account</span>
-                        <div style="flex:1; height:1px; background:var(--card-border);"></div>
-                    </div>
-
-                    <!-- Direct In-App Email & Name Input Form -->
-                    <div style="display:flex; flex-direction:column; gap:10px; text-align:left;">
-                        <div>
-                            <label for="auth-email-input" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Email Address</label>
-                            <input type="email" id="auth-email-input" class="form-control" placeholder="yourname@gmail.com" style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-primary); font-size:0.9rem;">
-                        </div>
-                        <div>
-                            <label for="auth-name-input" style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Your Name (Optional)</label>
-                            <input type="text" id="auth-name-input" class="form-control" placeholder="Productivity Hero" style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-primary); font-size:0.9rem;">
-                        </div>
-                        <button type="button" class="btn btn-primary btn-block" id="auth-email-submit-btn" style="margin-top:6px; padding:12px; font-weight:700; background:var(--accent-primary);">
-                            <i class="fa-solid fa-user-check"></i> Sign In / Create Account
-                        </button>
-                    </div>
-
-                    <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:16px; opacity:0.8;">
-                        🔒 Safe & Secure. Your habits and streaks are backed up to your account.
+                    <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:20px; opacity:0.8;">
+                        🔒 Safe & Secure. Authenticated directly via Google Sign-In.
                     </p>
                 </div>
             </div>
@@ -510,7 +488,7 @@
                     <div class="settings-group" role="group" aria-labelledby="theme-settings-heading">
                         <h4 id="theme-settings-heading"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> App Theme</h4>
                         <div class="theme-grid" role="radiogroup" aria-label="Choose app theme">
-                            <button class="theme-card active" data-set-theme="sunset-glow" aria-label="Pastel Pink Rose theme" role="radio" aria-checked="true">
+                            <button class="theme-card" data-set-theme="sunset-glow" aria-label="Pastel Pink Rose theme" role="radio" aria-checked="false">
                                 <div class="theme-preview sunset-preview" aria-hidden="true"></div>
                                 <span>Pastel Pink Rose</span>
                             </button>
@@ -518,7 +496,7 @@
                                 <div class="theme-preview dark-glass-preview" aria-hidden="true"></div>
                                 <span>Midnight Glass</span>
                             </button>
-                            <button class="theme-card" data-set-theme="neon-cyber" aria-label="Neon Cyber theme" role="radio" aria-checked="false">
+                            <button class="theme-card active" data-set-theme="neon-cyber" aria-label="Neon Cyber theme" role="radio" aria-checked="true">
                                 <div class="theme-preview neon-preview" aria-hidden="true"></div>
                                 <span>Neon Cyber</span>
                             </button>
@@ -566,7 +544,7 @@
                                 <i class="fa-solid fa-circle-check cloud-icon" id="update-settings-icon" style="color:var(--accent-success);"></i>
                                 <div>
                                     <strong id="update-settings-title">Already in latest version</strong>
-                                    <span id="update-settings-subtext">RoutineCraft v1.6.0 (Build 16) — Latest</span>
+                                    <span id="update-settings-subtext">RoutineCraft v1.7.0 (Build 17) — Latest</span>
                                 </div>
                             </div>
                         </div>
@@ -624,16 +602,57 @@
                 </div>
 
                 <div class="modal-body">
+                    <!-- Time-Range Selector Tabs -->
+                    <div class="stats-time-range-tabs" id="stats-time-range-tabs">
+                        <button type="button" class="tab-btn active" data-stats-range="week"><i class="fa-solid fa-calendar-week"></i> This Week</button>
+                        <button type="button" class="tab-btn" data-stats-range="month"><i class="fa-solid fa-calendar-days"></i> Last 30 Days</button>
+                        <button type="button" class="tab-btn" data-stats-range="all"><i class="fa-solid fa-infinity"></i> All Time</button>
+                    </div>
+
+                    <!-- LIFETIME & ALL-TIME MILESTONES OVERVIEW CARD -->
+                    <section class="stats-milestone-card" id="stats-milestone-card">
+                        <div class="milestone-grid">
+                            <div class="milestone-item">
+                                <span class="milestone-icon">🚀</span>
+                                <div class="milestone-text">
+                                    <span class="milestone-label">Started App On</span>
+                                    <strong class="milestone-val" id="stats-member-since-val">Aug 12, 2026</strong>
+                                </div>
+                            </div>
+                            <div class="milestone-item">
+                                <span class="milestone-icon">🏆</span>
+                                <div class="milestone-text">
+                                    <span class="milestone-label">All-Time Completed</span>
+                                    <strong class="milestone-val" id="stats-lifetime-completed-val">24 tasks</strong>
+                                </div>
+                            </div>
+                            <div class="milestone-item">
+                                <span class="milestone-icon">🔥</span>
+                                <div class="milestone-text">
+                                    <span class="milestone-label">Best Streak</span>
+                                    <strong class="milestone-val" id="stats-best-streak-val">5 days</strong>
+                                </div>
+                            </div>
+                            <div class="milestone-item">
+                                <span class="milestone-icon">📅</span>
+                                <div class="milestone-text">
+                                    <span class="milestone-label">Active Days</span>
+                                    <strong class="milestone-val" id="stats-active-days-val">6 days</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
                     <!-- OVERALL PROGRESS DASHBOARD CARD -->
-                    <section class="overall-progress-card">
+                    <section class="overall-progress-card" id="stats-progress-card">
                         <div class="overall-progress-header">
-                            <h3>Overall Progress</h3>
+                            <h3 id="stats-chart-title">Weekly Progress</h3>
                         </div>
                         
                         <div class="overall-progress-body">
-                            <!-- Left: Mon-Sun Bar Chart with 0-10 Y-Axis Scale -->
+                            <!-- Left: Bar Chart -->
                             <div class="overall-chart-container">
-                                <div class="chart-y-axis">
+                                <div class="chart-y-axis" id="stats-chart-y-axis">
                                     <span>10</span>
                                     <span>8</span>
                                     <span>6</span>
@@ -642,7 +661,7 @@
                                     <span>0</span>
                                 </div>
                                 <div class="overall-bars-wrapper" id="overall-bars-wrapper">
-                                    <!-- Mon-Sun Bars -->
+                                    <!-- Dynamic Bars -->
                                 </div>
                             </div>
 
@@ -664,7 +683,7 @@
                     </section>
 
                     <!-- WEEKLY DAY COLUMNS DASHBOARD -->
-                    <div class="planner-grid-section">
+                    <div class="planner-grid-section" id="weekly-planner-section">
                         <h4 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
                             <i class="fa-solid fa-calendar-week" style="color:var(--accent-primary);"></i> Daily Completion & Task Breakdown
                         </h4>
@@ -676,11 +695,25 @@
                     <!-- 30-Day Habit Activity Heatmap Matrix Grid -->
                     <div class="heatmap-section">
                         <div class="heatmap-header">
-                            <h4><i class="fa-solid fa-border-all"></i> 30-Day Habit Activity Heatmap</h4>
+                            <h4 id="heatmap-section-title"><i class="fa-solid fa-border-all"></i> 30-Day Habit Activity Heatmap</h4>
                             <span class="heatmap-legend">Less <span class="lvl-0"></span><span class="lvl-1"></span><span class="lvl-2"></span><span class="lvl-3"></span> More</span>
                         </div>
                         <div class="heatmap-grid" id="heatmap-grid">
-                            <!-- 30 Glowing Tile Boxes -->
+                            <!-- Glowing Tile Boxes -->
+                        </div>
+
+                        <!-- Interactive Day Detail Card -->
+                        <div class="heatmap-day-detail glass-card hide" id="heatmap-day-detail" style="margin-top:12px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.06); border:1px solid var(--card-border);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:1.1rem;">📅</span>
+                                    <strong id="heatmap-detail-date" style="font-size:0.88rem; color:var(--text-primary);">Aug 17, 2026</strong>
+                                </div>
+                                <button type="button" id="close-heatmap-detail-btn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div id="heatmap-detail-tasks-list" style="display:flex; flex-direction:column; gap:6px; font-size:0.84rem;">
+                                <!-- Task items populated on tile click -->
+                            </div>
                         </div>
                     </div>
 
@@ -689,6 +722,17 @@
                         <h4><i class="fa-solid fa-list-check"></i> Category Distribution</h4>
                         <div id="category-bars-container" class="category-bars">
                             <!-- Category progress bars -->
+                        </div>
+                    </div>
+
+                    <!-- Full Activity History Explorer -->
+                    <div class="history-log-section" id="history-log-section" style="margin-top:16px;">
+                        <h4 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-primary);"></i> Full History from Start Date</span>
+                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:600;" id="history-total-days-count">Recorded Days</span>
+                        </h4>
+                        <div class="history-days-list" id="history-days-list" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding-right:4px;">
+                            <!-- History items rendered dynamically -->
                         </div>
                     </div>
                 </div>
@@ -709,13 +753,13 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Hardcode version query to force update SW cache
-                navigator.serviceWorker.register('./sw.js?v=16')
+                navigator.serviceWorker.register('./sw.js?v=17')
                     .then(reg => console.log('Service Worker Registered for Offline Mode 🚀', reg.scope))
                     .catch(err => console.log('SW registration failed: ', err));
             });
         }
     </script>
-    <script src="src/plugins/local-notifications.js?v=16"></script>
-    <script src="app.js?v=16"></script>
+    <script src="src/plugins/local-notifications.js?v=17"></script>
+    <script src="app.js?v=17"></script>
 </body>
 </html>

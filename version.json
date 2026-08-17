@@ -1,6 +1,6 @@
 {
-  "version": 16,
-  "versionName": "1.6.0",
-  "apkUrl": "./RoutineCraft_v16.apk",
-  "releaseNotes": "Version 16 release: Refined update notification system, improved offline persistence, enhanced push reminders, and optimized performance across all views."
+  "version": 17,
+  "versionName": "1.7.0",
+  "apkUrl": "./RoutineCraft_v17.apk",
+  "releaseNotes": "Version 17 release: Added Native Android Google Sign-In, 1-Month & All-Time Stats & History Explorer, persistent repeating notifications, Neon Cyber default theme, and instant cache-free updates."
 }

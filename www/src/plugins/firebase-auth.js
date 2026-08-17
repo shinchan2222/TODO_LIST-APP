@@ -82,17 +82,68 @@ window.RC_FIREBASE = {
     return null;
   },
 
+  /** Initialize GoogleAuth for Native Android */
+  async initGoogleAuth() {
+    const googleAuthPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) || window.GoogleAuth;
+    if (googleAuthPlugin && typeof googleAuthPlugin.initialize === 'function') {
+      try {
+        await googleAuthPlugin.initialize({
+          clientId: "1037852256619-web.apps.googleusercontent.com",
+          scopes: ["profile", "email"],
+          grantOfflineAccess: true
+        });
+        console.log("[RC_FIREBASE] Native GoogleAuth plugin initialized.");
+      } catch (e) {
+        console.warn("[RC_FIREBASE] GoogleAuth init warning:", e);
+      }
+    }
+  },
+
   /**
-   * Sign In with Google (Popup with Mobile Redirect & Storage Fallback)
+   * Sign In with Google (Native Android Account Picker or Web Popup)
    */
   async signInWithGoogle() {
     if (!this.initialized && !this.init()) {
       throw new Error('Firebase not initialized.');
     }
 
+    const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+                     window.location.protocol === 'capacitor:' ||
+                     window.location.protocol === 'file:';
+
+    const googleAuthPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) || window.GoogleAuth;
+
+    // 1. Native Android flow
+    if (isNative && googleAuthPlugin) {
+      try {
+        console.log("[RC_FIREBASE] Starting Native Android Google Sign-In...");
+        const googleUser = await googleAuthPlugin.signIn();
+        if (!googleUser) throw new Error("Google Sign-In cancelled");
+
+        const idToken = (googleUser.authentication && googleUser.authentication.idToken) || googleUser.idToken;
+        if (idToken && firebase.auth && firebase.auth.GoogleAuthProvider) {
+          const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+          const userCred = await firebase.auth().signInWithCredential(credential);
+          return userCred.user;
+        }
+
+        return {
+          email: googleUser.email,
+          displayName: googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : googleUser.email.split('@')[0]),
+          photoURL: googleUser.imageUrl || googleUser.photoURL || null,
+          uid: googleUser.id || googleUser.uid || googleUser.email
+        };
+      } catch (nativeErr) {
+        console.warn("[RC_FIREBASE] Native Google Sign-In error:", nativeErr);
+        throw nativeErr;
+      }
+    }
+
+    // 2. Web Browser flow
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.addScope('profile');
     provider.addScope('email');
+    provider.setCustomParameters({ prompt: 'select_account' });
 
     try {
       const result = await firebase.auth().signInWithPopup(provider);
@@ -100,7 +151,7 @@ window.RC_FIREBASE = {
       return result.user;
     } catch (error) {
       console.warn('[RC_FIREBASE] Google Sign-In caught error:', error ? (error.message || error) : 'unknown');
-      throw new Error('BROWSER_STORAGE_RESTRICTED');
+      throw error;
     }
   },
 
