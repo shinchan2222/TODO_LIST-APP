@@ -204,6 +204,10 @@
                 <i class="fa-solid fa-list-check"></i>
                 <span>Tasks</span>
             </button>
+            <button class="nav-item" data-nav="focus">
+                <i class="fa-solid fa-stopwatch"></i>
+                <span>Focus</span>
+            </button>
             <button class="nav-item" data-nav="analytics">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Stats</span>
@@ -536,6 +540,44 @@
                         </div>
                     </div>
 
+                    <!-- Streak Protection & Rest Days -->
+                    <div class="settings-group">
+                        <h4><i class="fa-solid fa-shield-halved" style="color:var(--accent-primary);"></i> Streak Protection & Rest Days</h4>
+                        <div class="streak-protection-card" style="background:rgba(255,255,255,0.04); padding:12px; border-radius:12px; border:1px solid var(--card-border); margin-bottom:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <div>
+                                    <strong style="font-size:0.88rem; color:var(--text-primary);">🛡️ Streak Freeze Tokens</strong>
+                                    <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Automatically protects your streak if you miss a day.</p>
+                                </div>
+                                <span class="badge" style="background:rgba(0,242,254,0.18); color:#00f2fe; font-weight:700; font-size:0.82rem; padding:4px 8px; border-radius:8px;" id="streak-freeze-count-badge">2 / 2 Active</span>
+                            </div>
+
+                            <label style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">
+                                Planned Rest Days (Streaks won't break on these days):
+                            </label>
+                            <div class="rest-days-selector" id="rest-days-selector" style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <button type="button" class="rest-day-pill" data-day="0">Sun</button>
+                                <button type="button" class="rest-day-pill" data-day="1">Mon</button>
+                                <button type="button" class="rest-day-pill" data-day="2">Tue</button>
+                                <button type="button" class="rest-day-pill" data-day="3">Wed</button>
+                                <button type="button" class="rest-day-pill" data-day="4">Thu</button>
+                                <button type="button" class="rest-day-pill" data-day="5">Fri</button>
+                                <button type="button" class="rest-day-pill" data-day="6">Sat</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sound FX & Haptics Toggle -->
+                    <div class="settings-group">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <h4 style="margin:0; font-size:0.92rem;"><i class="fa-solid fa-volume-high"></i> Sound FX & Haptics</h4>
+                                <span style="font-size:0.75rem; color:var(--text-secondary);">Subtle audio chimes & vibrations upon completing tasks.</span>
+                            </div>
+                            <input type="checkbox" id="sound-haptics-toggle" checked style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent-primary);">
+                        </div>
+                    </div>
+
                     <!-- APP UPDATES & VERSION SECTION -->
                     <div class="settings-group">
                         <h4><i class="fa-solid fa-cloud-arrow-down"></i> App Updates</h4>
@@ -544,7 +586,7 @@
                                 <i class="fa-solid fa-circle-check cloud-icon" id="update-settings-icon" style="color:var(--accent-success);"></i>
                                 <div>
                                     <strong id="update-settings-title">Already in latest version</strong>
-                                    <span id="update-settings-subtext">RoutineCraft v1.7.0 (Build 17) — Latest</span>
+                                    <span id="update-settings-subtext">RoutineCraft v1.8.0 (Build 18) — Latest</span>
                                 </div>
                             </div>
                         </div>
@@ -562,17 +604,20 @@
                     <div class="settings-group hide-on-native" id="website-download-section">
                         <h4><i class="fa-brands fa-android" style="color:#3DDC84;"></i> Android App Download</h4>
                         <p class="settings-desc">Download the standalone Android app APK for native offline tracking & reminders.</p>
-                        <a href="./RoutineCraft_v16.apk" download="RoutineCraft_v16.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
-                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v16.apk
+                        <a href="./RoutineCraft_v18.apk" download="RoutineCraft_v18.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
+                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v18.apk
                         </a>
                     </div>
 
                     <!-- Local Data Backup & Reset -->
                     <div class="settings-group">
-                        <h4><i class="fa-solid fa-database"></i> Offline File Export / Reset</h4>
-                        <div class="backup-actions">
+                        <h4><i class="fa-solid fa-database"></i> Offline Data Export / Reset</h4>
+                        <div class="backup-actions" style="margin-bottom:8px;">
                             <button class="btn btn-secondary" id="export-data-btn">
                                 <i class="fa-solid fa-download"></i> Export JSON
+                            </button>
+                            <button class="btn btn-secondary" id="export-csv-btn">
+                                <i class="fa-solid fa-file-csv"></i> Export CSV
                             </button>
                             <button class="btn btn-secondary" id="import-data-btn">
                                 <i class="fa-solid fa-upload"></i> Import JSON
@@ -737,8 +782,86 @@
                     </div>
                 </div>
 
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="close-analytics-btn">Close Stats</button>
+                <div class="modal-actions" style="display:flex; gap:8px;">
+                    <button type="button" class="btn btn-secondary" id="print-pdf-report-btn" style="flex:1;">
+                        <i class="fa-solid fa-file-pdf"></i> Print / PDF Report
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="close-analytics-btn" style="flex:1;">Close Stats</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. POMODORO FOCUS TIMER MODAL -->
+        <div class="modal-overlay hide" id="focus-modal">
+            <div class="modal-content glass-card focus-modal-card" style="max-width:440px;">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="fa-solid fa-stopwatch" style="color:var(--accent-primary);"></i> Pomodoro Focus Timer</h3>
+                    <button class="close-modal-btn" id="close-focus-modal">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body" style="text-align:center;">
+                    <!-- Mode Selector -->
+                    <div class="focus-modes-tabs" id="focus-modes-tabs" style="display:flex; gap:6px; background:var(--input-bg); padding:4px; border-radius:var(--radius-md); margin-bottom:14px;">
+                        <button type="button" class="tab-btn active" data-focus-mode="pomodoro" style="flex:1; padding:8px 4px; font-size:0.8rem; border-radius:var(--radius-sm); border:none; background:transparent; color:var(--text-secondary); cursor:pointer;">Focus (25m)</button>
+                        <button type="button" class="tab-btn" data-focus-mode="shortBreak" style="flex:1; padding:8px 4px; font-size:0.8rem; border-radius:var(--radius-sm); border:none; background:transparent; color:var(--text-secondary); cursor:pointer;">Break (5m)</button>
+                        <button type="button" class="tab-btn" data-focus-mode="longBreak" style="flex:1; padding:8px 4px; font-size:0.8rem; border-radius:var(--radius-sm); border:none; background:transparent; color:var(--text-secondary); cursor:pointer;">Long (15m)</button>
+                    </div>
+
+                    <!-- Task Selector -->
+                    <div class="form-group" style="margin-bottom:16px; text-align:left;">
+                        <label for="focus-task-select" style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:4px; display:block;">Active Task Goal:</label>
+                        <select id="focus-task-select" style="width:100%; padding:10px 12px; border-radius:10px; background:var(--input-bg); border:1px solid var(--card-border); color:var(--text-primary); font-size:0.85rem;">
+                            <option value="">🎯 General Focus Session</option>
+                        </select>
+                    </div>
+
+                    <!-- Circular Animated Timer Ring -->
+                    <div class="focus-timer-container" style="position:relative; width:200px; height:200px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center;">
+                        <svg width="200" height="200" style="transform:rotate(-90deg);">
+                            <circle stroke="rgba(255,255,255,0.08)" stroke-width="10" fill="transparent" r="85" cx="100" cy="100"/>
+                            <circle id="focus-ring-fill" stroke="var(--accent-primary)" stroke-width="10" stroke-linecap="round" fill="transparent" r="85" cx="100" cy="100" style="stroke-dasharray:534.07; stroke-dashoffset:0; transition:stroke-dashoffset 0.5s ease;"/>
+                        </svg>
+                        <div style="position:absolute; display:flex; flex-direction:column; align-items:center;">
+                            <span id="focus-time-display" style="font-size:2.4rem; font-weight:800; font-family:var(--font-family-heading); color:var(--text-primary); letter-spacing:1px;">25:00</span>
+                            <span id="focus-status-label" style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Ready to Focus</span>
+                        </div>
+                    </div>
+
+                    <!-- Timer Controls -->
+                    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:16px;">
+                        <button type="button" class="btn btn-primary" id="focus-toggle-btn" style="min-width:140px; padding:12px 24px; font-size:0.95rem; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;">
+                            <i class="fa-solid fa-play" id="focus-toggle-icon"></i> <span id="focus-toggle-text">Start Focus</span>
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="focus-reset-btn" title="Reset Timer" style="padding:12px 16px;">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+
+                    <!-- Ambient Sound Selector -->
+                    <div style="background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; border:1px solid var(--card-border); margin-bottom:14px;">
+                        <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; display:block; margin-bottom:8px;">
+                            <i class="fa-solid fa-headphones"></i> Ambient Focus Soundscape (Synthesizer)
+                        </label>
+                        <div id="focus-sound-chips" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
+                            <button type="button" class="sound-chip active" data-sound="none" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🔇 Off</button>
+                            <button type="button" class="sound-chip" data-sound="lofi" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🎧 Cyber Pulse</button>
+                            <button type="button" class="sound-chip" data-sound="rain" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🌧️ Rain</button>
+                            <button type="button" class="sound-chip" data-sound="waves" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🌊 Ocean Waves</button>
+                        </div>
+                    </div>
+
+                    <!-- Focus Stats Mini-Grid -->
+                    <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;">
+                        <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; border:1px solid var(--card-border);">
+                            <strong id="focus-today-minutes-val" style="font-size:1.1rem; color:var(--accent-primary); display:block;">0</strong>
+                            <span style="font-size:0.72rem; color:var(--text-secondary);">Focus Mins Today</span>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; border:1px solid var(--card-border);">
+                            <strong id="focus-completed-sessions-val" style="font-size:1.1rem; color:var(--accent-success); display:block;">0</strong>
+                            <span style="font-size:0.72rem; color:var(--text-secondary);">Sessions Completed</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -753,13 +876,13 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Hardcode version query to force update SW cache
-                navigator.serviceWorker.register('./sw.js?v=17')
+                navigator.serviceWorker.register('./sw.js?v=18')
                     .then(reg => console.log('Service Worker Registered for Offline Mode 🚀', reg.scope))
                     .catch(err => console.log('SW registration failed: ', err));
             });
         }
     </script>
-    <script src="src/plugins/local-notifications.js?v=17"></script>
-    <script src="app.js?v=17"></script>
+    <script src="src/plugins/local-notifications.js?v=18"></script>
+    <script src="app.js?v=18"></script>
 </body>
 </html>

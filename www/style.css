@@ -2206,4 +2206,88 @@ a:focus-visible {
     font-size: 0.75rem;
 }
 
+/* Rest Day Pills */
+.rest-day-pill {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.rest-day-pill.active {
+    background: rgba(0, 242, 254, 0.18);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);
+}
+
+/* Sound Chips */
+.sound-chip {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    border-radius: 16px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.sound-chip.active {
+    background: rgba(0, 242, 254, 0.18);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+/* Focus Mode Tab States */
+.focus-modes-tabs .tab-btn.active {
+    background: var(--accent-primary) !important;
+    color: #000 !important;
+    font-weight: 700;
+}
+
+/* Task Start Focus Button inside Task Card */
+.task-focus-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: var(--transition-fast);
+}
+
+.task-focus-btn:hover {
+    color: var(--accent-primary);
+    background: rgba(0, 242, 254, 0.12);
+}
+
+/* Print Styles for Monthly Report */
+@media print {
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+    .header, .bottom-nav, .controls-section, .tasks-container, .fab-btn, .modal-actions, .close-modal-btn, .stats-time-range-tabs {
+        display: none !important;
+    }
+    .modal-overlay {
+        position: static !important;
+        background: transparent !important;
+    }
+    .modal-content {
+        box-shadow: none !important;
+        border: none !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+}
+
+
 

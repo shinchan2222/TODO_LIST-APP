@@ -63,9 +63,31 @@ window.RC_NOTIFICATIONS = {
       for (const ch of channelList) {
         await LocalNotifications.createChannel(ch);
       }
-      console.log(`[RC_NOTIFICATIONS] ${channelList.length} Android channels registered.`);
+      // Register notification action buttons: [Mark Done], [Snooze 15m]
+      if (typeof LocalNotifications.registerActionTypes === 'function') {
+        await LocalNotifications.registerActionTypes({
+          types: [
+            {
+              id: 'TASK_REMINDER_ACTIONS',
+              actions: [
+                {
+                  id: 'MARK_DONE',
+                  title: '✅ Mark Done',
+                  foreground: true
+                },
+                {
+                  id: 'SNOOZE_15',
+                  title: '⏰ Snooze 15m',
+                  foreground: false
+                }
+              ]
+            }
+          ]
+        });
+      }
+      console.log(`[RC_NOTIFICATIONS] ${channelList.length} Android channels and action types registered.`);
     } catch (err) {
-      console.warn('[RC_NOTIFICATIONS] Channel registration failed:', err);
+      console.warn('[RC_NOTIFICATIONS] Channel/Action registration failed:', err);
     }
   }
 };

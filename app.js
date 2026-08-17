@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 17; // updated version
+    const APP_VERSION = 18; // updated version
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
@@ -50,7 +50,12 @@
         summaryNotificationTime: '20:00',
         lastBackupTime: null,
         backupFrequency: 'daily',
-        isGoogleSynced: false
+        isGoogleSynced: false,
+        restDays: [0], // Sunday
+        streakFreezes: 2,
+        soundHapticsEnabled: true,
+        focusMinutes: 0,
+        focusSessions: 0
     };
 
     const DEFAULT_TASKS = [
@@ -373,13 +378,34 @@
         avatarOpts: document.querySelectorAll('.avatar-opt'),
         themeCards: document.querySelectorAll('.theme-card'),
         exportDataBtn: document.getElementById('export-data-btn'),
+        exportCsvBtn: document.getElementById('export-csv-btn'),
         importDataBtn: document.getElementById('import-data-btn'),
         importFileInput: document.getElementById('import-file-input'),
         resetDataBtn: document.getElementById('reset-data-btn'),
 
+        streakFreezeCountBadge: document.getElementById('streak-freeze-count-badge'),
+        restDayPills: document.querySelectorAll('#rest-days-selector .rest-day-pill'),
+        soundHapticsToggle: document.getElementById('sound-haptics-toggle'),
+
+        focusModal: document.getElementById('focus-modal'),
+        closeFocusModalBtn: document.getElementById('close-focus-modal'),
+        focusModesTabs: document.querySelectorAll('#focus-modes-tabs .tab-btn'),
+        focusTaskSelect: document.getElementById('focus-task-select'),
+        focusRingFill: document.getElementById('focus-ring-fill'),
+        focusTimeDisplay: document.getElementById('focus-time-display'),
+        focusStatusLabel: document.getElementById('focus-status-label'),
+        focusToggleBtn: document.getElementById('focus-toggle-btn'),
+        focusToggleIcon: document.getElementById('focus-toggle-icon'),
+        focusToggleText: document.getElementById('focus-toggle-text'),
+        focusResetBtn: document.getElementById('focus-reset-btn'),
+        focusSoundChips: document.querySelectorAll('#focus-sound-chips .sound-chip'),
+        focusTodayMinutesVal: document.getElementById('focus-today-minutes-val'),
+        focusCompletedSessionsVal: document.getElementById('focus-completed-sessions-val'),
+
         analyticsModal: document.getElementById('analytics-modal'),
         closeAnalyticsModalBtn: document.getElementById('close-analytics-modal'),
         closeAnalyticsBtn: document.getElementById('close-analytics-btn'),
+        printPdfReportBtn: document.getElementById('print-pdf-report-btn'),
         statsTimeRangeTabs: document.querySelectorAll('#stats-time-range-tabs .tab-btn'),
         statsMemberSinceVal: document.getElementById('stats-member-since-val'),
         statsLifetimeCompletedVal: document.getElementById('stats-lifetime-completed-val'),
@@ -544,17 +570,28 @@
     }
 
     function calculateStreak(completedDates = []) {
-        if (!completedDates || completedDates.length === 0) return 0;
+        if (!completedDates) completedDates = [];
+        const restDays = state.profile.restDays || [0]; // default Sun
+        let availableFreezes = state.profile.streakFreezes !== undefined ? state.profile.streakFreezes : 2;
+        
+        let currentCheckDate = new Date();
+        const todayDayOfWeek = currentCheckDate.getDay();
         const todayStr = getTodayStr();
         const yesterdayStr = getPastDateStr(1);
         
-        let currentCheckDate = new Date();
         let streak = 0;
         
         if (completedDates.includes(todayStr)) {
             streak = 1;
             currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+        } else if (restDays.includes(todayDayOfWeek)) {
+            // Today is a planned rest day, so check from yesterday
+            currentCheckDate.setDate(currentCheckDate.getDate() - 1);
         } else if (completedDates.includes(yesterdayStr)) {
+            streak = 1;
+            currentCheckDate.setDate(currentCheckDate.getDate() - 2);
+        } else if (availableFreezes > 0 && completedDates.includes(getPastDateStr(2))) {
+            // Yesterday was missed but preserved via Streak Freeze
             streak = 1;
             currentCheckDate.setDate(currentCheckDate.getDate() - 2);
         } else {
@@ -563,8 +600,17 @@
         
         while (true) {
             const checkStr = currentCheckDate.toISOString().split('T')[0];
+            const checkDayOfWeek = currentCheckDate.getDay();
+            
             if (completedDates.includes(checkStr)) {
                 streak++;
+                currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+            } else if (restDays.includes(checkDayOfWeek)) {
+                // Rest day: keep streak continuous without incrementing or breaking
+                currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+            } else if (availableFreezes > 0) {
+                // Use streak freeze for this missed non-rest day
+                availableFreezes--;
                 currentCheckDate.setDate(currentCheckDate.getDate() - 1);
             } else {
                 break;
@@ -572,6 +618,335 @@
         }
         return streak;
     }
+
+    // --- SYNTHESIZED WEB AUDIO & HAPTIC ENGINE ---
+    const AudioEngine = {
+        ctx: null,
+        ambientNode: null,
+        ambientGain: null,
+        
+        init() {
+            if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume().catch(() => {});
+            }
+        },
+
+        playTaskComplete() {
+            if (!state.profile.soundHapticsEnabled) return;
+            this.init();
+            if (!this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                
+                // Arpeggio C5 (523Hz) -> E5 (659Hz) -> G5 (784Hz) -> C6 (1046Hz)
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.05);
+                osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.10);
+                osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
+                
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.32);
+                
+                this.vibrate([35]);
+            } catch(e) {}
+        },
+
+        playStreakCelebration() {
+            if (!state.profile.soundHapticsEnabled) return;
+            this.init();
+            if (!this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                    gain.gain.setValueAtTime(0.22, now + i * 0.07);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.07);
+                    osc.stop(now + i * 0.07 + 0.40);
+                });
+                this.vibrate([50, 40, 70]);
+            } catch(e) {}
+        },
+
+        playFocusEnd() {
+            if (!state.profile.soundHapticsEnabled) return;
+            this.init();
+            if (!this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                [440, 880].forEach((freq) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 1.25);
+                });
+                this.vibrate([100, 100, 200]);
+            } catch(e) {}
+        },
+
+        playAmbient(type) {
+            this.stopAmbient();
+            if (type === 'none') return;
+            this.init();
+            if (!this.ctx) return;
+            try {
+                if (type === 'lofi') {
+                    const osc = this.ctx.createOscillator();
+                    const filter = this.ctx.createBiquadFilter();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(350, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    this.ambientNode = osc;
+                    this.ambientGain = gain;
+                } else if (type === 'rain' || type === 'waves') {
+                    const bufferSize = this.ctx.sampleRate * 2;
+                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+                    const whiteNoise = this.ctx.createBufferSource();
+                    whiteNoise.buffer = noiseBuffer;
+                    whiteNoise.loop = true;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = type === 'rain' ? 'lowpass' : 'bandpass';
+                    filter.frequency.setValueAtTime(type === 'rain' ? 700 : 380, this.ctx.currentTime);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+
+                    whiteNoise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    whiteNoise.start();
+                    this.ambientNode = whiteNoise;
+                    this.ambientGain = gain;
+                }
+            } catch(e) {
+                console.warn('Ambient audio error:', e);
+            }
+        },
+
+        stopAmbient() {
+            if (this.ambientNode) {
+                try {
+                    this.ambientNode.stop();
+                    this.ambientNode.disconnect();
+                } catch(e) {}
+                this.ambientNode = null;
+            }
+        },
+
+        vibrate(pattern = [35]) {
+            if (!state.profile.soundHapticsEnabled) return;
+            if (navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        }
+    };
+
+    // --- POMODORO FOCUS TIMER ENGINE ---
+    const FocusEngine = {
+        mode: 'pomodoro',
+        duration: 25 * 60,
+        remaining: 25 * 60,
+        isRunning: false,
+        timerInterval: null,
+        activeTaskId: '',
+        ambientSound: 'none',
+
+        DURATIONS: {
+            pomodoro: 25 * 60,
+            shortBreak: 5 * 60,
+            longBreak: 15 * 60
+        },
+
+        init() {
+            this.setMode('pomodoro');
+            this.updateDisplay();
+            this.populateTaskDropdown();
+        },
+
+        open(taskId = '') {
+            this.populateTaskDropdown();
+            if (taskId) {
+                this.activeTaskId = taskId;
+                if (dom.focusTaskSelect) dom.focusTaskSelect.value = taskId;
+            }
+            if (dom.focusModal) dom.focusModal.classList.remove('hide');
+            this.updateDisplay();
+        },
+
+        close() {
+            if (dom.focusModal) dom.focusModal.classList.add('hide');
+        },
+
+        populateTaskDropdown() {
+            if (!dom.focusTaskSelect) return;
+            dom.focusTaskSelect.innerHTML = '<option value="">🎯 General Focus Session</option>';
+            const pendingTasks = state.tasks.filter(t => !t.completed && isTaskToday(t));
+            pendingTasks.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = `🎯 ${t.title}`;
+                dom.focusTaskSelect.appendChild(opt);
+            });
+        },
+
+        setMode(newMode) {
+            this.mode = newMode;
+            this.duration = this.DURATIONS[newMode] || (25 * 60);
+            this.remaining = this.duration;
+            this.pause();
+            
+            if (dom.focusModesTabs) {
+                dom.focusModesTabs.forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.focusMode === newMode);
+                });
+            }
+            
+            if (dom.focusStatusLabel) {
+                dom.focusStatusLabel.textContent = newMode === 'pomodoro' ? 'Ready to Focus' : 'Break Time';
+            }
+            this.updateDisplay();
+        },
+
+        toggle() {
+            if (this.isRunning) {
+                this.pause();
+            } else {
+                this.start();
+            }
+        },
+
+        start() {
+            AudioEngine.init();
+            this.isRunning = true;
+            if (dom.focusToggleBtn) {
+                if (dom.focusToggleIcon) dom.focusToggleIcon.className = 'fa-solid fa-pause';
+                if (dom.focusToggleText) dom.focusToggleText.textContent = 'Pause';
+            }
+            if (dom.focusStatusLabel) {
+                dom.focusStatusLabel.textContent = this.mode === 'pomodoro' ? '⚡ Focusing...' : '☕ Resting...';
+            }
+            if (this.ambientSound !== 'none') {
+                AudioEngine.playAmbient(this.ambientSound);
+            }
+            
+            clearInterval(this.timerInterval);
+            this.timerInterval = setInterval(() => this.tick(), 1000);
+        },
+
+        pause() {
+            this.isRunning = false;
+            clearInterval(this.timerInterval);
+            AudioEngine.stopAmbient();
+            if (dom.focusToggleBtn) {
+                if (dom.focusToggleIcon) dom.focusToggleIcon.className = 'fa-solid fa-play';
+                if (dom.focusToggleText) dom.focusToggleText.textContent = this.remaining < this.duration ? 'Resume' : 'Start Focus';
+            }
+            if (dom.focusStatusLabel) {
+                dom.focusStatusLabel.textContent = 'Paused';
+            }
+        },
+
+        reset() {
+            this.pause();
+            this.remaining = this.duration;
+            this.updateDisplay();
+            if (dom.focusStatusLabel) {
+                dom.focusStatusLabel.textContent = this.mode === 'pomodoro' ? 'Ready to Focus' : 'Break Time';
+            }
+        },
+
+        tick() {
+            if (this.remaining > 0) {
+                this.remaining--;
+                this.updateDisplay();
+            } else {
+                this.complete();
+            }
+        },
+
+        complete() {
+            this.pause();
+            AudioEngine.playFocusEnd();
+            
+            if (this.mode === 'pomodoro') {
+                const focusMins = Math.round(this.duration / 60);
+                state.profile.focusMinutes = (state.profile.focusMinutes || 0) + focusMins;
+                state.profile.focusSessions = (state.profile.focusSessions || 0) + 1;
+                saveState();
+                
+                showToast(`🎉 Focus session complete! (+${focusMins} mins)`);
+                if (dom.focusTodayMinutesVal) dom.focusTodayMinutesVal.textContent = state.profile.focusMinutes;
+                if (dom.focusCompletedSessionsVal) dom.focusCompletedSessionsVal.textContent = state.profile.focusSessions;
+                
+                this.setMode('shortBreak');
+            } else {
+                showToast('☕ Break finished! Ready to focus again.');
+                this.setMode('pomodoro');
+            }
+        },
+
+        updateDisplay() {
+            const mins = Math.floor(this.remaining / 60);
+            const secs = this.remaining % 60;
+            const str = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            if (dom.focusTimeDisplay) dom.focusTimeDisplay.textContent = str;
+            
+            if (dom.focusRingFill) {
+                const total = this.duration || 1;
+                const offset = 534.07 * (1 - (this.remaining / total));
+                dom.focusRingFill.style.strokeDashoffset = offset;
+            }
+            if (dom.focusTodayMinutesVal) dom.focusTodayMinutesVal.textContent = state.profile.focusMinutes || 0;
+            if (dom.focusCompletedSessionsVal) dom.focusCompletedSessionsVal.textContent = state.profile.focusSessions || 0;
+        },
+
+        setAmbient(soundType) {
+            this.ambientSound = soundType;
+            if (dom.focusSoundChips) {
+                dom.focusSoundChips.forEach(chip => {
+                    chip.classList.toggle('active', chip.dataset.sound === soundType);
+                });
+            }
+            if (this.isRunning) {
+                AudioEngine.playAmbient(soundType);
+            }
+        }
+    };
 
     function updateStreakAndHistory() {
         const todayStr = getTodayStr();
@@ -828,6 +1203,7 @@
                                 body: 'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
                                 schedule: sched,
                                 channelId: ch.id || 'task_reminder',
+                                actionTypeId: 'TASK_REMINDER_ACTIONS',
                                 iconColor: '#00f2fe',
                                 extra: { taskId: t.id }
                             };
@@ -1442,6 +1818,7 @@
                     ${subtasksHtml}
                 </div>
                 <div class="task-actions">
+                    <button class="action-btn focus-task-btn" title="Start Focus Timer"><i class="fa-solid fa-stopwatch" style="color:var(--accent-primary);"></i></button>
                     <button class="action-btn edit-btn" title="Edit Task"><i class="fa-solid fa-pen"></i></button>
                     <button class="action-btn delete-btn" title="Delete Task"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
@@ -1459,6 +1836,14 @@
                 toggleSubtaskComplete(task.id, subId, e.target.checked);
             });
         });
+
+        const focusBtn = card.querySelector('.focus-task-btn');
+        if (focusBtn) {
+            focusBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                FocusEngine.open(task.id);
+            });
+        }
 
         card.querySelector('.edit-btn').addEventListener('click', () => {
             openTaskModal(task);
@@ -1484,12 +1869,21 @@
             if (isCompleted) {
                 state.profile.totalCompletedCount = (state.profile.totalCompletedCount || 0) + 1;
                 cancelNotificationForTask(taskId); // cancel scheduled reminder
-                showToast('Task completed! \uD83C\uDF89');
+                AudioEngine.playTaskComplete();
+                
+                const todayPending = state.tasks.filter(function(t) { return isTaskToday(t) && !t.completed; });
+                if (todayPending.length === 0) {
+                    AudioEngine.playStreakCelebration();
+                    showToast('🏆 All tasks completed for today! Awesome!');
+                } else {
+                    showToast('Task completed! 🎉');
+                }
             } else {
                 // Re-schedule reminder if task is unchecked
                 schedulePwaTaskReminder(task);
             }
 
+            updateStreakAndHistory();
             saveState();
             renderTasks();
             checkAutoBackupSchedule();
@@ -1890,6 +2284,7 @@
         if (dom.profileModal) dom.profileModal.classList.add('hide');
         if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
         if (dom.authModal) dom.authModal.classList.add('hide');
+        if (dom.focusModal) dom.focusModal.classList.add('hide');
         if (dom.gdrivePermissionModal) dom.gdrivePermissionModal.classList.add('hide');
     }
 
@@ -1914,6 +2309,24 @@
         if (summaryInput) {
             summaryInput.value = state.profile.summaryNotificationTime || '20:00';
         }
+        // Populate rest days
+        state.profile.restDays = state.profile.restDays || [0];
+        if (dom.restDayPills) {
+            dom.restDayPills.forEach(pill => {
+                const dayNum = parseInt(pill.dataset.day, 10);
+                pill.classList.toggle('active', state.profile.restDays.includes(dayNum));
+            });
+        }
+        // Populate streak freeze badge
+        if (dom.streakFreezeCountBadge) {
+            const count = state.profile.streakFreezes !== undefined ? state.profile.streakFreezes : 2;
+            dom.streakFreezeCountBadge.textContent = `${count} / 2 Active`;
+        }
+        // Populate sound & haptics toggle
+        if (dom.soundHapticsToggle) {
+            dom.soundHapticsToggle.checked = state.profile.soundHapticsEnabled !== false;
+        }
+
         renderAccountStatusBar();
         renderUsersGrid();
         dom.profileModal.classList.remove('hide');
@@ -1922,6 +2335,14 @@
     function closeProfileModal() {
         if (dom.profileModal) dom.profileModal.classList.add('hide');
         setActiveNav('tasks');
+    }
+
+    if (dom.restDayPills) {
+        dom.restDayPills.forEach(pill => {
+            pill.addEventListener('click', () => {
+                pill.classList.toggle('active');
+            });
+        });
     }
 
     dom.avatarOpts.forEach(opt => {
@@ -1941,18 +2362,78 @@
     dom.saveProfileBtn.addEventListener('click', function() {
         state.profile.name = dom.profileNameInput.value.trim() || 'Productivity Hero';
         state.profile.backupFrequency = dom.backupFrequencySelect.value;
+        
+        // Save sound & haptic preferences
+        if (dom.soundHapticsToggle) {
+            state.profile.soundHapticsEnabled = dom.soundHapticsToggle.checked;
+        }
+
+        // Save planned rest days
+        const activeRestDays = [];
+        if (dom.restDayPills) {
+            dom.restDayPills.forEach(pill => {
+                if (pill.classList.contains('active')) {
+                    activeRestDays.push(parseInt(pill.dataset.day, 10));
+                }
+            });
+        }
+        state.profile.restDays = activeRestDays;
+
         // Read summary notification time from UI if the input exists
         var summaryInput = document.getElementById('summary-notif-time-input');
         if (summaryInput && summaryInput.value) {
             state.profile.summaryNotificationTime = summaryInput.value;
         }
+        
+        updateStreakAndHistory();
         saveState();
         renderHeaderProfile();
-        // Re-schedule summary with potentially new time
         scheduleSummaryNotification();
         closeProfileModal();
-        showToast('Settings & notifications saved! \uD83D\uDD14');
+        showToast('Settings & preferences saved! 💾');
     });
+
+    // --- CSV & PRINTABLE REPORT EXPORT ---
+    function exportTasksToCSV() {
+        const rows = [
+            ['Task ID', 'Title', 'Category', 'Priority', 'Due Date', 'Due Time', 'Recurring', 'Completed', 'Completed At', 'Subtasks Count', 'Completed Subtasks']
+        ];
+        
+        state.tasks.forEach(t => {
+            const subCount = (t.subtasks || []).length;
+            const subDone = (t.subtasks || []).filter(s => s.completed).length;
+            rows.push([
+                `"${t.id}"`,
+                `"${(t.title || '').replace(/"/g, '""')}"`,
+                `"${t.category || 'personal'}"`,
+                `"${t.priority || 'medium'}"`,
+                `"${t.dueDate || ''}"`,
+                `"${t.dueTime || ''}"`,
+                `"${t.recurring || 'none'}"`,
+                `"${t.completed ? 'Yes' : 'No'}"`,
+                `"${t.completedAt || ''}"`,
+                subCount,
+                subDone
+            ]);
+        });
+
+        const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', `RoutineCraft_Tasks_${getTodayStr()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('📄 Tasks exported to CSV successfully!');
+    }
+
+    function printMonthlyReport() {
+        if (dom.analyticsModal) dom.analyticsModal.classList.remove('hide');
+        setTimeout(() => {
+            window.print();
+        }, 300);
+    }
 
     // --- GOOGLE DRIVE BACKUP BUTTONS ---
     dom.headerGoogleLoginBtn.addEventListener('click', () => {
@@ -2360,6 +2841,52 @@
         dom.closeAnalyticsModalBtn.addEventListener('click', closeAnalyticsModal);
         dom.closeAnalyticsBtn.addEventListener('click', closeAnalyticsModal);
 
+        // Focus Modal Controls
+        FocusEngine.init();
+        if (dom.closeFocusModalBtn) {
+            dom.closeFocusModalBtn.addEventListener('click', () => {
+                FocusEngine.close();
+                setActiveNav('tasks');
+            });
+        }
+        if (dom.focusToggleBtn) {
+            dom.focusToggleBtn.addEventListener('click', () => {
+                FocusEngine.toggle();
+            });
+        }
+        if (dom.focusResetBtn) {
+            dom.focusResetBtn.addEventListener('click', () => {
+                FocusEngine.reset();
+            });
+        }
+        if (dom.focusModesTabs && dom.focusModesTabs.length > 0) {
+            dom.focusModesTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    FocusEngine.setMode(tab.dataset.focusMode);
+                });
+            });
+        }
+        if (dom.focusSoundChips && dom.focusSoundChips.length > 0) {
+            dom.focusSoundChips.forEach(chip => {
+                chip.addEventListener('click', () => {
+                    FocusEngine.setAmbient(chip.dataset.sound);
+                });
+            });
+        }
+        if (dom.focusTaskSelect) {
+            dom.focusTaskSelect.addEventListener('change', (e) => {
+                FocusEngine.activeTaskId = e.target.value;
+            });
+        }
+
+        // Export Actions
+        if (dom.exportCsvBtn) {
+            dom.exportCsvBtn.addEventListener('click', exportTasksToCSV);
+        }
+        if (dom.printPdfReportBtn) {
+            dom.printPdfReportBtn.addEventListener('click', printMonthlyReport);
+        }
+
         if (dom.bottomNavItems && dom.bottomNavItems.length > 0) {
             dom.bottomNavItems.forEach(nav => {
                 nav.addEventListener('click', () => {
@@ -2370,6 +2897,8 @@
                     if (view === 'tasks') {
                         renderTasks();
                         window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else if (view === 'focus') {
+                        FocusEngine.open();
                     } else if (view === 'analytics') {
                         openAnalyticsModal();
                     } else if (view === 'settings') {
@@ -2395,6 +2924,49 @@
             dom.closeHeatmapDetailBtn.addEventListener('click', () => {
                 if (dom.heatmapDayDetail) dom.heatmapDayDetail.classList.add('hide');
             });
+        }
+
+        // Native Android Notification Action Buttons Handler: [Mark Done] / [Snooze 15m]
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+            try {
+                window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
+                    const { actionId, notification } = notificationAction;
+                    const taskId = notification?.extra?.taskId;
+                    if (actionId === 'MARK_DONE' && taskId) {
+                        const task = state.tasks.find(t => t.id === taskId);
+                        if (task) {
+                            task.completed = true;
+                            task.completedAt = new Date().toISOString();
+                            updateStreakAndHistory();
+                            saveState();
+                            renderTasks();
+                            AudioEngine.playTaskComplete();
+                            showToast(`✅ "${task.title}" marked as complete!`);
+                        }
+                    } else if (actionId === 'SNOOZE_15' && taskId) {
+                        const task = state.tasks.find(t => t.id === taskId);
+                        if (task) {
+                            const snoozeDate = new Date(Date.now() + 15 * 60 * 1000);
+                            window.Capacitor.Plugins.LocalNotifications.schedule({
+                                notifications: [
+                                    {
+                                        id: Math.abs(hashCode(taskId + '_snooze')),
+                                        title: '⏰ Snoozed: ' + task.title,
+                                        body: 'Snoozed task reminder',
+                                        schedule: { at: snoozeDate },
+                                        channelId: 'task_reminder',
+                                        actionTypeId: 'TASK_REMINDER_ACTIONS',
+                                        extra: { taskId: task.id }
+                                    }
+                                ]
+                            }).catch(() => {});
+                            showToast(`⏰ "${task.title}" snoozed for 15 minutes.`);
+                        }
+                    }
+                });
+            } catch(err) {
+                console.warn('Action listener error:', err);
+            }
         }
 
         // Handle notification clicks routed from the Service Worker
