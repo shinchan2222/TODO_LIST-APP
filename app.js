@@ -2021,16 +2021,12 @@
 
     // --- IN-APP UPDATE CHECKER (VIA VERCEL / GITHUB RAW / RELATIVE VERSION.JSON) ---
     function checkForAppUpdates(isManualCheck = false) {
-        const relativeUrl = './version.json?t=' + Date.now();
-        const remoteUrl = 'https://todo-list-app-eight-pi.vercel.app/version.json?t=' + Date.now();
-        const githubRawUrl = 'https://raw.githubusercontent.com/shinchan2222/TODO_LIST-APP/main/version.json?t=' + Date.now();
-        const fetchOpts = {
-            cache: 'no-store',
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-            }
-        };
+        const timestamp = Date.now();
+        const endpoints = [
+            'https://todo-list-app-eight-pi.vercel.app/version.json?t=' + timestamp,
+            'https://raw.githubusercontent.com/shinchan2222/TODO_LIST-APP/main/version.json?t=' + timestamp,
+            './version.json?t=' + timestamp
+        ];
 
         let highestData = null;
 
@@ -2042,11 +2038,17 @@
             }
         }
 
-        Promise.all([
-            fetch(relativeUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null),
-            fetch(remoteUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null),
-            fetch(githubRawUrl, fetchOpts).then(res => res.json()).then(evaluate).catch(() => null)
-        ]).finally(function() {
+        const promises = endpoints.map(function(url) {
+            return fetch(url)
+                .then(function(res) {
+                    if (res && res.ok) return res.json();
+                    return null;
+                })
+                .then(evaluate)
+                .catch(function() { return null; });
+        });
+
+        Promise.all(promises).finally(function() {
             if (highestData && highestData.version && highestData.version > APP_VERSION) {
                 const rawApkUrl = highestData.apkUrl || (`https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v${highestData.version}.apk`);
                 try {
