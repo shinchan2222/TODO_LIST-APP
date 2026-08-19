@@ -78,7 +78,7 @@
       }
     },
 
-    /** Sign‑in with Google (Native Android Account Picker, Web Popup, or Direct Fallback) */
+    /** Sign‑in with Google (Native Android Account Picker or Firebase Web OAuth) */
     async signInWithGoogle() {
       const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
                        window.location.protocol === 'capacitor:' ||
@@ -100,46 +100,29 @@
             };
           }
         } catch (nativeErr) {
-          console.warn("[RC_FIREBASE] Native Google Sign-In error, falling back to Web OAuth:", nativeErr);
+          console.warn("[RC_FIREBASE] Native Google Sign-In error:", nativeErr);
           const errStr = (nativeErr && nativeErr.message) ? nativeErr.message : String(nativeErr);
           if (errStr.includes("cancel") || errStr.includes("12501")) {
             throw new Error("Google Sign-In was cancelled.");
           }
-          // If Code 10 or other developer error, continue to Step 2 Web Flow seamlessly
+          throw nativeErr;
         }
       }
 
       // 2. Web Browser / Firebase OAuth flow
       if (typeof firebase !== 'undefined' && firebase.auth) {
-        try {
-          if (!this.initialized) this.init();
-          const provider = new firebase.auth.GoogleAuthProvider();
-          provider.addScope("profile");
-          provider.addScope("email");
-          provider.setCustomParameters({ prompt: 'select_account' });
-          const result = await firebase.auth().signInWithPopup(provider);
-          if (result && result.user) {
-            return result.user;
-          }
-        } catch (e) {
-          console.warn("[RC_FIREBASE] Web Google sign‑in error:", e?.message);
+        if (!this.initialized) this.init();
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.addScope("profile");
+        provider.addScope("email");
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const result = await firebase.auth().signInWithPopup(provider);
+        if (result && result.user) {
+          return result.user;
         }
       }
 
-      // 3. Fallback: Prompt user for their Google email
-      const promptEmail = prompt("Enter your Google Account email (e.g. name@gmail.com):");
-      if (promptEmail && promptEmail.trim()) {
-        const cleanEmail = promptEmail.trim().toLowerCase();
-        const namePart = cleanEmail.split('@')[0].replace(/[._-]/g, ' ');
-        const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        return {
-          email: cleanEmail,
-          displayName: displayName,
-          photoURL: null,
-          uid: 'g_' + cleanEmail
-        };
-      }
-      throw new Error("Google Sign-In was cancelled.");
+      throw new Error("Google Sign-In service is unavailable. Please check your connection.");
     },
 
     /** Sign‑out */
