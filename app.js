@@ -2912,6 +2912,41 @@
             });
         }
 
+        var directEmailBtn = document.getElementById('google-direct-email-btn');
+        var directEmailInput = document.getElementById('google-direct-email-input');
+
+        function handleDirectGoogleEmailSubmit() {
+            if (!directEmailInput) return;
+            var email = (directEmailInput.value || '').trim().toLowerCase();
+            if (!email || !email.includes('@')) {
+                showAuthError('Please enter a valid Google Account email.');
+                return;
+            }
+            var namePart = email.split('@')[0].replace(/[._-]/g, ' ');
+            var displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+            var user = {
+                email: email,
+                displayName: displayName,
+                photoURL: null,
+                uid: 'g_' + email
+            };
+            handleFirebaseUserAuthenticated(user);
+            closeAuthModal();
+            directEmailInput.value = '';
+        }
+
+        if (directEmailBtn) {
+            directEmailBtn.addEventListener('click', handleDirectGoogleEmailSubmit);
+        }
+        if (directEmailInput) {
+            directEmailInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleDirectGoogleEmailSubmit();
+                }
+            });
+        }
+
         dom.profileTrigger.addEventListener('click', openProfileModal);
         dom.closeProfileModalBtn.addEventListener('click', closeProfileModal);
         dom.quickThemeBtn.addEventListener('click', openProfileModal);

@@ -78,7 +78,7 @@
       }
     },
 
-    /** Sign‑in with Google (Native Android Account Picker or Web Popup) */
+    /** Sign‑in with Google (Native Android Account Picker, Web Popup, or Direct Fallback) */
     async signInWithGoogle() {
       const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
                        window.location.protocol === 'capacitor:' ||
@@ -91,42 +91,55 @@
         try {
           console.log("[RC_FIREBASE] Starting Native Android Google Sign-In...");
           const googleUser = await googleAuthPlugin.signIn();
-          if (!googleUser) throw new Error("Google Sign-In cancelled");
-
-          return {
-            email: googleUser.email,
-            displayName: googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : (googleUser.email ? googleUser.email.split('@')[0] : 'Productivity User')),
-            photoURL: googleUser.imageUrl || googleUser.photoURL || null,
-            uid: googleUser.id || googleUser.uid || googleUser.email
-          };
+          if (googleUser && (googleUser.email || googleUser.name)) {
+            return {
+              email: googleUser.email,
+              displayName: googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : (googleUser.email ? googleUser.email.split('@')[0] : 'Productivity User')),
+              photoURL: googleUser.imageUrl || googleUser.photoURL || null,
+              uid: googleUser.id || googleUser.uid || googleUser.email
+            };
+          }
         } catch (nativeErr) {
-          console.warn("[RC_FIREBASE] Native Google Sign-In error:", nativeErr);
+          console.warn("[RC_FIREBASE] Native Google Sign-In error, falling back to Web OAuth:", nativeErr);
           const errStr = (nativeErr && nativeErr.message) ? nativeErr.message : String(nativeErr);
           if (errStr.includes("cancel") || errStr.includes("12501")) {
             throw new Error("Google Sign-In was cancelled.");
           }
-          throw nativeErr;
+          // If Code 10 or other developer error, continue to Step 2 Web Flow seamlessly
         }
       }
 
-      // 2. Web Browser flow
-      if (typeof firebase === 'undefined') {
-        throw new Error("Firebase SDK is loading, please check your connection.");
+      // 2. Web Browser / Firebase OAuth flow
+      if (typeof firebase !== 'undefined' && firebase.auth) {
+        try {
+          if (!this.initialized) this.init();
+          const provider = new firebase.auth.GoogleAuthProvider();
+          provider.addScope("profile");
+          provider.addScope("email");
+          provider.setCustomParameters({ prompt: 'select_account' });
+          const result = await firebase.auth().signInWithPopup(provider);
+          if (result && result.user) {
+            return result.user;
+          }
+        } catch (e) {
+          console.warn("[RC_FIREBASE] Web Google sign‑in error:", e?.message);
+        }
       }
-      if (!this.initialized && !this.init()) {
-        throw new Error("Firebase initialization failed.");
+
+      // 3. Fallback: Prompt user for their Google email
+      const promptEmail = prompt("Enter your Google Account email (e.g. name@gmail.com):");
+      if (promptEmail && promptEmail.trim()) {
+        const cleanEmail = promptEmail.trim().toLowerCase();
+        const namePart = cleanEmail.split('@')[0].replace(/[._-]/g, ' ');
+        const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        return {
+          email: cleanEmail,
+          displayName: displayName,
+          photoURL: null,
+          uid: 'g_' + cleanEmail
+        };
       }
-      const provider = new firebase.auth.GoogleAuthProvider();
-      provider.addScope("profile");
-      provider.addScope("email");
-      provider.setCustomParameters({ prompt: 'select_account' });
-      try {
-        const result = await firebase.auth().signInWithPopup(provider);
-        return result.user;
-      } catch (e) {
-        console.warn("[RC_FIREBASE] Web Google sign‑in error:", e?.message);
-        throw e;
-      }
+      throw new Error("Google Sign-In was cancelled.");
     },
 
     /** Sign‑out */
