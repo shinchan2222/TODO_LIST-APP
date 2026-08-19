@@ -1,6 +1,6 @@
 {
   "name": "routinecraft",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "RoutineCraft - Personal Daily Task Checklist & Habit Tracker",
   "main": "app.js",
   "scripts": {

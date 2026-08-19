@@ -1,6 +1,6 @@
 {
-  "version": 18,
-  "versionName": "1.8.0",
-  "apkUrl": "https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v18.apk",
-  "releaseNotes": "Version 18 (Power Productivity Release): Added Rich Lock Screen Notification Actions (Mark Done / Snooze), Pomodoro Focus Timer with Ambient Soundscapes, Streak Freeze Tokens & Rest Days, Synthesized Audio/Haptic FX, and CSV & Printable PDF Habit Reports."
+  "version": 19,
+  "versionName": "1.8.1",
+  "apkUrl": "https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v19.apk",
+  "releaseNotes": "Version 19 (Persistent Notification Reliability Fix): Upgraded Android AlarmManager to use DateMatch cron recurring triggers and allowWhileIdle wakeup. Daily reminders and summary alerts now repeat automatically every day in the background without needing the app to be opened."
 }

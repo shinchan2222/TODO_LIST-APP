@@ -586,7 +586,7 @@
                                 <i class="fa-solid fa-circle-check cloud-icon" id="update-settings-icon" style="color:var(--accent-success);"></i>
                                 <div>
                                     <strong id="update-settings-title">Already in latest version</strong>
-                                    <span id="update-settings-subtext">RoutineCraft v1.8.0 (Build 18) — Latest</span>
+                                    <span id="update-settings-subtext">RoutineCraft v1.8.1 (Build 19) — Latest</span>
                                 </div>
                             </div>
                         </div>
@@ -604,8 +604,8 @@
                     <div class="settings-group hide-on-native" id="website-download-section">
                         <h4><i class="fa-brands fa-android" style="color:#3DDC84;"></i> Android App Download</h4>
                         <p class="settings-desc">Download the standalone Android app APK for native offline tracking & reminders.</p>
-                        <a href="https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v18.apk" download="RoutineCraft_v18.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
-                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v18.apk (v1.8.0)
+                        <a href="https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v19.apk" download="RoutineCraft_v19.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
+                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v19.apk (v1.8.1)
                         </a>
                     </div>
 
@@ -876,13 +876,13 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Hardcode version query to force update SW cache
-                navigator.serviceWorker.register('./sw.js?v=18')
+                navigator.serviceWorker.register('./sw.js?v=19')
                     .then(reg => console.log('Service Worker Registered for Offline Mode 🚀', reg.scope))
                     .catch(err => console.log('SW registration failed: ', err));
             });
         }
     </script>
-    <script src="src/plugins/local-notifications.js?v=18"></script>
-    <script src="app.js?v=18"></script>
+    <script src="src/plugins/local-notifications.js?v=19"></script>
+    <script src="app.js?v=19"></script>
 </body>
 </html>

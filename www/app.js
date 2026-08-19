@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 18; // updated version
+    const APP_VERSION = 19; // updated version
     const getTodayStr = () => new Date().toISOString().split('T')[0];
 
     const getPastDateStr = (daysAgo = 1) => {
@@ -1159,21 +1159,88 @@
 
     function scheduleNativeLocalNotifications() {
         if (!state.profile.notificationsEnabled) return;
-        var activeTasks = state.tasks.filter(function(t) { return !t.completed && (isTaskToday(t) || isTaskUpcoming(t) || (t.recurring && t.recurring !== 'none')); });
         var CHANNELS = (window.RC_NOTIFICATIONS && window.RC_NOTIFICATIONS.CHANNELS) ? window.RC_NOTIFICATIONS.CHANNELS : {};
+        var ch = CHANNELS.task_reminder || {};
 
         // 1. Capacitor Android path
         if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
             var LN = window.Capacitor.Plugins.LocalNotifications;
             LN.requestPermissions().then(function(perm) {
                 if (perm.display !== 'granted') return;
-                var cancelList = activeTasks.map(function(t) { return { id: Math.abs(hashCode(t.id)) }; });
+                
+                // Collect all possible IDs to cancel before rescheduling
+                var cancelList = [];
+                state.tasks.forEach(function(t) {
+                    cancelList.push({ id: Math.abs(hashCode(t.id)) });
+                    for (var w = 1; w <= 7; w++) {
+                        cancelList.push({ id: Math.abs(hashCode(t.id + '_w_' + w)) });
+                    }
+                });
+
                 var cancelP = cancelList.length > 0 ? LN.cancel({ notifications: cancelList }).catch(function(){}) : Promise.resolve();
                 cancelP.then(function() {
-                    var notifList = activeTasks
-                        .filter(function(t) { return !!t.dueTime; })
-                        .map(function(t) {
-                            var p = t.dueTime.split(':');
+                    var notifList = [];
+
+                    state.tasks.forEach(function(t) {
+                        if (!t.dueTime) return;
+                        var p = t.dueTime.split(':');
+                        if (p.length < 2) return;
+                        var hour = parseInt(p[0], 10);
+                        var minute = parseInt(p[1], 10);
+                        var title = '🔔 Task Reminder: ' + t.title;
+                        var body = 'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!';
+
+                        if (t.recurring === 'daily') {
+                            // Repeating Daily: Use 'on' DateMatch for endless background repeating
+                            notifList.push({
+                                id: Math.abs(hashCode(t.id)),
+                                title: title,
+                                body: body,
+                                schedule: {
+                                    on: { hour: hour, minute: minute },
+                                    allowWhileIdle: true
+                                },
+                                channelId: ch.id || 'task_reminder',
+                                actionTypeId: 'TASK_REMINDER_ACTIONS',
+                                iconColor: '#00f2fe',
+                                extra: { taskId: t.id }
+                            });
+                        } else if (t.recurring === 'weekdays') {
+                            // Repeating Weekdays: Mon(2), Tue(3), Wed(4), Thu(5), Fri(6) in Java Calendar
+                            [2, 3, 4, 5, 6].forEach(function(wday) {
+                                notifList.push({
+                                    id: Math.abs(hashCode(t.id + '_w_' + wday)),
+                                    title: title,
+                                    body: body,
+                                    schedule: {
+                                        on: { weekday: wday, hour: hour, minute: minute },
+                                        allowWhileIdle: true
+                                    },
+                                    channelId: ch.id || 'task_reminder',
+                                    actionTypeId: 'TASK_REMINDER_ACTIONS',
+                                    iconColor: '#00f2fe',
+                                    extra: { taskId: t.id }
+                                });
+                            });
+                        } else if (t.recurring === 'weekends') {
+                            // Repeating Weekends: Sun(1), Sat(7) in Java Calendar
+                            [1, 7].forEach(function(wday) {
+                                notifList.push({
+                                    id: Math.abs(hashCode(t.id + '_w_' + wday)),
+                                    title: title,
+                                    body: body,
+                                    schedule: {
+                                        on: { weekday: wday, hour: hour, minute: minute },
+                                        allowWhileIdle: true
+                                    },
+                                    channelId: ch.id || 'task_reminder',
+                                    actionTypeId: 'TASK_REMINDER_ACTIONS',
+                                    iconColor: '#00f2fe',
+                                    extra: { taskId: t.id }
+                                });
+                            });
+                        } else if (!t.completed) {
+                            // One-off Task: Schedule exact time if in future
                             var d = new Date();
                             if (t.dueDate) {
                                 var dp = t.dueDate.split('-');
@@ -1181,36 +1248,28 @@
                                     d = new Date(parseInt(dp[0], 10), parseInt(dp[1], 10) - 1, parseInt(dp[2], 10));
                                 }
                             }
-                            d.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
-
-                            var isDaily = (t.recurring === 'daily');
-                            if (d.getTime() <= Date.now()) {
-                                if (t.recurring && t.recurring !== 'none') {
-                                    d.setDate(new Date().getDate() + 1);
-                                    d.setMonth(new Date().getMonth());
-                                    d.setFullYear(new Date().getFullYear());
-                                } else {
-                                    return null;
-                                }
+                            d.setHours(hour, minute, 0, 0);
+                            if (d.getTime() > Date.now()) {
+                                notifList.push({
+                                    id: Math.abs(hashCode(t.id)),
+                                    title: title,
+                                    body: body,
+                                    schedule: {
+                                        at: d,
+                                        allowWhileIdle: true
+                                    },
+                                    channelId: ch.id || 'task_reminder',
+                                    actionTypeId: 'TASK_REMINDER_ACTIONS',
+                                    iconColor: '#00f2fe',
+                                    extra: { taskId: t.id }
+                                });
                             }
-                            var ch = CHANNELS.task_reminder || {};
-                            var sched = { at: d };
-                            if (isDaily) sched.every = 'day';
+                        }
+                    });
 
-                            return {
-                                id: Math.abs(hashCode(t.id)),
-                                title: '🔔 Task Reminder: ' + t.title,
-                                body: 'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
-                                schedule: sched,
-                                channelId: ch.id || 'task_reminder',
-                                actionTypeId: 'TASK_REMINDER_ACTIONS',
-                                iconColor: '#00f2fe',
-                                extra: { taskId: t.id }
-                            };
-                        }).filter(Boolean);
                     if (notifList.length > 0) {
                         LN.schedule({ notifications: notifList })
-                            .then(function() { console.log('[RC] Scheduled ' + notifList.length + ' Android notifications'); })
+                            .then(function() { console.log('[RC] Scheduled ' + notifList.length + ' persistent Android notifications'); })
                             .catch(function(e) { console.warn('[RC] Android scheduling failed:', e); });
                     }
                 });
@@ -1224,6 +1283,7 @@
         });
         requestPwaPermission().then(function(granted) {
             if (!granted) return;
+            var activeTasks = state.tasks.filter(function(t) { return !t.completed && (isTaskToday(t) || isTaskUpcoming(t) || (t.recurring && t.recurring !== 'none')); });
             activeTasks.forEach(function(task) { schedulePwaTaskReminder(task); });
         });
     }
@@ -1232,16 +1292,8 @@
         if (!state.profile.notificationsEnabled) return;
         var timeStr = state.profile.summaryNotificationTime || '20:00';
         var p = timeStr.split(':');
-        var fireAt = new Date();
-        fireAt.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
-        if (fireAt.getTime() <= Date.now()) {
-            fireAt.setDate(fireAt.getDate() + 1);
-        }
-
-        if (_pwaTimerHandles['__summary__']) { clearTimeout(_pwaTimerHandles['__summary__']); }
-
-        var completed = state.tasks.filter(function(t) { return t.completed; }).length;
-        var total = state.tasks.filter(function(t) { return isTaskToday(t) || t.completed; }).length;
+        var hour = parseInt(p[0], 10);
+        var minute = parseInt(p[1], 10);
 
         if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
             var LN = window.Capacitor.Plugins.LocalNotifications;
@@ -1252,8 +1304,11 @@
                     notifications: [{
                         id: 99999,
                         title: '📊 RoutineCraft Daily Summary',
-                        body: 'You completed ' + completed + ' of ' + total + ' tasks today. Keep the streak going! 🔥',
-                        schedule: { at: fireAt, every: 'day' },
+                        body: 'Review your habit progress and keep your streak alive! 🔥',
+                        schedule: {
+                            on: { hour: hour, minute: minute },
+                            allowWhileIdle: true
+                        },
                         channelId: ch.id || 'summary',
                         iconColor: '#00f2fe'
                     }]
@@ -1262,6 +1317,12 @@
             return;
         }
 
+        if (_pwaTimerHandles['__summary__']) { clearTimeout(_pwaTimerHandles['__summary__']); }
+        var fireAt = new Date();
+        fireAt.setHours(hour, minute, 0, 0);
+        if (fireAt.getTime() <= Date.now()) {
+            fireAt.setDate(fireAt.getDate() + 1);
+        }
         var msUntil = fireAt.getTime() - Date.now();
         requestPwaPermission().then(function(granted) {
             if (!granted || msUntil <= 0) return;
@@ -1868,7 +1929,9 @@
 
             if (isCompleted) {
                 state.profile.totalCompletedCount = (state.profile.totalCompletedCount || 0) + 1;
-                cancelNotificationForTask(taskId); // cancel scheduled reminder
+                if (!task.recurring || task.recurring === 'none') {
+                    cancelNotificationForTask(taskId); // Only cancel one-off tasks
+                }
                 AudioEngine.playTaskComplete();
                 
                 const todayPending = state.tasks.filter(function(t) { return isTaskToday(t) && !t.completed; });
@@ -1880,7 +1943,7 @@
                 }
             } else {
                 // Re-schedule reminder if task is unchecked
-                schedulePwaTaskReminder(task);
+                scheduleNativeLocalNotifications();
             }
 
             updateStreakAndHistory();
@@ -2968,6 +3031,18 @@
                 console.warn('Action listener error:', err);
             }
         }
+
+        // Auto-refresh notifications and midnight reset on app resume / screen unlock
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                checkDailyReset();
+                updateStreakAndHistory();
+                renderHeaderProfile();
+                renderTasks();
+                scheduleNativeLocalNotifications();
+                scheduleSummaryNotification();
+            }
+        });
 
         // Handle notification clicks routed from the Service Worker
         if ('serviceWorker' in navigator) {
