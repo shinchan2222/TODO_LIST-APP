@@ -68,9 +68,8 @@
       if (googleAuthPlugin && typeof googleAuthPlugin.initialize === 'function') {
         try {
           await googleAuthPlugin.initialize({
-            clientId: "1037852256619-web.apps.googleusercontent.com",
             scopes: ["profile", "email"],
-            grantOfflineAccess: true
+            grantOfflineAccess: false
           });
           console.log("[RC_FIREBASE] Native GoogleAuth plugin initialized.");
         } catch (e) {
@@ -94,18 +93,6 @@
           const googleUser = await googleAuthPlugin.signIn();
           if (!googleUser) throw new Error("Google Sign-In cancelled");
 
-          const idToken = (googleUser.authentication && googleUser.authentication.idToken) || googleUser.idToken;
-          if (idToken && typeof firebase !== 'undefined' && firebase.auth && firebase.auth.GoogleAuthProvider) {
-            try {
-              if (!this.initialized) this.init();
-              const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
-              const userCred = await firebase.auth().signInWithCredential(credential);
-              return userCred.user;
-            } catch (credErr) {
-              console.warn("[RC_FIREBASE] Credential exchange fallback:", credErr);
-            }
-          }
-
           return {
             email: googleUser.email,
             displayName: googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : (googleUser.email ? googleUser.email.split('@')[0] : 'Productivity User')),
@@ -114,6 +101,10 @@
           };
         } catch (nativeErr) {
           console.warn("[RC_FIREBASE] Native Google Sign-In error:", nativeErr);
+          const errStr = (nativeErr && nativeErr.message) ? nativeErr.message : String(nativeErr);
+          if (errStr.includes("cancel") || errStr.includes("12501")) {
+            throw new Error("Google Sign-In was cancelled.");
+          }
           throw nativeErr;
         }
       }
