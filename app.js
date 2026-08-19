@@ -2878,8 +2878,9 @@
 
         if (dom.googleLoginModalBtn) {
             dom.googleLoginModalBtn.addEventListener('click', function() {
-                if (window.RC_FIREBASE && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
-                    RC_FIREBASE.signInWithGoogle()
+                var fb = window.RC_FIREBASE;
+                if (fb && typeof fb.signInWithGoogle === 'function') {
+                    fb.signInWithGoogle()
                         .then(function(user) {
                             if (user) {
                                 handleFirebaseUserAuthenticated(user);
@@ -2890,8 +2891,21 @@
                             const errStr = (err && err.message) ? err.message : String(err);
                             showAuthError(errStr || 'Google Sign-In failed');
                         });
+                } else if (typeof firebase !== 'undefined' && firebase.auth) {
+                    var provider = new firebase.auth.GoogleAuthProvider();
+                    firebase.auth().signInWithPopup(provider)
+                        .then(function(result) {
+                            if (result && result.user) {
+                                handleFirebaseUserAuthenticated(result.user);
+                                closeAuthModal();
+                            }
+                        })
+                        .catch(function(err) {
+                            const errStr = (err && err.message) ? err.message : String(err);
+                            showAuthError(errStr || 'Google Sign-In failed');
+                        });
                 } else {
-                    showAuthError('Firebase Authentication is loading, please try again in a moment.');
+                    showAuthError('Google Sign-In service is initializing. Please tap again in a moment.');
                 }
             });
         }
