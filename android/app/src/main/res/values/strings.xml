@@ -4,5 +4,4 @@
     <string name="title_activity_main">RoutineCraft</string>
     <string name="package_name">com.routinecraft.app</string>
     <string name="custom_url_scheme">com.routinecraft.app</string>
-    <string name="server_client_id">1037852256619-web.apps.googleusercontent.com</string>
 </resources>
