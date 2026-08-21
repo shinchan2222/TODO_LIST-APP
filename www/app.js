@@ -1182,8 +1182,9 @@
                     var notifList = [];
 
                     state.tasks.forEach(function(t) {
-                        if (!t.dueTime) return;
-                        var p = t.dueTime.split(':');
+                        var dueTimeStr = t.dueTime || (t.recurring && t.recurring !== 'none' ? '09:00' : '');
+                        if (!dueTimeStr) return;
+                        var p = dueTimeStr.split(':');
                         if (p.length < 2) return;
                         var hour = parseInt(p[0], 10);
                         var minute = parseInt(p[1], 10);
