@@ -1407,6 +1407,9 @@
         }
 
         switchUserAccount(userEmail);
+        if (window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
+            window.RC_FIREBASE.syncUserData(user, usersStore[userEmail]);
+        }
         showToast(`Signed in as ${userEmail}! 🔥`);
         closeAuthModal();
         setTimeout(scrollToTaskChecklist, 200);

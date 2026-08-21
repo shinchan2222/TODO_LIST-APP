@@ -92,6 +92,18 @@
           console.log("[RC_FIREBASE] Starting Native Android Google Sign-In...");
           const googleUser = await googleAuthPlugin.signIn();
           if (googleUser && (googleUser.email || googleUser.name)) {
+            const idToken = (googleUser.authentication && googleUser.authentication.idToken) || googleUser.idToken;
+            if (idToken && typeof firebase !== 'undefined' && firebase.auth && firebase.auth.GoogleAuthProvider) {
+              try {
+                if (!this.initialized) this.init();
+                const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+                await firebase.auth().signInWithCredential(credential);
+                console.log("[RC_FIREBASE] Firebase Auth registered user:", googleUser.email);
+              } catch (credErr) {
+                console.warn("[RC_FIREBASE] Firebase Auth credential exchange note:", credErr.message);
+              }
+            }
+
             return {
               email: googleUser.email,
               displayName: googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : (googleUser.email ? googleUser.email.split('@')[0] : 'Productivity User')),
@@ -123,6 +135,27 @@
       }
 
       throw new Error("Google Sign-In service is unavailable. Please check your connection.");
+    },
+
+    /** Sync User Data & Cloud Profile to Firebase Realtime Database */
+    async syncUserData(user, userData) {
+      if (!this.initialized && !this.init()) return;
+      if (typeof firebase === "undefined" || !firebase.database) return;
+      try {
+        const cleanKey = (user.email || user.uid || 'user').replace(/[^a-zA-Z0-9_]/g, '_');
+        const dbRef = firebase.database().ref('users/' + cleanKey);
+        await dbRef.set({
+          email: user.email || '',
+          displayName: user.displayName || user.name || '',
+          photoURL: user.photoURL || '',
+          lastLogin: new Date().toISOString(),
+          profile: userData ? userData.profile : null,
+          tasksCount: (userData && userData.tasks) ? userData.tasks.length : 0
+        });
+        console.log("[RC_FIREBASE] User record synced to Firebase Database for:", user.email);
+      } catch (e) {
+        console.warn("[RC_FIREBASE] Cloud sync notice:", e.message);
+      }
     },
 
     /** Sign‑out */
