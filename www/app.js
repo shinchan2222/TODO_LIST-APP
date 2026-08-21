@@ -271,6 +271,7 @@
         body: document.body,
         userNameDisplay: document.getElementById('user-name-display'),
         userAvatar: document.getElementById('user-avatar'),
+        onlineIndicator: document.querySelector('.online-indicator'),
         timeGreeting: document.getElementById('time-greeting'),
         streakCount: document.getElementById('streak-count'),
         streakBtn: document.getElementById('streak-btn'),
@@ -438,6 +439,27 @@
         }
     }
 
+    function updateNetworkStatus(showToastNotice = false) {
+        const isOnline = navigator.onLine !== false;
+        if (dom.onlineIndicator) {
+            if (isOnline) {
+                dom.onlineIndicator.classList.remove('offline');
+                dom.onlineIndicator.classList.add('online');
+                dom.onlineIndicator.setAttribute('title', 'Online — Connected to Network');
+                if (showToastNotice) {
+                    showToast('Connected to internet 🟢');
+                }
+            } else {
+                dom.onlineIndicator.classList.remove('online');
+                dom.onlineIndicator.classList.add('offline');
+                dom.onlineIndicator.setAttribute('title', 'Offline — No Internet Connection');
+                if (showToastNotice) {
+                    showToast('Offline — Working in local mode 🔴');
+                }
+            }
+        }
+    }
+
     function checkNativePlatform() {
         const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
                          window.location.protocol === 'capacitor:' ||
@@ -449,6 +471,7 @@
 
     // --- INIT APP ---
     function init() {
+        updateNetworkStatus(false);
         checkNativePlatform();
         checkDailyReset();
         applyTheme(state.profile.theme);
@@ -3052,9 +3075,14 @@
             }
         }
 
-        // Auto-refresh notifications and midnight reset on app resume / screen unlock
+        // Online / Offline real-time network connection monitoring
+        window.addEventListener('online', function() { updateNetworkStatus(true); });
+        window.addEventListener('offline', function() { updateNetworkStatus(true); });
+
+        // Auto-refresh notifications, midnight reset, and network status on app resume / screen unlock
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') {
+                updateNetworkStatus(false);
                 checkDailyReset();
                 updateStreakAndHistory();
                 renderHeaderProfile();

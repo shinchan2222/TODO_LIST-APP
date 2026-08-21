@@ -214,9 +214,21 @@ body {
     right: 2px;
     width: 10px;
     height: 10px;
-    background: var(--accent-success);
+    background: #10b981;
     border: 2px solid var(--card-bg);
     border-radius: var(--radius-full);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.online-indicator.online {
+    background: #10b981 !important;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+}
+
+.online-indicator.offline {
+    background: #ef4444 !important;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.7);
 }
 
 .greeting-text {
