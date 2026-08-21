@@ -448,13 +448,14 @@
                 dom.onlineIndicator.setAttribute('title', 'Online — Connected to Network');
                 if (showToastNotice) {
                     showToast('Connected to internet 🟢');
+                    checkAutoBackupSchedule();
                 }
             } else {
                 dom.onlineIndicator.classList.remove('online');
                 dom.onlineIndicator.classList.add('offline');
                 dom.onlineIndicator.setAttribute('title', 'Offline — No Internet Connection');
                 if (showToastNotice) {
-                    showToast('Offline — Working in local mode 🔴');
+                    showToast('Offline — Changes saved locally 🔴');
                 }
             }
         }
@@ -2907,6 +2908,10 @@
 
         if (dom.googleLoginModalBtn) {
             dom.googleLoginModalBtn.addEventListener('click', function() {
+                if (navigator.onLine === false) {
+                    showAuthError('⚠️ Internet connection required to sign in with Google. Please reconnect and try again.');
+                    return;
+                }
                 var fb = window.RC_FIREBASE;
                 if (fb && typeof fb.signInWithGoogle === 'function') {
                     fb.signInWithGoogle()
