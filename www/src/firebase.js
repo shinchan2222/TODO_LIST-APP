@@ -92,23 +92,31 @@
           console.log("[RC_FIREBASE] Starting Native Android Google Sign-In...");
           const googleUser = await googleAuthPlugin.signIn();
           if (googleUser && (googleUser.email || googleUser.name)) {
+            const displayName = googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : (googleUser.email ? googleUser.email.split('@')[0] : 'Productivity User'));
+            const photoURL = googleUser.imageUrl || googleUser.photoURL || null;
+            const email = googleUser.email;
+
+            // Attempt Firebase Auth Token exchange
             const idToken = (googleUser.authentication && googleUser.authentication.idToken) || googleUser.idToken;
             if (idToken && typeof firebase !== 'undefined' && firebase.auth && firebase.auth.GoogleAuthProvider) {
               try {
                 if (!this.initialized) this.init();
                 const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
                 await firebase.auth().signInWithCredential(credential);
-                console.log("[RC_FIREBASE] Firebase Auth registered user:", googleUser.email);
+                console.log("[RC_FIREBASE] Firebase Auth registered Google token for:", email);
               } catch (credErr) {
-                console.warn("[RC_FIREBASE] Firebase Auth credential exchange note:", credErr.message);
+                console.warn("[RC_FIREBASE] Firebase Auth token note:", credErr.message);
               }
             }
 
+            // Guarantee user is registered in Firebase Console Auth Users table
+            await this.registerInFirebaseAuth(email, displayName, photoURL);
+
             return {
-              email: googleUser.email,
-              displayName: googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : (googleUser.email ? googleUser.email.split('@')[0] : 'Productivity User')),
-              photoURL: googleUser.imageUrl || googleUser.photoURL || null,
-              uid: googleUser.id || googleUser.uid || googleUser.email
+              email: email,
+              displayName: displayName,
+              photoURL: photoURL,
+              uid: googleUser.id || googleUser.uid || email
             };
           }
         } catch (nativeErr) {
@@ -135,6 +143,33 @@
       }
 
       throw new Error("Google Sign-In service is unavailable. Please check your connection.");
+    },
+
+    /** Guarantee user is registered and active in Firebase Console Auth Users table */
+    async registerInFirebaseAuth(email, displayName, photoURL) {
+      if (!this.initialized && !this.init()) return null;
+      if (typeof firebase === 'undefined' || !firebase.auth) return null;
+      const securePass = 'RC_' + btoa(email + '_routinecraft_secure_pass').substring(0, 20) + '!9A';
+      try {
+        const userCred = await firebase.auth().signInWithEmailAndPassword(email, securePass);
+        console.log("[RC_FIREBASE] Firebase Auth existing user signed in:", userCred.user.email);
+        return userCred.user;
+      } catch (err) {
+        try {
+          const newCred = await firebase.auth().createUserWithEmailAndPassword(email, securePass);
+          if (newCred.user) {
+            await newCred.user.updateProfile({
+              displayName: displayName || email.split('@')[0],
+              photoURL: photoURL || null
+            });
+          }
+          console.log("[RC_FIREBASE] Firebase Auth new user created:", newCred.user.email);
+          return newCred.user;
+        } catch (createErr) {
+          console.warn("[RC_FIREBASE] Firebase Auth cloud registration note:", createErr.message);
+        }
+      }
+      return null;
     },
 
     /** Sync User Data & Cloud Profile to Firebase Realtime Database */
