@@ -450,15 +450,17 @@
                     showToast('Connected to internet 🟢');
                     checkAutoBackupSchedule();
                 }
+                SyncQueueEngine.processQueue();
             } else {
                 dom.onlineIndicator.classList.remove('online');
                 dom.onlineIndicator.classList.add('offline');
                 dom.onlineIndicator.setAttribute('title', 'Offline — No Internet Connection');
                 if (showToastNotice) {
-                    showToast('Offline — Changes saved locally 🔴');
+                    showToast('Offline — Changes saved to sync queue 🔴');
                 }
             }
         }
+        SyncQueueEngine.updateSyncBadge();
     }
 
     function checkNativePlatform() {
@@ -469,6 +471,84 @@
             document.querySelectorAll('.hide-on-native').forEach(el => el.classList.add('hide'));
         }
     }
+
+    // --- OFFLINE CLOUD SYNC QUEUE ENGINE ---
+    const SyncQueueEngine = {
+        QUEUE_KEY: 'routinecraft_sync_queue',
+        
+        getQueue() {
+            try {
+                return JSON.parse(localStorage.getItem(this.QUEUE_KEY)) || [];
+            } catch (e) {
+                return [];
+            }
+        },
+
+        setQueue(queue) {
+            try {
+                localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
+            } catch (e) {}
+            this.updateSyncBadge();
+        },
+
+        enqueue(actionType, payload = {}) {
+            const queue = this.getQueue();
+            queue.push({
+                id: 'sync-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+                type: actionType,
+                payload: payload,
+                email: activeEmail,
+                timestamp: new Date().toISOString()
+            });
+            this.setQueue(queue);
+            console.log(`[SyncQueue] Enqueued ${actionType}. Pending items: ${queue.length}`);
+        },
+
+        async processQueue() {
+            if (navigator.onLine === false) return;
+            const queue = this.getQueue();
+            if (queue.length === 0) return;
+
+            console.log(`[SyncQueue] Processing ${queue.length} pending offline sync items...`);
+            
+            if (window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
+                try {
+                    const affectedEmails = [...new Set(queue.map(item => item.email))];
+                    for (const email of affectedEmails) {
+                        if (usersStore[email] && usersStore[email].profile && usersStore[email].profile.isGoogleSynced) {
+                            await window.RC_FIREBASE.syncUserData(
+                                { email: email, displayName: usersStore[email].profile.name },
+                                usersStore[email]
+                            );
+                        }
+                    }
+                    const count = queue.length;
+                    this.setQueue([]);
+                    showToast(`Synced ${count} offline change${count > 1 ? 's' : ''} to cloud! ☁️⚡`);
+                    console.log(`[SyncQueue] Successfully flushed ${count} items.`);
+                } catch (err) {
+                    console.warn('[SyncQueue] Sync queue flush error:', err);
+                }
+            }
+        },
+
+        updateSyncBadge() {
+            const queue = this.getQueue();
+            const badge = document.getElementById('sync-status-badge');
+            if (badge) {
+                if (queue.length > 0) {
+                    badge.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${queue.length} pending`;
+                    badge.className = 'account-badge badge-pending-sync';
+                } else if (state.profile && state.profile.isGoogleSynced) {
+                    badge.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Synced`;
+                    badge.className = 'account-badge badge-synced';
+                } else {
+                    badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> Local`;
+                    badge.className = 'account-badge badge-local';
+                }
+            }
+        }
+    };
 
     // --- INIT APP ---
     function init() {
@@ -483,6 +563,8 @@
         checkAutoBackupSchedule();
         checkReminderNotification();
         checkForAppUpdates();
+        SyncQueueEngine.processQueue();
+        SyncQueueEngine.updateSyncBadge();
         // Register Android notification channels, then schedule
         if (window.RC_NOTIFICATIONS) {
             window.RC_NOTIFICATIONS.registerChannels().then(() => {
@@ -511,9 +593,12 @@
         if (typeof getItem === 'function') {
             const persisted = getItem('rc_user');
             if (persisted && persisted.email) {
-                // Simulate a Firebase user object
-                const fakeUser = { email: persisted.email, displayName: persisted.name };
-                handleFirebaseUserAuthenticated(fakeUser);
+                console.log("[RC_STORAGE] Auto-logging in user from storage:", persisted.email);
+                if (usersStore[persisted.email]) {
+                    switchUserAccount(persisted.email);
+                } else {
+                    handleFirebaseUserAuthenticated({ email: persisted.email, displayName: persisted.name });
+                }
             }
         }
 
@@ -535,7 +620,7 @@
         }
     }
 
-    function saveState() {
+    function saveState(actionName = 'update_state') {
         updateStreakAndHistory();
         usersStore[activeEmail] = {
             profile: state.profile,
@@ -549,10 +634,18 @@
         scheduleNativeLocalNotifications();
 
         // Real-time background cloud sync for Google-synced account
-        if (state.profile.isGoogleSynced && window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
-            window.RC_FIREBASE.syncUserData({ email: activeEmail, displayName: state.profile.name }, usersStore[activeEmail]);
+        if (state.profile.isGoogleSynced) {
+            if (navigator.onLine === false) {
+                SyncQueueEngine.enqueue(actionName, { timestamp: Date.now() });
+            } else if (window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
+                window.RC_FIREBASE.syncUserData({ email: activeEmail, displayName: state.profile.name }, usersStore[activeEmail])
+                    .catch(() => {
+                        SyncQueueEngine.enqueue(actionName, { timestamp: Date.now() });
+                    });
+            }
         }
-    }
+        SyncQueueEngine.updateSyncBadge();
+    };
 
     function switchUserAccount(targetEmail) {
         if (!usersStore[targetEmail]) {

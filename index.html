@@ -415,7 +415,10 @@
                 <div class="modal-body">
                     <!-- Multi-User Account Selector -->
                     <div class="settings-group">
-                        <h4><i class="fa-solid fa-users"></i> Account & Sync</h4>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h4 style="margin-bottom:0;"><i class="fa-solid fa-users"></i> Account & Sync</h4>
+                            <span id="sync-status-badge" class="account-badge badge-synced" style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:5px;"></span>
+                        </div>
                         <div class="users-list-grid" id="users-list-grid">
                             <!-- Multi-user accounts rendered dynamically -->
                         </div>
