@@ -535,7 +535,6 @@
         }
     }
 
-    // --- STORAGE & MULTI-USER ---
     function saveState() {
         updateStreakAndHistory();
         usersStore[activeEmail] = {
@@ -548,6 +547,11 @@
         updateProgressCard();
         renderAccountStatusBar();
         scheduleNativeLocalNotifications();
+
+        // Real-time background cloud sync for Google-synced account
+        if (state.profile.isGoogleSynced && window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
+            window.RC_FIREBASE.syncUserData({ email: activeEmail, displayName: state.profile.name }, usersStore[activeEmail]);
+        }
     }
 
     function switchUserAccount(targetEmail) {
@@ -1403,7 +1407,7 @@
         openAuthModal();
     }
 
-    function handleFirebaseUserAuthenticated(user) {
+    async function handleFirebaseUserAuthenticated(user) {
         const userEmail = user.email;
         const userName = user.displayName || userEmail.split('@')[0];
 
@@ -1412,19 +1416,43 @@
             saveItem('rc_user', { email: userEmail, name: userName });
         }
 
-        if (!usersStore[userEmail]) {
-            usersStore[userEmail] = {
-                profile: {
-                    ...DEFAULT_PROFILE,
-                    email: userEmail,
-                    name: userName,
-                    avatar: '🔥',
-                    isGoogleSynced: true,
-                    backupFrequency: 'daily',
-                    lastBackupTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-                },
-                tasks: [...DEFAULT_TASKS]
-            };
+        // Check if user already exists locally or if we should fetch cloud data from Firebase
+        if (!usersStore[userEmail] || !usersStore[userEmail].tasks || usersStore[userEmail].tasks.length === 0) {
+            let cloudData = null;
+            if (window.RC_FIREBASE && typeof window.RC_FIREBASE.fetchUserData === 'function') {
+                try {
+                    cloudData = await window.RC_FIREBASE.fetchUserData(userEmail);
+                } catch (e) {
+                    console.warn('[RC_FIREBASE] Cloud fetch error:', e);
+                }
+            }
+
+            if (cloudData && cloudData.tasks && Array.isArray(cloudData.tasks) && cloudData.tasks.length > 0) {
+                usersStore[userEmail] = {
+                    profile: {
+                        ...DEFAULT_PROFILE,
+                        ...(cloudData.profile || {}),
+                        email: userEmail,
+                        name: userName,
+                        isGoogleSynced: true
+                    },
+                    tasks: cloudData.tasks
+                };
+                showToast(`Restored ${cloudData.tasks.length} tasks from cloud! ☁️`);
+            } else {
+                usersStore[userEmail] = {
+                    profile: {
+                        ...DEFAULT_PROFILE,
+                        email: userEmail,
+                        name: userName,
+                        avatar: '🔥',
+                        isGoogleSynced: true,
+                        backupFrequency: 'daily',
+                        lastBackupTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+                    },
+                    tasks: (cloudData && cloudData.tasks) ? cloudData.tasks : [...DEFAULT_TASKS]
+                };
+            }
         } else {
             usersStore[userEmail].profile.isGoogleSynced = true;
             usersStore[userEmail].profile.name = userName;

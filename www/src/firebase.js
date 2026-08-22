@@ -172,6 +172,24 @@
       return null;
     },
 
+    /** Fetch User Cloud Data from Firebase Realtime Database */
+    async fetchUserData(email) {
+      if (!this.initialized && !this.init()) return null;
+      if (typeof firebase === "undefined" || !firebase.database) return null;
+      try {
+        const cleanKey = (email || 'user').replace(/[^a-zA-Z0-9_]/g, '_');
+        const snapshot = await firebase.database().ref('users/' + cleanKey).once('value');
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          console.log("[RC_FIREBASE] Retrieved cloud user data for:", email, val);
+          return val;
+        }
+      } catch (e) {
+        console.warn("[RC_FIREBASE] Error fetching cloud user data:", e.message);
+      }
+      return null;
+    },
+
     /** Sync User Data & Cloud Profile to Firebase Realtime Database */
     async syncUserData(user, userData) {
       if (!this.initialized && !this.init()) return;
@@ -185,9 +203,10 @@
           photoURL: user.photoURL || '',
           lastLogin: new Date().toISOString(),
           profile: userData ? userData.profile : null,
+          tasks: (userData && userData.tasks) ? userData.tasks : [],
           tasksCount: (userData && userData.tasks) ? userData.tasks.length : 0
         });
-        console.log("[RC_FIREBASE] User record synced to Firebase Database for:", user.email);
+        console.log("[RC_FIREBASE] User record & tasks synced to Firebase Database for:", user.email);
       } catch (e) {
         console.warn("[RC_FIREBASE] Cloud sync notice:", e.message);
       }
