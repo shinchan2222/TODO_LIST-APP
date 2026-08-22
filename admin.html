@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoutineCraft • Admin Portal 🛡️</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK (v8 compat for browser execution) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root {
+            --bg-primary: #07090e;
+            --bg-card: rgba(16, 20, 31, 0.85);
+            --bg-card-hover: rgba(24, 30, 46, 0.95);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(0, 242, 254, 0.3);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-cyan: #00f2fe;
+            --accent-blue: #4facfe;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-purple: #8b5cf6;
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --font-heading: 'Outfit', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            background-image: radial-gradient(circle at 10% 10%, rgba(0, 242, 254, 0.05) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.05) 0%, transparent 40%);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- AUTH LOCKSCREEN --- */
+        #lockscreen {
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 9, 14, 0.96);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .lockbox {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 36px 30px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 242, 254, 0.1);
+        }
+
+        .lock-icon {
+            font-size: 3rem;
+            color: var(--accent-cyan);
+            margin-bottom: 16px;
+            display: inline-block;
+            filter: drop-shadow(0 0 12px rgba(0, 242, 254, 0.4));
+        }
+
+        .lockbox h2 {
+            font-family: var(--font-heading);
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .lockbox p {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin-bottom: 24px;
+        }
+
+        .lock-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+            text-align: center;
+            letter-spacing: 2px;
+            outline: none;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .lock-input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+        }
+
+        .btn-unlock {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: #051329;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1rem;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-unlock:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 242, 254, 0.35);
+        }
+
+        .lock-error {
+            color: var(--accent-rose);
+            font-size: 0.85rem;
+            margin-top: 12px;
+            display: none;
+        }
+
+        /* --- DASHBOARD HEADER --- */
+        .admin-header {
+            background: rgba(16, 20, 31, 0.7);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 28px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-badge {
+            background: linear-gradient(135deg, rgba(0,242,254,0.15), rgba(79,172,254,0.15));
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            border-radius: 12px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .logo-title {
+            font-family: var(--font-heading);
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-sub {
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: block;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 9px 15px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-cyan);
+        }
+
+        .btn-primary-action {
+            background: linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(79, 172, 254, 0.2));
+            border-color: rgba(0, 242, 254, 0.4);
+            color: var(--accent-cyan);
+        }
+
+        .btn-primary-action:hover {
+            background: linear-gradient(135deg, rgba(0, 242, 254, 0.35), rgba(79, 172, 254, 0.35));
+        }
+
+        /* --- MAIN CONTAINER --- */
+        .admin-main {
+            max-width: 1350px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 28px 24px;
+            flex: 1;
+        }
+
+        /* --- KPI STATS CARDS --- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-glow);
+        }
+
+        .kpi-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .kpi-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-icon {
+            font-size: 1.25rem;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kpi-val {
+            font-family: var(--font-heading);
+            font-size: 2.1rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .kpi-sub {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        /* --- DIRECTORY SECTION --- */
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .section-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .section-title {
+            font-family: var(--font-heading);
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-filters {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            position: relative;
+            min-width: 240px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 8px 12px 8px 34px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        .filter-select {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 0.85rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .filter-select option {
+            background: #10141f;
+            color: #fff;
+        }
+
+        /* --- USERS TABLE --- */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.88rem;
+        }
+
+        .users-table th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .users-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            vertical-align: middle;
+        }
+
+        .users-table tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .user-avatar-badge img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-meta-name {
+            font-weight: 700;
+            color: var(--text-main);
+            display: block;
+        }
+
+        .user-meta-email {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .streak-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            font-weight: 700;
+            font-size: 0.78rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+
+        .progress-bar-container {
+            width: 120px;
+            background: rgba(255, 255, 255, 0.08);
+            height: 6px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 10px;
+        }
+
+        .btn-inspect {
+            padding: 6px 12px;
+            background: rgba(0, 242, 254, 0.12);
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            color: var(--accent-cyan);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-inspect:hover {
+            background: rgba(0, 242, 254, 0.25);
+            transform: translateY(-1px);
+        }
+
+        /* --- INSPECT MODAL --- */
+        #inspect-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-card {
+            background: #0d111c;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            max-width: 760px;
+            width: 100%;
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-profile-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .inspect-task-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .inspect-task-item.completed {
+            border-color: rgba(16, 185, 129, 0.3);
+            background: rgba(16, 185, 129, 0.04);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        /* --- TOAST NOTIFICATIONS --- */
+        #admin-toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(16, 20, 31, 0.95);
+            border: 1px solid var(--border-glow);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #admin-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOCKSCREEN ACCESS GATE -->
+    <div id="lockscreen">
+        <div class="lockbox">
+            <i class="fa-solid fa-shield-halved lock-icon"></i>
+            <h2>RoutineCraft Admin</h2>
+            <p>Enter your administrator passcode to access real-time user metrics & task datasets.</p>
+            <input type="password" id="passcode-input" class="lock-input" placeholder="••••••••••••" autofocus>
+            <button id="unlock-btn" class="btn-unlock"><i class="fa-solid fa-lock-open"></i> Unlock Portal</button>
+            <div id="lock-error" class="lock-error"><i class="fa-solid fa-circle-exclamation"></i> Incorrect administrator passcode.</div>
+        </div>
+    </div>
+
+    <!-- MAIN ADMIN INTERFACE -->
+    <header class="admin-header">
+        <div class="header-logo">
+            <div class="logo-badge">🛡️</div>
+            <div>
+                <h1 class="logo-title">RoutineCraft</h1>
+                <span class="logo-sub"><i class="fa-solid fa-bolt"></i> Live Admin Portal</span>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <span id="db-status-badge" style="display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; font-weight:700; padding:5px 12px; border-radius:20px; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3);">
+                <i class="fa-solid fa-circle" style="font-size:0.5rem;"></i> Firebase Live
+            </span>
+            <button class="btn-action" id="refresh-data-btn">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <button class="btn-action btn-primary-action" id="export-all-csv-btn">
+                <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+            <button class="btn-action" id="export-all-json-btn">
+                <i class="fa-solid fa-download"></i> Export JSON
+            </button>
+            <button class="btn-action" id="lock-portal-btn" style="color:var(--accent-rose); border-color:rgba(244,63,94,0.3);">
+                <i class="fa-solid fa-lock"></i> Lock
+            </button>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <!-- TOP KPI METRICS -->
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-label">Registered Users</span>
+                    <div class="kpi-icon" style="background:rgba(0,242,254,0.15); color:var(--accent-cyan);"><i class="fa-solid fa-users"></i></div>
+                </div>
+                <div class="kpi-val" id="stat-total-users">0</div>
+                <span class="kpi-sub">Google authenticated accounts</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-label">Total Tasks</span>
+                    <div class="kpi-icon" style="background:rgba(79,172,254,0.15); color:var(--accent-blue);"><i class="fa-solid fa-list-check"></i></div>
+                </div>
+                <div class="kpi-val" id="stat-total-tasks">0</div>
+                <span class="kpi-sub">Tasks created across all users</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-label">Completed Habits</span>
+                    <div class="kpi-icon" style="background:rgba(16,185,129,0.15); color:var(--accent-green);"><i class="fa-solid fa-circle-check"></i></div>
+                </div>
+                <div class="kpi-val" id="stat-total-completed">0</div>
+                <span class="kpi-sub" id="stat-completion-rate">0% global completion</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-label">Top Habit Streak</span>
+                    <div class="kpi-icon" style="background:rgba(245,158,11,0.15); color:var(--accent-amber);"><i class="fa-solid fa-fire"></i></div>
+                </div>
+                <div class="kpi-val" id="stat-top-streak">0 🔥</div>
+                <span class="kpi-sub" id="stat-top-user">Leading community consistency</span>
+            </div>
+        </section>
+
+        <!-- USERS DIRECTORY SECTION -->
+        <section class="section-card">
+            <div class="section-header">
+                <h2 class="section-title"><i class="fa-solid fa-address-book" style="color:var(--accent-cyan);"></i> Users Directory</h2>
+                
+                <div class="search-filters">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="user-search-input" placeholder="Search by name or email...">
+                    </div>
+                    <select id="user-filter-select" class="filter-select">
+                        <option value="all">All Users</option>
+                        <option value="active">Active Recently</option>
+                        <option value="streaks">High Streaks (3+ Days)</option>
+                        <option value="tasks">Has Created Tasks</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>User Account</th>
+                            <th>Current Streak</th>
+                            <th>Tasks Overview</th>
+                            <th>Completion %</th>
+                            <th>Last Active</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-spinner fa-spin"></i>
+                                    <p>Connecting to Firebase Realtime Database...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- USER DEEP INSPECTION MODAL -->
+    <div id="inspect-modal" class="hide">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 style="font-family:var(--font-heading); display:flex; align-items:center; gap:10px;">
+                    <i class="fa-solid fa-user-gear" style="color:var(--accent-cyan);"></i> User Details & Task Log
+                </h3>
+                <button id="close-inspect-btn" style="background:transparent; border:none; color:var(--text-muted); font-size:1.2rem; cursor:pointer;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="inspect-modal-content">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="admin-toast">
+        <i class="fa-solid fa-circle-check" style="color:var(--accent-cyan);"></i>
+        <span id="admin-toast-text">Notice</span>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            const ADMIN_PASSCODE = 'routinecraft2026';
+            const FIREBASE_CONFIG = {
+                apiKey: 'AIzaSyCdDR9PeiqtHnWTWuXgFAIJUGi8Xor4ebg',
+                authDomain: 'routinecraft-db0af.firebaseapp.com',
+                projectId: 'routinecraft-db0af',
+                storageBucket: 'routinecraft-db0af.firebasestorage.app',
+                messagingSenderId: '1037852256619',
+                appId: '1:1037852256619:web:92a7d7631af2aa161e042e',
+                measurementId: 'G-CGYVEBC2YN'
+            };
+
+            let allUsersData = {};
+            let isUnlocked = sessionStorage.getItem('rc_admin_unlocked') === 'true';
+
+            const dom = {
+                lockscreen: document.getElementById('lockscreen'),
+                passcodeInput: document.getElementById('passcode-input'),
+                unlockBtn: document.getElementById('unlock-btn'),
+                lockError: document.getElementById('lock-error'),
+                lockPortalBtn: document.getElementById('lock-portal-btn'),
+                refreshBtn: document.getElementById('refresh-data-btn'),
+                exportAllCsvBtn: document.getElementById('export-all-csv-btn'),
+                exportAllJsonBtn: document.getElementById('export-all-json-btn'),
+                statTotalUsers: document.getElementById('stat-total-users'),
+                statTotalTasks: document.getElementById('stat-total-tasks'),
+                statTotalCompleted: document.getElementById('stat-total-completed'),
+                statCompletionRate: document.getElementById('stat-completion-rate'),
+                statTopStreak: document.getElementById('stat-top-streak'),
+                statTopUser: document.getElementById('stat-top-user'),
+                usersTableBody: document.getElementById('users-table-body'),
+                userSearchInput: document.getElementById('user-search-input'),
+                userFilterSelect: document.getElementById('user-filter-select'),
+                inspectModal: document.getElementById('inspect-modal'),
+                inspectModalContent: document.getElementById('inspect-modal-content'),
+                closeInspectBtn: document.getElementById('close-inspect-btn'),
+                adminToast: document.getElementById('admin-toast'),
+                adminToastText: document.getElementById('admin-toast-text')
+            };
+
+            function showToast(text) {
+                dom.adminToastText.textContent = text;
+                dom.adminToast.classList.add('show');
+                setTimeout(() => dom.adminToast.classList.remove('show'), 3200);
+            }
+
+            // --- AUTH GATEWAY ---
+            function checkAuth() {
+                if (isUnlocked) {
+                    dom.lockscreen.classList.add('hide');
+                    initFirebase();
+                } else {
+                    dom.lockscreen.classList.remove('hide');
+                    dom.passcodeInput.focus();
+                }
+            }
+
+            dom.unlockBtn.addEventListener('click', attemptUnlock);
+            dom.passcodeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') attemptUnlock();
+            });
+
+            function attemptUnlock() {
+                const pass = dom.passcodeInput.value.trim();
+                if (pass === ADMIN_PASSCODE) {
+                    isUnlocked = true;
+                    sessionStorage.setItem('rc_admin_unlocked', 'true');
+                    dom.lockError.style.display = 'none';
+                    dom.lockscreen.classList.add('hide');
+                    initFirebase();
+                    showToast('Welcome to RoutineCraft Admin! 🛡️');
+                } else {
+                    dom.lockError.style.display = 'block';
+                    dom.passcodeInput.value = '';
+                    dom.passcodeInput.focus();
+                }
+            }
+
+            dom.lockPortalBtn.addEventListener('click', () => {
+                sessionStorage.removeItem('rc_admin_unlocked');
+                isUnlocked = false;
+                dom.lockscreen.classList.remove('hide');
+                dom.passcodeInput.value = '';
+            });
+
+            // --- FIREBASE INITIALIZATION ---
+            function initFirebase() {
+                try {
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(FIREBASE_CONFIG);
+                    }
+                    attachDatabaseListener();
+                } catch (e) {
+                    console.error('Firebase init error:', e);
+                    dom.usersTableBody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-rose);"></i><p>Error initializing Firebase: ' + e.message + '</p></div></td></tr>';
+                }
+            }
+
+            function attachDatabaseListener() {
+                const db = firebase.database();
+                const usersRef = db.ref('users');
+
+                usersRef.on('value', (snapshot) => {
+                    if (snapshot.exists()) {
+                        allUsersData = snapshot.val();
+                        renderDashboard();
+                        showToast('Live database updated ⚡');
+                    } else {
+                        allUsersData = {};
+                        renderDashboard();
+                    }
+                }, (error) => {
+                    console.warn('Realtime database read note:', error);
+                    dom.usersTableBody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-circle-info" style="color:var(--accent-cyan);"></i><p>Ready. No users recorded in database yet, or check Firebase security rules.</p></div></td></tr>';
+                });
+            }
+
+            dom.refreshBtn.addEventListener('click', () => {
+                firebase.database().ref('users').once('value').then(snapshot => {
+                    if (snapshot.exists()) {
+                        allUsersData = snapshot.val();
+                        renderDashboard();
+                        showToast('Data refreshed! 🔄');
+                    } else {
+                        showToast('Database is currently empty.');
+                    }
+                });
+            });
+
+            // --- RENDER KPI & TABLE ---
+            function renderDashboard() {
+                const userKeys = Object.keys(allUsersData);
+                let totalTasks = 0;
+                let totalCompleted = 0;
+                let topStreak = 0;
+                let topStreakUser = 'None';
+
+                userKeys.forEach(k => {
+                    const u = allUsersData[k];
+                    const tasks = Array.isArray(u.tasks) ? u.tasks : [];
+                    const profile = u.profile || {};
+                    const streak = profile.streak || 0;
+                    
+                    totalTasks += tasks.length;
+                    const doneCount = tasks.filter(t => t.completed).length;
+                    totalCompleted += doneCount;
+
+                    if (streak > topStreak) {
+                        topStreak = streak;
+                        topStreakUser = u.displayName || u.email || 'User';
+                    }
+                });
+
+                dom.statTotalUsers.textContent = userKeys.length;
+                dom.statTotalTasks.textContent = totalTasks;
+                dom.statTotalCompleted.textContent = totalCompleted;
+                const completionPct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+                dom.statCompletionRate.textContent = completionPct + '% global completion rate';
+                dom.statTopStreak.textContent = topStreak + ' Days 🔥';
+                dom.statTopUser.textContent = topStreak > 0 ? ('Led by ' + topStreakUser) : 'Leading community consistency';
+
+                renderUsersTable();
+            }
+
+            function renderUsersTable() {
+                const query = dom.userSearchInput.value.toLowerCase().trim();
+                const filter = dom.userFilterSelect.value;
+                const userKeys = Object.keys(allUsersData);
+
+                if (userKeys.length === 0) {
+                    dom.usersTableBody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-users-slash"></i><p>No registered users found in the database yet.</p></div></td></tr>';
+                    return;
+                }
+
+                let filtered = userKeys.map(k => ({ key: k, ...allUsersData[k] }));
+
+                if (query) {
+                    filtered = filtered.filter(u => {
+                        const email = (u.email || '').toLowerCase();
+                        const name = (u.displayName || (u.profile && u.profile.name) || '').toLowerCase();
+                        return email.includes(query) || name.includes(query);
+                    });
+                }
+
+                if (filter === 'streaks') {
+                    filtered = filtered.filter(u => ((u.profile && u.profile.streak) || 0) >= 3);
+                } else if (filter === 'tasks') {
+                    filtered = filtered.filter(u => (Array.isArray(u.tasks) && u.tasks.length > 0));
+                }
+
+                if (filtered.length === 0) {
+                    dom.usersTableBody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><p>No users match the search criteria.</p></div></td></tr>';
+                    return;
+                }
+
+                dom.usersTableBody.innerHTML = filtered.map(u => {
+                    const tasks = Array.isArray(u.tasks) ? u.tasks : [];
+                    const profile = u.profile || {};
+                    const streak = profile.streak || 0;
+                    const doneCount = tasks.filter(t => t.completed).length;
+                    const pct = tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;
+                    const lastLoginStr = u.lastLogin ? formatTimeAgo(new Date(u.lastLogin)) : 'Recently';
+                    const avatar = profile.avatar || '🔥';
+                    const name = u.displayName || profile.name || (u.email ? u.email.split('@')[0] : 'User');
+
+                    return '<tr>' +
+                        '<td>' +
+                            '<div class="user-cell">' +
+                                '<div class="user-avatar-badge">' + (u.photoURL ? '<img src="' + u.photoURL + '" alt="">' : avatar) + '</div>' +
+                                '<div>' +
+                                    '<span class="user-meta-name">' + escapeHtml(name) + '</span>' +
+                                    '<span class="user-meta-email">' + escapeHtml(u.email || 'Guest') + '</span>' +
+                                '</div>' +
+                            '</div>' +
+                        '</td>' +
+                        '<td><span class="streak-pill"><i class="fa-solid fa-fire"></i> ' + streak + ' Days</span></td>' +
+                        '<td>' +
+                            '<strong style="font-size:0.92rem;">' + doneCount + ' / ' + tasks.length + '</strong>' +
+                            '<div class="progress-bar-container"><div class="progress-bar-fill" style="width: ' + pct + '%;"></div></div>' +
+                        '</td>' +
+                        '<td><span style="font-weight:700; color:' + (pct === 100 ? 'var(--accent-green)' : 'var(--text-main)') + ';">' + pct + '%</span></td>' +
+                        '<td><span style="color:var(--text-muted); font-size:0.8rem;"><i class="fa-regular fa-clock"></i> ' + lastLoginStr + '</span></td>' +
+                        '<td style="text-align:right;">' +
+                            '<button class="btn-inspect" data-inspect-key="' + u.key + '"><i class="fa-solid fa-eye"></i> Inspect</button>' +
+                        '</td>' +
+                    '</tr>';
+                }).join('');
+
+                document.querySelectorAll('.btn-inspect').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const key = btn.dataset.inspectKey;
+                        inspectUser(allUsersData[key]);
+                    });
+                });
+            }
+
+            dom.userSearchInput.addEventListener('input', renderUsersTable);
+            dom.userFilterSelect.addEventListener('change', renderUsersTable);
+
+            // --- INSPECT MODAL ---
+            function inspectUser(user) {
+                if (!user) return;
+                const profile = user.profile || {};
+                const tasks = Array.isArray(user.tasks) ? user.tasks : [];
+                const doneCount = tasks.filter(t => t.completed).length;
+                const avatar = profile.avatar || '🔥';
+                const name = user.displayName || profile.name || user.email || 'User';
+
+                dom.inspectModalContent.innerHTML = '' +
+                    '<div class="modal-profile-header">' +
+                        '<div class="user-avatar-badge" style="width:54px; height:54px; font-size:1.8rem;">' +
+                            (user.photoURL ? '<img src="' + user.photoURL + '" alt="">' : avatar) +
+                        '</div>' +
+                        '<div>' +
+                            '<h4 style="font-size:1.2rem; font-family:var(--font-heading);">' + escapeHtml(name) + '</h4>' +
+                            '<span style="color:var(--text-muted); font-size:0.85rem;">' + escapeHtml(user.email || '') + '</span>' +
+                            '<div style="display:flex; gap:8px; margin-top:6px;">' +
+                                '<span class="streak-pill"><i class="fa-solid fa-fire"></i> ' + (profile.streak || 0) + ' Day Streak</span>' +
+                                '<span style="font-size:0.75rem; padding:3px 8px; border-radius:12px; background:rgba(255,255,255,0.08); color:var(--text-muted);">Theme: ' + (profile.theme || 'Neon') + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">' +
+                        '<h4 style="font-size:1rem; font-family:var(--font-heading);"><i class="fa-solid fa-list-check" style="color:var(--accent-cyan);"></i> Tasks Checklist (' + doneCount + '/' + tasks.length + ')</h4>' +
+                        '<button class="btn-action" id="export-user-csv-btn" style="padding:6px 10px; font-size:0.75rem;">' +
+                            '<i class="fa-solid fa-download"></i> User CSV' +
+                        '</button>' +
+                    '</div>' +
+                    '<div class="inspect-tasks-list">' +
+                        (tasks.length === 0 ? '<div class="empty-state"><p>No tasks found for this user.</p></div>' : tasks.map(t => '' +
+                            '<div class="inspect-task-item ' + (t.completed ? 'completed' : '') + '">' +
+                                '<div style="display:flex; align-items:center; gap:10px;">' +
+                                    '<i class="' + (t.completed ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle') + '" style="color:' + (t.completed ? 'var(--accent-green)' : 'var(--text-muted)') + '; font-size:1.1rem;"></i>' +
+                                    '<div>' +
+                                        '<strong style="text-decoration:' + (t.completed ? 'line-through' : 'none') + '; color:' + (t.completed ? 'var(--text-muted)' : 'var(--text-main)') + '; font-size:0.92rem;">' + escapeHtml(t.title) + '</strong>' +
+                                        '<div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">' +
+                                            '<span>' + (t.category || 'General').toUpperCase() + '</span> • ' +
+                                            '<span style="color:var(--accent-amber);">' + (t.priority || 'Medium').toUpperCase() + '</span>' +
+                                            (t.dueTime ? (' • <span>' + t.dueTime + '</span>') : '') +
+                                            (t.recurring && t.recurring !== 'none' ? (' • <span>🔁 ' + t.recurring + '</span>') : '') +
+                                        '</div>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<span style="font-size:0.78rem; font-weight:700; color:' + (t.completed ? 'var(--accent-green)' : 'var(--text-muted)') + ';">' +
+                                    (t.completed ? 'COMPLETED' : 'PENDING') +
+                                '</span>' +
+                            '</div>'
+                        ).join('')) +
+                    '</div>';
+
+                document.getElementById('export-user-csv-btn')?.addEventListener('click', () => {
+                    exportSingleUserCSV(user);
+                });
+
+                dom.inspectModal.classList.remove('hide');
+            }
+
+            dom.closeInspectBtn.addEventListener('click', () => {
+                dom.inspectModal.classList.add('hide');
+            });
+            dom.inspectModal.addEventListener('click', (e) => {
+                if (e.target === dom.inspectModal) dom.inspectModal.classList.add('hide');
+            });
+
+            // --- EXPORT ENGINES ---
+            dom.exportAllCsvBtn.addEventListener('click', () => {
+                const userKeys = Object.keys(allUsersData);
+                if (userKeys.length === 0) {
+                    showToast('No users to export.');
+                    return;
+                }
+
+                const rows = [
+                    ['Email', 'Display Name', 'Streak Days', 'Total Tasks', 'Completed Tasks', 'Completion Rate %', 'Theme', 'Backup Frequency', 'Last Login']
+                ];
+
+                userKeys.forEach(k => {
+                    const u = allUsersData[k];
+                    const profile = u.profile || {};
+                    const tasks = Array.isArray(u.tasks) ? u.tasks : [];
+                    const doneCount = tasks.filter(t => t.completed).length;
+                    const pct = tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;
+
+                    rows.push([
+                        '"' + (u.email || '') + '"',
+                        '"' + (u.displayName || profile.name || '').replace(/"/g, '""') + '"',
+                        profile.streak || 0,
+                        tasks.length,
+                        doneCount,
+                        pct + '%',
+                        '"' + (profile.theme || 'neon-cyber') + '"',
+                        '"' + (profile.backupFrequency || 'daily') + '"',
+                        '"' + (u.lastLogin || '') + '"'
+                    ]);
+                });
+
+                downloadFile('\uFEFF' + rows.map(r => r.join(',')).join('\r\n'), 'RoutineCraft_All_Users_' + getTodayStr() + '.csv', 'text/csv;charset=utf-8;');
+                showToast('📊 All users dataset exported to CSV!');
+            });
+
+            dom.exportAllJsonBtn.addEventListener('click', () => {
+                const jsonStr = JSON.stringify(allUsersData, null, 2);
+                downloadFile(jsonStr, 'RoutineCraft_Database_Backup_' + getTodayStr() + '.json', 'application/json;charset=utf-8;');
+                showToast('📄 Full JSON database backup downloaded!');
+            });
+
+            function exportSingleUserCSV(user) {
+                const tasks = Array.isArray(user.tasks) ? user.tasks : [];
+                const rows = [
+                    ['Task ID', 'Title', 'Category', 'Priority', 'Due Date', 'Due Time', 'Recurring', 'Status', 'Completed At']
+                ];
+
+                tasks.forEach(t => {
+                    rows.push([
+                        '"' + t.id + '"',
+                        '"' + (t.title || '').replace(/"/g, '""') + '"',
+                        '"' + (t.category || 'General') + '"',
+                        '"' + (t.priority || 'medium').toUpperCase() + '"',
+                        '"' + (t.dueDate || '') + '"',
+                        '"' + (t.dueTime || '') + '"',
+                        '"' + (t.recurring || 'none') + '"',
+                        '"' + (t.completed ? 'Completed' : 'Pending') + '"',
+                        '"' + (t.completedAt || '') + '"'
+                    ]);
+                });
+
+                downloadFile('\uFEFF' + rows.map(r => r.join(',')).join('\r\n'), 'RoutineCraft_Tasks_' + (user.email || 'user').replace(/[^a-zA-Z0-9]/g, '_') + '.csv', 'text/csv;charset=utf-8;');
+                showToast('User tasks exported to CSV!');
+            }
+
+            function downloadFile(content, filename, mimeType) {
+                const blob = new Blob([content], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+
+            function escapeHtml(str) {
+                return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function getTodayStr() {
+                const d = new Date();
+                return d.toISOString().split('T')[0];
+            }
+
+            function formatTimeAgo(date) {
+                const diffMs = Date.now() - date.getTime();
+                const mins = Math.floor(diffMs / 60000);
+                if (mins < 1) return 'Just now';
+                if (mins < 60) return mins + 'm ago';
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return hrs + 'h ago';
+                const days = Math.floor(hrs / 24);
+                return days + 'd ago';
+            }
+
+            // Start authentication check
+            checkAuth();
+        })();
+    </script>
+</body>
+</html>
