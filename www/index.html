@@ -612,22 +612,26 @@
                         </a>
                     </div>
 
-                    <!-- Local Data Backup & Reset -->
+                    <!-- Local Data Backup, Export & Migration -->
                     <div class="settings-group">
-                        <h4><i class="fa-solid fa-database"></i> Offline Data Export / Reset</h4>
-                        <div class="backup-actions" style="margin-bottom:8px;">
-                            <button class="btn btn-secondary" id="export-data-btn">
-                                <i class="fa-solid fa-download"></i> Export JSON
+                        <h4><i class="fa-solid fa-database"></i> Data Export & Backup</h4>
+                        <p class="settings-desc">Export your checklist and habit data for Excel, Notion, Obsidian, or backup.</p>
+                        <div class="backup-actions" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:10px;">
+                            <button type="button" class="btn btn-secondary" id="export-csv-btn">
+                                <i class="fa-solid fa-file-csv" style="color:#10b981;"></i> Export CSV
                             </button>
-                            <button class="btn btn-secondary" id="export-csv-btn">
-                                <i class="fa-solid fa-file-csv"></i> Export CSV
+                            <button type="button" class="btn btn-secondary" id="export-notion-btn">
+                                <i class="fa-solid fa-file-lines" style="color:#6366f1;"></i> Notion / MD
                             </button>
-                            <button class="btn btn-secondary" id="import-data-btn">
-                                <i class="fa-solid fa-upload"></i> Import JSON
+                            <button type="button" class="btn btn-secondary" id="export-data-btn">
+                                <i class="fa-solid fa-download" style="color:#00f2fe;"></i> Backup JSON
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="import-data-btn">
+                                <i class="fa-solid fa-upload" style="color:#f59e0b;"></i> Restore JSON
                             </button>
                             <input type="file" id="import-file-input" accept=".json" class="hide">
                         </div>
-                        <button class="btn btn-danger-outline" id="reset-data-btn">
+                        <button type="button" class="btn btn-danger-outline" id="reset-data-btn" style="width:100%;">
                             <i class="fa-solid fa-arrow-rotate-left"></i> Reset Current User Tasks
                         </button>
                     </div>

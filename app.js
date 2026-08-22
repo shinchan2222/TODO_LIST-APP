@@ -380,6 +380,7 @@
         themeCards: document.querySelectorAll('.theme-card'),
         exportDataBtn: document.getElementById('export-data-btn'),
         exportCsvBtn: document.getElementById('export-csv-btn'),
+        exportNotionBtn: document.getElementById('export-notion-btn'),
         importDataBtn: document.getElementById('import-data-btn'),
         importFileInput: document.getElementById('import-file-input'),
         resetDataBtn: document.getElementById('reset-data-btn'),
@@ -2608,9 +2609,21 @@
     });
 
     // --- CSV & PRINTABLE REPORT EXPORT ---
+    function downloadBlobFallback(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     function exportTasksToCSV() {
         const rows = [
-            ['Task ID', 'Title', 'Category', 'Priority', 'Due Date', 'Due Time', 'Recurring', 'Completed', 'Completed At', 'Subtasks Count', 'Completed Subtasks']
+            ['Task ID', 'Title', 'Category', 'Priority', 'Due Date', 'Due Time', 'Recurring', 'Status', 'Completed At', 'Subtasks Count', 'Completed Subtasks']
         ];
         
         state.tasks.forEach(t => {
@@ -2619,27 +2632,99 @@
             rows.push([
                 `"${t.id}"`,
                 `"${(t.title || '').replace(/"/g, '""')}"`,
-                `"${t.category || 'personal'}"`,
-                `"${t.priority || 'medium'}"`,
+                `"${(CATEGORIES[t.category] && CATEGORIES[t.category].label) || t.category || 'Personal'}"`,
+                `"${(t.priority || 'medium').toUpperCase()}"`,
                 `"${t.dueDate || ''}"`,
                 `"${t.dueTime || ''}"`,
                 `"${t.recurring || 'none'}"`,
-                `"${t.completed ? 'Yes' : 'No'}"`,
+                `"${t.completed ? 'Completed' : 'Pending'}"`,
                 `"${t.completedAt || ''}"`,
                 subCount,
                 subDone
             ]);
         });
 
-        const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `RoutineCraft_Tasks_${getTodayStr()}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast('📄 Tasks exported to CSV successfully!');
+        const csvContent = '\uFEFF' + rows.map(e => e.join(',')).join('\r\n');
+        const fileName = `RoutineCraft_Tasks_${getTodayStr()}.csv`;
+        
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
+            try {
+                const { Filesystem, Share } = window.Capacitor.Plugins;
+                Filesystem.writeFile({
+                    path: fileName,
+                    data: csvContent,
+                    directory: 'CACHE',
+                    encoding: 'utf8'
+                }).then(result => {
+                    Share.share({
+                        title: 'RoutineCraft Tasks Export',
+                        text: 'Here is your task list export (CSV).',
+                        url: result.uri,
+                        dialogTitle: 'Export / Open CSV'
+                    }).catch(() => {});
+                }).catch(() => {
+                    downloadBlobFallback(csvContent, fileName, 'text/csv;charset=utf-8;');
+                });
+            } catch(e) {
+                downloadBlobFallback(csvContent, fileName, 'text/csv;charset=utf-8;');
+            }
+        } else {
+            downloadBlobFallback(csvContent, fileName, 'text/csv;charset=utf-8;');
+        }
+        showToast('📊 Tasks exported to CSV successfully!');
+    }
+
+    function exportTasksToNotion() {
+        const today = getTodayStr();
+        let md = `# 🎯 RoutineCraft Checklist (${today})\n\n`;
+        md += `**Productivity Summary**: ${state.profile.streak || 0} Day Streak 🔥 | Total Completed: ${state.profile.totalCompletedCount || 0} Tasks\n\n`;
+        
+        const categories = {};
+        state.tasks.forEach(t => {
+            const cat = (CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'Other';
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push(t);
+        });
+
+        Object.keys(categories).forEach(cat => {
+            md += `### ${cat}\n`;
+            categories[cat].forEach(t => {
+                const check = t.completed ? '[x]' : '[ ]';
+                const timeInfo = t.dueTime ? ` (${t.dueTime})` : '';
+                const recurInfo = (t.recurring && t.recurring !== 'none') ? ` [🔁 ${t.recurring}]` : '';
+                md += `- ${check} **${t.title}**${timeInfo}${recurInfo}\n`;
+                if (t.subtasks && t.subtasks.length > 0) {
+                    t.subtasks.forEach(sub => {
+                        md += `  - ${sub.completed ? '[x]' : '[ ]'} ${sub.title}\n`;
+                    });
+                }
+            });
+            md += `\n`;
+        });
+
+        md += `---\n*Exported from RoutineCraft • Personal Daily Checklist*`;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(md).then(() => {
+                showToast('📋 Copied Notion/Markdown checklist to clipboard!');
+            }).catch(() => {
+                downloadBlobFallback(md, `RoutineCraft_Notion_${today}.md`, 'text/markdown;charset=utf-8;');
+                showToast('📝 Notion/Markdown file downloaded!');
+            });
+        } else {
+            downloadBlobFallback(md, `RoutineCraft_Notion_${today}.md`, 'text/markdown;charset=utf-8;');
+            showToast('📝 Notion/Markdown file downloaded!');
+        }
+
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+            try {
+                window.Capacitor.Plugins.Share.share({
+                    title: `RoutineCraft Notion Export (${today})`,
+                    text: md,
+                    dialogTitle: 'Share Notion / Markdown Checklist'
+                }).catch(() => {});
+            } catch(e) {}
+        }
     }
 
     function printMonthlyReport() {
@@ -3114,6 +3199,9 @@
         // Export Actions
         if (dom.exportCsvBtn) {
             dom.exportCsvBtn.addEventListener('click', exportTasksToCSV);
+        }
+        if (dom.exportNotionBtn) {
+            dom.exportNotionBtn.addEventListener('click', exportTasksToNotion);
         }
         if (dom.printPdfReportBtn) {
             dom.printPdfReportBtn.addEventListener('click', printMonthlyReport);
