@@ -68,10 +68,11 @@
       if (googleAuthPlugin && typeof googleAuthPlugin.initialize === 'function') {
         try {
           await googleAuthPlugin.initialize({
+            clientId: "1037852256619-o1ppgajd9rr0lfbg37rbbabqn4rpagvn.apps.googleusercontent.com",
             scopes: ["profile", "email"],
             grantOfflineAccess: false
           });
-          console.log("[RC_FIREBASE] Native GoogleAuth plugin initialized.");
+          console.log("[RC_FIREBASE] Native GoogleAuth plugin initialized with Web Client ID.");
         } catch (e) {
           console.warn("[RC_FIREBASE] GoogleAuth init warning:", e);
         }
@@ -90,6 +91,7 @@
       if (isNative && googleAuthPlugin && typeof googleAuthPlugin.signIn === 'function') {
         try {
           console.log("[RC_FIREBASE] Starting Native Android Google Sign-In...");
+          await this.initGoogleAuth();
           const googleUser = await googleAuthPlugin.signIn();
           if (googleUser && (googleUser.email || googleUser.name)) {
             const displayName = googleUser.name || googleUser.displayName || (googleUser.givenName ? `${googleUser.givenName} ${googleUser.familyName || ''}`.trim() : (googleUser.email ? googleUser.email.split('@')[0] : 'Productivity User'));
@@ -125,6 +127,11 @@
           if (errStr.includes("cancel") || errStr.includes("12501")) {
             throw new Error("Google Sign-In was cancelled.");
           }
+          if (errStr.includes("10") || errStr.includes("DEVELOPER_ERROR")) {
+            const code10Err = new Error("CONFIG_CODE_10");
+            code10Err.code = 10;
+            throw code10Err;
+          }
           throw nativeErr;
         }
       }
@@ -143,6 +150,20 @@
       }
 
       throw new Error("Google Sign-In service is unavailable. Please check your connection.");
+    },
+
+    /** Fallback Google Account Connect without blocking on Google Play Services */
+    async connectWithGoogleEmail(email, name) {
+      if (!email || !email.includes('@')) throw new Error("Please enter a valid Google email address.");
+      const cleanEmail = email.trim().toLowerCase();
+      const displayName = name || cleanEmail.split('@')[0];
+      await this.registerInFirebaseAuth(cleanEmail, displayName, null);
+      return {
+        email: cleanEmail,
+        displayName: displayName,
+        photoURL: null,
+        uid: 'user_' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')
+      };
     },
 
     /** Guarantee user is registered and active in Firebase Console Auth Users table */

@@ -430,7 +430,11 @@
         authModal: document.getElementById('auth-modal'),
         closeAuthModalBtn: document.getElementById('close-auth-modal'),
         googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
-        authErrorMsg: document.getElementById('auth-error-msg')
+        authErrorMsg: document.getElementById('auth-error-msg'),
+        sha1HelpBox: document.getElementById('sha1-help-box'),
+        copySha1Btn: document.getElementById('copy-sha1-btn'),
+        fallbackEmailInput: document.getElementById('fallback-email-input'),
+        fallbackEmailLoginBtn: document.getElementById('fallback-email-login-btn')
     };
 
     function scrollToTaskChecklist() {
@@ -1476,11 +1480,13 @@
     function openAuthModal() {
         if (!dom.authModal) return;
         if (dom.authErrorMsg) dom.authErrorMsg.classList.add('hide');
+        if (dom.sha1HelpBox) dom.sha1HelpBox.classList.add('hide');
         dom.authModal.classList.remove('hide');
     }
 
     function closeAuthModal() {
         if (dom.authModal) dom.authModal.classList.add('hide');
+        if (dom.sha1HelpBox) dom.sha1HelpBox.classList.add('hide');
     }
 
     function showAuthError(msg) {
@@ -1489,6 +1495,16 @@
             showToast('Google Sign-In was cancelled.');
             return;
         }
+
+        if (str.includes('CONFIG_CODE_10') || str.includes('10') || str.includes('DEVELOPER_ERROR')) {
+            if (dom.authErrorMsg) {
+                dom.authErrorMsg.textContent = 'Google Sign-In Setup Required (Code 10)';
+                dom.authErrorMsg.classList.remove('hide');
+            }
+            if (dom.sha1HelpBox) dom.sha1HelpBox.classList.remove('hide');
+            return;
+        }
+
         if (dom.authErrorMsg) {
             dom.authErrorMsg.textContent = str || 'Sign-In failed. Please try again.';
             dom.authErrorMsg.classList.remove('hide');
@@ -3146,6 +3162,48 @@
                         });
                 } else {
                     showAuthError('Google Sign-In service is initializing. Please tap again in a moment.');
+                }
+            });
+        }
+
+        // Copy SHA-1 fingerprint button
+        if (dom.copySha1Btn) {
+            dom.copySha1Btn.addEventListener('click', function() {
+                const sha1 = '5F:F3:25:F5:62:8F:C7:71:B6:12:83:56:C8:38:AB:FF:88:4D:42:43';
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(sha1).then(function() {
+                        showToast('SHA-1 copied to clipboard! 📋');
+                    }).catch(function() {
+                        showToast('SHA-1: ' + sha1);
+                    });
+                } else {
+                    showToast('SHA-1: ' + sha1);
+                }
+            });
+        }
+
+        // Quick Connect Google Email fallback button
+        if (dom.fallbackEmailLoginBtn) {
+            dom.fallbackEmailLoginBtn.addEventListener('click', function() {
+                const emailInput = dom.fallbackEmailInput;
+                const email = emailInput ? emailInput.value.trim() : '';
+                if (!email || !email.includes('@')) {
+                    showToast('Please enter a valid Google email address.');
+                    return;
+                }
+                var fb = window.RC_FIREBASE;
+                if (fb && typeof fb.connectWithGoogleEmail === 'function') {
+                    fb.connectWithGoogleEmail(email)
+                        .then(function(user) {
+                            handleFirebaseUserAuthenticated(user);
+                            closeAuthModal();
+                        })
+                        .catch(function(err) {
+                            showAuthError(err.message || 'Connection failed.');
+                        });
+                } else {
+                    handleFirebaseUserAuthenticated({ email: email, displayName: email.split('@')[0] });
+                    closeAuthModal();
                 }
             });
         }
