@@ -1,126 +1,136 @@
 # RoutineCraft - Complete Project Status & Session Summary
 **Current Version**: `v2.2.0` (Build 22)  
-**Generated**: October 2, 2026  
+**Last Updated**: October 2, 2026 (Evening Session)  
 **Repository**: [shinchan2222/TODO_LIST-APP](https://github.com/shinchan2222/TODO_LIST-APP)  
+**Live Release**: [RoutineCraft v2.2.0 (Build 22)](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.2.0)  
 **Local Project Directory**: `c:\Users\Naveen\OneDrive\Desktop\daily todo checklist`
 
 ---
 
 ## 📌 Executive Summary
 
-RoutineCraft has been updated to **v2.2.0 (Build 22)**. In this release:
-- **Minimalist Focus / Pomodoro Mode**: Built-in 25-minute focus session timer with animated circular progress ring, audio chime, and session completion celebration.
-- **Mobile Swipe Gestures**: Swipe right to complete tasks instantly with haptic feedback; swipe left to reveal quick reschedule (to tomorrow) and delete actions.
-- **Drag-and-Drop Task Reordering**: Intuitive drag handle on each task card allowing users to order today's tasks by priority.
-- **Custom Category Tags**: Full category manager in Settings with icon and color pickers, dynamic filtering, and custom tag support.
-- **Daily Morning Digest Notification**: Automated daily briefing reminder at user-configured morning time summarizing scheduled tasks.
-- **Interface Customization Toggles**: Ability in Settings to show or hide Category Filters and the Quick-Add Task Bar.
-- **Native Full Page Views**: Stats & Activity and Settings & Preferences open directly as full native page views that transition in-place with the bottom navigation bar.
+Today's session completely overhauled and modernized **RoutineCraft** from a bloated legacy to-do app into a sleek, ultra-clean **Apple Reminders & Things 3 minimal productivity engine**, followed by two major feature and architecture releases (`v2.1.0` and `v2.2.0`).
+
+All changes have been developed, styled with responsive CSS, thoroughly verified via browser automation, synced to Capacitor Android assets, committed, tagged, and built into production APKs via GitHub Actions CI/CD.
 
 ---
 
-## 🛠️ 1. Logic & Functional Fixes Applied (`app.js`)
+## 🚀 Version & Release History
 
-1. **Local Timezone Bug (Resolved)**:
-   - **Problem**: Dates were previously converted with UTC `.toISOString().split('T')[0]`, which shifted tasks a day backward/forward in timezones ahead of UTC (e.g. GMT+5:30 IST).
-   - **Fix**: Replaced with timezone-aware `formatLocalDate()` using local calendar components (`getFullYear()`, `getMonth()`, `getDate()`).
-
-2. **Today's Goals Math & Overdue Inflation (Resolved)**:
-   - **Problem**: The daily progress ring divided completed tasks by the entire historical task database, resulting in incorrect percentages.
-   - **Fix**: Now strictly calculates **Today's Goals** = `(Completed Today) / (Pending Today + Overdue + Completed Today)`.
-
-3. **Recurrence Rules (Resolved)**:
-   - **Problem**: Recurring tasks (`daily`, `weekdays`, `weekends`) showed up every day regardless of day of week.
-   - **Fix**: Now accurately validates whether today is a weekday (Monday–Friday) or weekend (Saturday–Sunday).
-
-4. **Non-Vanishing Completed Tasks (Resolved)**:
-   - **Problem**: Marking a task as completed caused it to vanish from the "Today" view immediately, leaving users confused.
-   - **Fix**: Completed tasks remain visible under a dedicated collapsible **"Completed Today"** section with a checkmark badge.
-
-5. **Quick-Add Bar**:
-   - Added a top quick-add input allowing instant task creation for today by pressing <kbd>Enter</kbd> without opening full modal forms.
-
-6. **Overdue Action Banner**:
-   - Added 1-click **"Move All to Today"** button and individual card reschedule buttons.
-
-7. **Authentic 30-Day Activity Heatmap & Bar Charts**:
-   - Integrated real daily completion data from `state.history` instead of dummy placeholders.
+| Version | Build | Release Date | Key Highlights | GitHub Release |
+| :--- | :---: | :---: | :--- | :---: |
+| **v2.2.0** | **22** | **Oct 2, 2026** | **Minimalist Focus Pomodoro Timer**, **Mobile Swipe Actions** (swipe-to-complete & swipe-to-reschedule/delete), **Drag-and-Drop Task Reordering**, **Custom Category Manager** (with 10 icons & 6 color pickers), and **Daily Morning Briefing Notification**. | [View v2.2.0](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.2.0) |
+| **v2.1.0** | **21** | **Oct 2, 2026** | **Settings Interface Toggles** (show/hide Category Filters & Quick-Add Bar) and **Native Full Page Navigation** (Stats & Settings as full native page views instead of popup sheets). | [View v2.1.0](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.1.0) |
+| **v2.0.0** | **20** | **Oct 2, 2026** | **Apple Reminders / Things 3 Minimal Redesign**, timezone-safe date engine, persistent completed tasks under "Completed Today", linear progress bar, high-contrast Light/Dark modes, mobile safe-area insets, and Android back button handling. | [View v2.0.0](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.0.0) |
 
 ---
 
-## 🎨 2. Theme Overhaul (`style.css`, `index.html`, `app.js`)
+## ✨ Complete Feature Breakdown (`v2.2.0`)
 
-* **Removed Themes**: Completely eliminated `sunset-glow`, `dark-glass`, `neon-cyber`, and `minimal-light`.
-* **Standard Modes Only**:
-  * ☀️ **Light Mode**: Clean slate & indigo card styling.
-  * 🌙 **Dark Mode**: Sleek obsidian & dark slate background with high-contrast text.
-* **Quick Toggle**: Added 1-tap Moon 🌙 / Sun ☀️ icon button in the top header.
-* **Settings Toggle**: Added explicit Light and Dark mode selector buttons inside the Customize/Settings modal.
+### 1. ⏱️ Focus / Pomodoro Mode
+* **Entry**: Dedicated stopwatch button (<i class="fa-solid fa-stopwatch"></i>) on every task card.
+* **Interface**: Clean modal overlay with task title, circular countdown timer, and smooth SVG progress ring.
+* **Presets**: Instant duration switching between **15m**, **25m**, **45m**, and **60m**.
+* **Audio Feedback**: Synthesized harmonic two-tone chime via Web Audio API (`AudioContext`) when the session completes — zero external MP3 dependencies.
+* **Completion**: "Done" button marks the task completed, stops the timer, and displays celebratory toast notification.
 
----
+### 2. 👆 Mobile Swipe Actions
+* **Touch-Optimized**: Custom touch gesture listeners that distinguish horizontal swipes from vertical page scrolling.
+* **Swipe Right (Threshold > 75px)**: Reveals an emerald green backdrop and triggers instant task completion with subtle haptic vibration (`navigator.vibrate(35)`).
+* **Swipe Left (Threshold < -60px)**: Reveals quick action buttons:
+  - 🗓️ **Postpone to Tomorrow** (Reschedules task to next day).
+  - 🗑️ **Delete Task** (Removes task with confirmation/undo).
 
-## 📱 3. Android Native User-Friendliness & Mobile UX
+### 3. 🔀 Drag-and-Drop Task Reordering
+* Unobtrusive grip handle (<i class="fa-solid fa-grip-vertical"></i>) on the left of each task card.
+* Full HTML5 drag-and-drop support on desktop and mobile.
+* Moving a card immediately reorders the tasks array in state and persists the new order to `localStorage`.
 
-1. **Edge-to-Edge & Gesture Navigation Insets**:
-   - Added `viewport-fit=cover` to meta viewport.
-   - Added `padding-bottom: calc(10px + env(safe-area-inset-bottom))` to the bottom navigation bar and Floating Action Button (FAB), preventing the Android gesture navigation pill from overlapping buttons.
-   - Added top safe-area padding for camera notches.
+### 4. 🏷️ Custom Categories & Tag Manager
+* **Location**: **Settings** → **Categories**.
+* **Presets Included**: `Morning`, `Work`, `Health`, `Personal`, `Evening`.
+* **Add Custom Tag**:
+  - Modal form with custom tag name (e.g. *Coding*, *Study*, *Fitness*, *Groceries*).
+  - 10 selectable FontAwesome icon glyphs.
+  - 6 curated accent color presets.
+* **Dynamic Integration**:
+  - Custom tags immediately appear in the Tasks page horizontal category scrollbar.
+  - Custom tags populate the Category `<select>` in the Create/Edit Task modal.
+  - Custom tags calculate real completion metrics in the Stats Category breakdown.
+  - Custom tags can be deleted anytime with the **✕** delete button.
 
-2. **Android Hardware & Gesture Back Button Handling**:
-   - Integrated with `@capacitor/app` `backButton`, Cordova `backbutton`, and `popstate`.
-   - Pressing the hardware back button or performing an edge-swipe gesture **dismisses open modals** (Task modal, Settings, Stats, Updates) instead of exiting the app.
+### 5. ☀️ Daily Morning Briefing Notification
+* **Location**: **Settings** → **Daily Notifications**.
+* **Toggle**: Enable/disable daily morning briefing.
+* **Time Selector**: Configurable briefing time (defaults to `08:00 AM`).
+* When the app is opened or active around that time, automatically checks planned tasks for the day and sends an OS notification:
+  > *"☀️ RoutineCraft Daily Briefing: Good morning! You have X tasks scheduled for today."*
 
-3. **Backdrop Tap to Dismiss**:
-   - Tapping the darkened backdrop outside any modal dismisses it immediately.
+### 6. ⚙️ Interface Visibility Toggles
+* **Location**: **Settings** → **Interface**.
+* Toggle switch to show or hide the horizontal **Category Filter Chips**.
+* Toggle switch to show or hide the inline **Quick-Add Task Bar**.
 
-4. **Tactile Haptic Feedback**:
-   - Checking off tasks or subtasks triggers subtle haptic vibration (`navigator.vibrate(20)`) on Android devices.
-
-5. **Touch Ergonomics & Anti-Selection**:
-   - Added `user-select: none` and `-webkit-touch-callout: none` to cards and chips to prevent accidental text selection popups on long press.
-   - Checkboxes enlarged to 24×24px; action buttons enlarged to 34×34px.
-   - Added `touch-action: manipulation` to eliminate the 300ms mobile tap delay.
-
-6. **Input Auto-Zoom Prevention**:
-   - Set all mobile inputs to 16px minimum font size to stop Android Chrome/WebViews from zooming and shifting the viewport on focus.
-
-7. **Dynamic Status Bar Color**:
-   - `<meta name="theme-color">` dynamically synchronizes with Light (`#f8fafc`) and Dark (`#090d16`) modes.
-
----
-
-## 📦 4. Android APK Build Status
-
-* **Build Tool**: Android Gradle (`gradlew.bat assembleDebug`)
-* **JDK Used**: Android Studio bundled JDK 21 (`C:/Program Files/Android/Android Studio/jbr`)
-* **Build Result**: `BUILD SUCCESSFUL in 21s`
-* **Version**: `v2.0.0` (VersionCode: `20`)
-* **Local APK Files Ready on Your Computer**:
-  * [`RoutineCraft.apk`](file:///c:/Users/Naveen/OneDrive/Desktop/daily%20todo%20checklist/RoutineCraft.apk) (4.16 MB)
-  * [`RoutineCraft_v2.0.0.apk`](file:///c:/Users/Naveen/OneDrive/Desktop/daily%20todo%20checklist/RoutineCraft_v2.0.0.apk) (4.16 MB)
-  * Also in: `android/app/build/outputs/apk/debug/app-debug.apk`
+### 7. 📱 Native Full Page Navigation
+* **Tasks**, **Stats**, and **Settings** render as native full page views.
+* Switching tabs via the bottom navigation bar smoothly transitions the active page in-place without jarring modal sheet animations.
 
 ---
 
-## ⚠️ 5. GitHub Releases Status & Version Alignment
+## 🛠️ Architecture & Technical Stack
 
-* **Prior GitHub Releases**:
-  1. `v1.8.1-build19` (Published Oct 1, 2026 by CI/CD with old codebase)
-  2. `v1.0.0` (Published Sept 29, 2026)
-* **New Target Release**: `v2.0.0` (Build 20)
-* **Version Configuration Alignment**:
-  - `app.js` & `www/app.js`: `APP_VERSION = 20`, `APP_RELEASE_VERSION = '2.0.0'`
-  - `index.html` & `www/index.html`: `current-version-display` = `v2.0.0`
-  - `android/app/build.gradle`: `versionCode 20`, `versionName "2.0.0"`
-  - `package.json` & `www/package.json`: `"version": "2.0.0"`
-  - `version.json` & `www/version.json`: `version: 20`, `versionName: "2.0.0"`
-  - `.github/workflows/build-apk.yml`: Target tag `v2.0.0`, release name `RoutineCraft v2.0.0 (Build 20)`
+* **Frontend**: HTML5, Vanilla JavaScript (ES6+ modular closures), Vanilla CSS (Design Tokens, Light/Dark themes, CSS Grid & Flexbox).
+* **PWA & Offline Capability**: Service Worker (`sw.js`) with cache storage (`routinecraft-v2.2.0`), offline cache-first strategy.
+* **Mobile Runtime**: Capacitor 8.5.0 (`@capacitor/android`, `@capacitor/core`, `@capacitor/cli`).
+* **CI/CD Pipeline**: GitHub Actions (`.github/workflows/build-apk.yml`) running on Ubuntu with Java 21 Temurin and Gradle 8+.
+* **Release Artifacts**:
+  - `RoutineCraft_v2.2.0.apk`
+  - `RoutineCraft.apk`
 
 ---
 
-## 🚀 6. Next Steps to Publish v2.0.0
+## 💻 Local Development & Testing Instructions
 
-To publish the new release to GitHub:
-1. Commit the updated files and push to `origin/main` (or tag `v2.0.0`).
-2. The GitHub Actions workflow will trigger and publish `v2.0.0` with `RoutineCraft_v2.0.0.apk`.
-3. Or manually attach [`RoutineCraft_v2.0.0.apk`](file:///c:/Users/Naveen/OneDrive/Desktop/daily%20todo%20checklist/RoutineCraft_v2.0.0.apk) to a new release on GitHub.
+When resuming tomorrow, you can test and run locally using any of the following commands:
+
+### 1. Run Web Development Server:
+```powershell
+python -m http.server 8085
+# Or using npm
+npm start
+```
+Open your browser at: `http://localhost:8085/`
+
+### 2. Check JavaScript Code Syntax:
+```powershell
+node --check app.js
+node --check www/app.js
+```
+
+### 3. Sync Web Assets to Android:
+```powershell
+Copy-Item index.html, app.js, style.css, sw.js, version.json, package.json -Destination www\ -Force
+npx cap sync android
+```
+
+### 4. Build Android APK Locally (Optional):
+```powershell
+cd android
+./gradlew assembleDebug --no-daemon
+```
+
+---
+
+## 📋 Ideas & Roadmap for Tomorrow
+
+If you want to continue expanding RoutineCraft tomorrow, here are great potential features to explore:
+
+1. **Android Home Screen AppWidget**: Display today's checklist on the Android launcher screen.
+2. **Cloud Sync Enhancements**: Real Google Drive REST API integration using OAuth 2.0 PKCE tokens.
+3. **Task Search & Filter Tags**: Combine multiple category filters or filter by priority badges.
+4. **Data Analytics Export**: Export completion history as CSV or PDF report.
+5. **Sound Effects Selector**: Choose custom completion sounds (Bell, Drop, Soft Chime, Digital Tick).
+
+---
+
+*All files, changes, git history, and conversation context are safely stored. See you tomorrow!* 🌟
