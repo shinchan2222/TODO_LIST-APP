@@ -490,29 +490,39 @@
 
     // --- GREETING & PROFILE UI ---
     function updateGreeting() {
-        const hour = new Date().getHours();
-        let greeting = 'Good Morning,';
-        if (hour >= 12 && hour < 17) greeting = 'Good Afternoon,';
-        else if (hour >= 17 && hour < 22) greeting = 'Good Evening,';
-        else if (hour >= 22 || hour < 5) greeting = 'Good Night,';
-        dom.timeGreeting.textContent = greeting;
+        const now = new Date();
+        const hour = now.getHours();
+        let greeting = 'Good Morning';
+        if (hour >= 12 && hour < 17) greeting = 'Good Afternoon';
+        else if (hour >= 17 && hour < 22) greeting = 'Good Evening';
+        else if (hour >= 22 || hour < 5) greeting = 'Good Night';
+        if (dom.timeGreeting) dom.timeGreeting.textContent = greeting;
+
+        const headerDateTitle = document.getElementById('header-date-title');
+        const headerDateBadge = document.getElementById('header-date-badge');
+        if (headerDateTitle) {
+            headerDateTitle.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        }
+        if (headerDateBadge) {
+            headerDateBadge.textContent = 'TODAY';
+        }
     }
 
     function renderHeaderProfile() {
-        dom.userNameDisplay.textContent = state.profile.name || 'Productivity Hero';
-        dom.userAvatar.textContent = state.profile.avatar || '🚀';
-        dom.streakCount.textContent = state.profile.streak || 0;
+        if (dom.userNameDisplay) dom.userNameDisplay.textContent = state.profile.name || 'Productivity Hero';
+        if (dom.userAvatar) dom.userAvatar.textContent = state.profile.avatar || '🚀';
+        if (dom.streakCount) dom.streakCount.textContent = state.profile.streak || 0;
 
-        if (state.profile.isGoogleSynced) {
-            dom.googleBtnText.textContent = 'Account';
-        } else {
-            dom.googleBtnText.textContent = 'Sign In';
+        if (dom.googleBtnText) {
+            dom.googleBtnText.textContent = state.profile.isGoogleSynced ? 'Account' : 'Sign In';
         }
 
-        if (state.profile.notificationsEnabled) {
-            dom.notifyBtn.classList.add('active');
-        } else {
-            dom.notifyBtn.classList.remove('active');
+        if (dom.notifyBtn) {
+            if (state.profile.notificationsEnabled) {
+                dom.notifyBtn.classList.add('active');
+            } else {
+                dom.notifyBtn.classList.remove('active');
+            }
         }
     }
 
@@ -648,11 +658,11 @@
         const totalWorkload = todayPending + overduePending + completedToday;
         const percentage = totalWorkload === 0 ? 0 : Math.round((completedToday / totalWorkload) * 100);
 
-        dom.tasksTodayPendingCount.textContent = todayPending;
-        dom.tasksOverduePendingCount.textContent = overduePending;
-        dom.tasksDoneCount.textContent = completedToday;
-        dom.overdueTabCount.textContent = overduePending;
-        dom.upcomingTabCount.textContent = upcomingPending;
+        if (dom.tasksTodayPendingCount) dom.tasksTodayPendingCount.textContent = todayPending;
+        if (dom.tasksOverduePendingCount) dom.tasksOverduePendingCount.textContent = overduePending;
+        if (dom.tasksDoneCount) dom.tasksDoneCount.textContent = completedToday;
+        if (dom.overdueTabCount) dom.overdueTabCount.textContent = overduePending;
+        if (dom.upcomingTabCount) dom.upcomingTabCount.textContent = upcomingPending;
 
         if (dom.overdueActionBanner && dom.overdueBannerCount) {
             dom.overdueBannerCount.textContent = overduePending;
@@ -663,13 +673,30 @@
             }
         }
 
-        dom.progressPercentageText.textContent = `${percentage}%`;
+        if (dom.progressPercentageText) dom.progressPercentageText.textContent = `${percentage}%`;
 
-        // SVG circumference 2 * PI * 36 = 226.19
-        const circumference = 226.19;
-        const offset = circumference - (percentage / 100) * circumference;
-        dom.progressCircle.style.strokeDashoffset = offset;
-        dom.streakCount.textContent = state.profile.streak || 0;
+        // Update Minimal Linear Progress Bar & Subtitle
+        const minimalProgressText = document.getElementById('minimal-progress-text');
+        if (minimalProgressText) {
+            minimalProgressText.textContent = `${completedToday} of ${totalWorkload} completed (${percentage}%)`;
+        }
+        const linearProgressFill = document.getElementById('linear-progress-fill');
+        if (linearProgressFill) {
+            linearProgressFill.style.width = `${percentage}%`;
+        }
+        const headerStatusSub = document.getElementById('header-status-sub');
+        if (headerStatusSub) {
+            headerStatusSub.textContent = totalWorkload === 0 
+                ? 'No tasks for today' 
+                : `${completedToday} of ${totalWorkload} completed`;
+        }
+
+        if (dom.progressCircle) {
+            const circumference = 226.19;
+            const offset = circumference - (percentage / 100) * circumference;
+            dom.progressCircle.style.strokeDashoffset = offset;
+        }
+        if (dom.streakCount) dom.streakCount.textContent = state.profile.streak || 0;
     }
 
     // --- REAL ANALYTICS DASHBOARD ENGINE ---
@@ -989,7 +1016,7 @@
         card.dataset.id = task.id;
 
         const catInfo = CATEGORIES[task.category] || { label: task.category, icon: 'fa-tag' };
-        const priorityLabels = { high: '🔥 High', medium: '⚡ Med', low: '🟢 Low' };
+        const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
 
         let subtasksHtml = '';
         if (task.subtasks && task.subtasks.length > 0) {
@@ -997,7 +1024,7 @@
             subtasksHtml = `
                 <div class="subtasks-container">
                     <div class="subtask-progress-summary" style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:4px;">
-                        Subtasks: ${completedSub}/${task.subtasks.length}
+                        Checklist: ${completedSub}/${task.subtasks.length}
                     </div>
                     ${task.subtasks.map(s => `
                         <div class="subtask-item ${s.completed ? 'completed' : ''}">
@@ -1025,9 +1052,9 @@
                     <div class="task-meta-row">
                         <span class="badge badge-category"><i class="fa-solid ${catInfo.icon}"></i> ${catInfo.label}</span>
                         <span class="badge badge-priority-${task.priority}">${priorityLabels[task.priority]}</span>
-                        ${overdue ? `<span class="badge badge-overdue"><i class="fa-solid fa-triangle-exclamation"></i> Overdue (${task.dueDate})</span>` : ''}
-                        ${upcoming ? `<span class="badge badge-date" style="background:rgba(236,72,153,0.18); color:var(--accent-primary);"><i class="fa-regular fa-calendar-check"></i> Scheduled: ${task.dueDate}</span>` : ''}
-                        ${!overdue && !upcoming && task.dueDate ? `<span class="badge badge-date"><i class="fa-regular fa-calendar"></i> Today</span>` : ''}
+                        ${overdue ? `<span class="badge badge-overdue"><i class="fa-solid fa-clock"></i> Overdue</span>` : ''}
+                        ${upcoming ? `<span class="badge badge-date"><i class="fa-regular fa-calendar"></i> ${task.dueDate}</span>` : ''}
+                        ${!overdue && !upcoming && task.dueDate && task.dueDate !== getTodayStr() ? `<span class="badge badge-date"><i class="fa-regular fa-calendar"></i> ${task.dueDate}</span>` : ''}
                         ${task.dueTime ? `<span class="badge badge-time"><i class="fa-regular fa-clock"></i> ${task.dueTime}</span>` : ''}
                         ${task.recurring && task.recurring !== 'none' ? `<span class="badge badge-recurring"><i class="fa-solid fa-repeat"></i> ${task.recurring}</span>` : ''}
                     </div>
@@ -1439,20 +1466,37 @@
             dom.rescheduleAllBtn.addEventListener('click', rescheduleAllOverdueToToday);
         }
 
-        // Search Input
-        dom.searchInput.addEventListener('input', (e) => {
-            state.searchQuery = e.target.value;
-            if (state.searchQuery) dom.clearSearchBtn.classList.remove('hide');
-            else dom.clearSearchBtn.classList.add('hide');
-            renderTasks();
-        });
+        // Search Input & Toggle
+        const searchToggleBtn = document.getElementById('search-toggle-btn');
+        const collapsibleSearchBar = document.getElementById('collapsible-search-bar');
+        if (searchToggleBtn && collapsibleSearchBar) {
+            searchToggleBtn.addEventListener('click', () => {
+                collapsibleSearchBar.classList.toggle('hide');
+                if (!collapsibleSearchBar.classList.contains('hide') && dom.searchInput) {
+                    dom.searchInput.focus();
+                }
+            });
+        }
 
-        dom.clearSearchBtn.addEventListener('click', () => {
-            dom.searchInput.value = '';
-            state.searchQuery = '';
-            dom.clearSearchBtn.classList.add('hide');
-            renderTasks();
-        });
+        if (dom.searchInput) {
+            dom.searchInput.addEventListener('input', (e) => {
+                state.searchQuery = e.target.value;
+                if (dom.clearSearchBtn) {
+                    if (state.searchQuery) dom.clearSearchBtn.classList.remove('hide');
+                    else dom.clearSearchBtn.classList.add('hide');
+                }
+                renderTasks();
+            });
+        }
+
+        if (dom.clearSearchBtn) {
+            dom.clearSearchBtn.addEventListener('click', () => {
+                if (dom.searchInput) dom.searchInput.value = '';
+                state.searchQuery = '';
+                dom.clearSearchBtn.classList.add('hide');
+                renderTasks();
+            });
+        }
 
         // Category Chips
         dom.categoriesContainer.querySelectorAll('.category-chip').forEach(chip => {
