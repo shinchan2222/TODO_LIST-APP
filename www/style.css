@@ -102,14 +102,15 @@ body {
     display: none !important;
 }
 
-/* Mobile App Shell Container */
-.app-container {
+/* Mobile App Shell — full viewport host for all page views */
+.app-shell {
+    position: fixed;
+    inset: 0;
     max-width: 640px;
     margin: 0 auto;
-    padding: 16px 20px calc(90px + env(safe-area-inset-bottom)) 20px;
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 /* --- 1. MINIMAL HEADER (Apple Reminders / Things 3 Style) --- */
@@ -938,10 +939,8 @@ body {
 }
 
 .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    /* Part of the app-shell flex column — sits at the bottom */
+    flex-shrink: 0;
     height: calc(56px + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
     background: var(--nav-bg);
@@ -978,6 +977,49 @@ body {
 .nav-item.active {
     color: var(--accent-primary);
     font-weight: 600;
+}
+
+/* --- 6.5 NATIVE PAGE VIEWS (Apple Reminders / Things 3 Style) --- */
+.page-view {
+    /* Fill all available vertical space above the fixed bottom-nav */
+    flex: 1 1 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    padding: 0 20px calc(16px + env(safe-area-inset-bottom)) 20px;
+    display: flex;
+    flex-direction: column;
+    animation: fadeInPage 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInPage {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0 16px 0;
+}
+
+.page-title {
+    font-family: var(--font-family-heading);
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+}
+
+.page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 
 /* --- 7. CLEAN SHEET MODALS --- */
@@ -1227,23 +1269,116 @@ body {
     font-size: 0.78rem;
 }
 
-/* Settings Modal Specific */
+/* Settings Page Groups (Apple iOS Card Style) */
 .settings-group {
-    border-bottom: 1px solid var(--card-border);
-    padding-bottom: 14px;
-}
-
-.settings-group:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
 }
 
 .settings-group h4 {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
 }
+
+.settings-group-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: -4px 0 4px 0;
+}
+
+/* Toggle row — label + description on left, switch on right */
+.pref-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+}
+
+.pref-toggle-row + .pref-toggle-row {
+    border-top: 1px solid var(--card-border);
+    padding-top: 12px;
+    margin-top: 2px;
+}
+
+.pref-toggle-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.pref-toggle-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.pref-toggle-desc {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* iOS-style toggle switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 28px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-knob {
+    position: absolute;
+    inset: 0;
+    background: var(--card-border);
+    border-radius: 28px;
+    transition: background 0.22s ease;
+}
+
+.toggle-knob::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toggle-switch input:checked + .toggle-knob {
+    background: var(--accent-primary);
+}
+
+.toggle-switch input:checked + .toggle-knob::after {
+    transform: translateX(20px);
+}
+
 
 .theme-mode-toggle {
     display: flex;
@@ -1299,11 +1434,16 @@ body {
     color: var(--text-primary);
 }
 
-/* Stats Dashboard Modal */
-.overall-progress-card {
-    background: var(--input-bg);
-    border-radius: var(--radius-md);
-    padding: 14px;
+/* Stats Dashboard & Page Cards */
+.overall-progress-card,
+.planner-grid-section,
+.heatmap-section,
+.category-breakdown-section {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
 }
 
 .overall-progress-header {

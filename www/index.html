@@ -3,46 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RoutineCraft - Clean Daily Tasks & Habits</title>
-    <meta name="description" content="A minimal, distraction-free daily to-do checklist and habit tracker inspired by Apple Reminders & Things 3.">
+    <title>RoutineCraft - Clean Daily Tasks &amp; Habits</title>
+    <meta name="description" content="A minimal, distraction-free daily to-do checklist and habit tracker.">
     <meta name="theme-color" content="#f8fafc" id="theme-color-meta">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="manifest" href="manifest.json">
-    <!-- Google Fonts: Inter & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <!-- Google Identity Services API for Multi-User Google Sign-In & Drive Backup -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body data-theme="light">
-    <div class="app-container">
 
-        <!-- Minimal Header (Apple Reminders / Things 3 Inspired) -->
+<div class="app-shell">
+
+    <!-- ======== PAGE 1: TASKS ======== -->
+    <div class="page-view" id="page-tasks">
         <header class="app-header">
             <div class="header-left">
                 <span class="header-date-badge" id="header-date-badge">TODAY</span>
                 <h1 class="header-date-title" id="header-date-title">Today</h1>
                 <span class="header-status-sub" id="header-status-sub">0 tasks completed</span>
             </div>
-
             <div class="header-actions">
-                <button class="icon-btn search-toggle-btn" id="search-toggle-btn" title="Search Tasks">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                </button>
-                <button class="icon-btn theme-toggle-btn" id="quick-theme-btn" title="Toggle Light / Dark Mode">
-                    <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
-                </button>
-                <button class="icon-btn settings-btn" id="profile-trigger" title="Settings & Sync">
-                    <i class="fa-solid fa-gear"></i>
-                </button>
-                
-                <!-- Retained hidden elements for backward compatibility with existing JS hooks -->
+                <button class="icon-btn search-toggle-btn" id="search-toggle-btn" title="Search Tasks"><i class="fa-solid fa-magnifying-glass"></i></button>
+                <button class="icon-btn theme-toggle-btn" id="quick-theme-btn" title="Toggle Theme"><i class="fa-solid fa-moon" id="theme-toggle-icon"></i></button>
+                <button class="icon-btn settings-btn" id="profile-trigger" title="Settings"><i class="fa-solid fa-gear"></i></button>
                 <span id="user-avatar" class="hide"></span>
                 <span id="time-greeting" class="hide"></span>
                 <span id="user-name-display" class="hide"></span>
@@ -52,7 +42,6 @@
             </div>
         </header>
 
-        <!-- Multi-User Account Bar (Shows logged in Google user email if active) -->
         <div class="account-status-bar hide" id="account-status-bar">
             <div class="account-info">
                 <i class="fa-brands fa-google-drive" style="color:#4285F4;"></i>
@@ -62,7 +51,6 @@
             <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-arrows-rotate"></i> Switch</button>
         </div>
 
-        <!-- Minimal Linear Progress Bar Card (Apple Reminders Style) -->
         <section class="progress-bar-card">
             <div class="progress-bar-meta">
                 <span class="progress-bar-label">Progress</span>
@@ -71,8 +59,6 @@
             <div class="linear-progress-track">
                 <div class="linear-progress-fill" id="linear-progress-fill" style="width: 0%;"></div>
             </div>
-            
-            <!-- Retained counter elements for sync with existing progress calculations -->
             <div class="legacy-counters hide">
                 <span id="tasks-today-pending-count">0</span>
                 <span id="tasks-overdue-pending-count">0</span>
@@ -82,7 +68,6 @@
             </div>
         </section>
 
-        <!-- Active Reminder Banner (Minimal Toast/Alert) -->
         <div class="reminder-banner hide" id="reminder-banner">
             <div class="reminder-icon"><i class="fa-solid fa-bell"></i></div>
             <div class="reminder-text">
@@ -92,18 +77,12 @@
             <button class="reminder-dismiss" id="dismiss-reminder-btn"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <!-- Search & Filter Section -->
         <section class="controls-section">
-            <!-- Search Bar (Clean & Collapsible) -->
             <div class="search-bar hide" id="collapsible-search-bar">
                 <i class="fa-solid fa-magnifying-glass search-icon"></i>
                 <input type="text" id="search-input" placeholder="Search tasks...">
-                <button class="clear-search-btn hide" id="clear-search-btn">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <button class="clear-search-btn hide" id="clear-search-btn"><i class="fa-solid fa-xmark"></i></button>
             </div>
-
-            <!-- Segmented View Tabs (Apple Style) -->
             <div class="filter-tabs segmented-tabs">
                 <button class="tab-btn active" data-filter="today">Today</button>
                 <button class="tab-btn tab-btn-overdue" data-filter="overdue">Overdue <span class="badge-count" id="overdue-tab-count">0</span></button>
@@ -111,8 +90,6 @@
                 <button class="tab-btn" data-filter="all">All</button>
                 <button class="tab-btn" data-filter="completed">Done</button>
             </div>
-
-            <!-- Categories Minimal Filter Pills -->
             <div class="categories-scroll" id="categories-container">
                 <button class="category-chip active" data-category="all">All</button>
                 <button class="category-chip" data-category="morning"><i class="fa-solid fa-sun"></i> Morning</button>
@@ -123,34 +100,25 @@
             </div>
         </section>
 
-        <!-- Main Tasks View -->
         <main class="tasks-main">
-            <!-- Inline Quick Add Input (Things 3 Style) -->
             <div class="quick-add-bar">
                 <i class="fa-solid fa-plus quick-add-icon"></i>
                 <input type="text" id="quick-task-input" class="quick-add-input" placeholder="Add a new task... (Press Enter)">
-                <button type="button" class="quick-add-btn" id="quick-add-submit-btn" title="Add Task">
-                    <i class="fa-solid fa-arrow-up"></i>
-                </button>
+                <button type="button" class="quick-add-btn" id="quick-add-submit-btn" title="Add Task"><i class="fa-solid fa-arrow-up"></i></button>
             </div>
 
-            <!-- Overdue Action Pill Banner -->
             <div class="overdue-action-banner hide" id="overdue-action-banner">
                 <div class="overdue-banner-text">
                     <i class="fa-solid fa-clock-rotate-left"></i>
                     <span><strong id="overdue-banner-count">0</strong> overdue tasks</span>
                 </div>
-                <button type="button" class="btn-reschedule-all" id="reschedule-all-btn">
-                    Move to Today
-                </button>
+                <button type="button" class="btn-reschedule-all" id="reschedule-all-btn">Move to Today</button>
             </div>
 
             <div class="section-header">
-                <h3 class="section-title" id="current-view-title">Today's Checklist</h3>
+                <h3 class="section-title" id="current-view-title">Today''s Checklist</h3>
                 <div class="sort-dropdown">
-                    <button class="sort-btn" id="sort-trigger" title="Sort options">
-                        <i class="fa-solid fa-arrow-down-short-wide"></i>
-                    </button>
+                    <button class="sort-btn" id="sort-trigger" title="Sort options"><i class="fa-solid fa-arrow-down-short-wide"></i></button>
                     <div class="sort-menu hide" id="sort-menu">
                         <button data-sort="default" class="active"><i class="fa-solid fa-check"></i> Default</button>
                         <button data-sort="priority"><i class="fa-solid fa-fire"></i> Priority</button>
@@ -161,408 +129,339 @@
                 </div>
             </div>
 
-            <!-- Task List Container -->
-            <div class="task-list" id="task-list">
-                <!-- Dynamically Rendered Tasks -->
-            </div>
+            <div class="task-list" id="task-list"></div>
 
-            <!-- Empty State -->
             <div class="empty-state hide" id="empty-state">
-                <div class="empty-illustration">
-                    <i class="fa-regular fa-circle-check"></i>
-                </div>
+                <div class="empty-illustration"><i class="fa-regular fa-circle-check"></i></div>
                 <h4 class="empty-title" id="empty-title">All Done</h4>
                 <p class="empty-desc" id="empty-desc">No tasks pending. Enjoy your day!</p>
-                <button class="btn btn-primary primary-add-btn" id="empty-add-btn">
-                    <i class="fa-solid fa-plus"></i> New Task
-                </button>
+                <button class="btn btn-primary primary-add-btn" id="empty-add-btn"><i class="fa-solid fa-plus"></i> New Task</button>
             </div>
         </main>
 
-        <!-- Floating Action Button (+) -->
-        <button class="fab-btn" id="fab-add-btn" title="Add New Task">
-            <i class="fa-solid fa-plus"></i>
-        </button>
+        <button class="fab-btn" id="fab-add-btn" title="Add New Task"><i class="fa-solid fa-plus"></i></button>
+    </div><!-- END #page-tasks -->
 
-        <!-- Minimal Bottom Navigation Bar -->
-        <nav class="bottom-nav">
-            <button class="nav-item active" data-nav="tasks">
-                <i class="fa-solid fa-list-check"></i>
-                <span>Tasks</span>
-            </button>
-            <button class="nav-item" data-nav="analytics">
-                <i class="fa-solid fa-chart-simple"></i>
-                <span>Stats</span>
-            </button>
-            <button class="nav-item" data-nav="settings">
-                <i class="fa-solid fa-gear"></i>
-                <span>Settings</span>
-            </button>
-        </nav>
 
-        <!-- MODALS -->
-
-        <!-- 1. Add / Edit Task Modal (Simplified & Clean) -->
-        <div class="modal-overlay hide" id="task-modal">
-            <div class="modal-content glass-card task-modal-clean">
-                <div class="modal-header">
-                    <h3 class="modal-title" id="modal-heading">New Task</h3>
-                    <button class="close-modal-btn" id="close-task-modal">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+    <!-- ======== PAGE 2: STATS ======== -->
+    <div class="page-view hide" id="analytics-modal">
+        <header class="app-header page-header">
+            <div class="header-left">
+                <span class="header-date-badge" style="color:var(--accent-success);">ANALYTICS</span>
+                <h1 class="header-date-title">Activity</h1>
+                <span class="header-status-sub">Trends &amp; consistency</span>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="close-analytics-modal" title="Back to Tasks"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </header>
+        <div class="page-body">
+            <section class="overall-progress-card">
+                <div class="overall-progress-header">
+                    <span class="ratio-val" id="overall-ratio-val">0 / 0 completed</span>
+                    <span class="ring-pct-text" id="overall-pct-text">0%</span>
                 </div>
-                <form id="task-form" class="modal-form">
-                    <input type="hidden" id="task-id">
-                    
+                <div class="overall-progress-body">
+                    <div class="overall-chart-container">
+                        <div class="chart-y-axis"><span>10</span><span>5</span><span>0</span></div>
+                        <div class="overall-bars-wrapper" id="overall-bars-wrapper"></div>
+                    </div>
+                </div>
+                <svg width="1" height="1" class="hide"><circle id="overall-ring-fill" r="1" cx="1" cy="1"/></svg>
+            </section>
+            <div class="planner-grid-section">
+                <h4 class="stats-subheading">This Week</h4>
+                <div class="weekly-planner-grid" id="weekly-planner-grid"></div>
+            </div>
+            <div class="heatmap-section">
+                <div class="heatmap-header">
+                    <h4 class="stats-subheading">Last 30 Days</h4>
+                    <span class="heatmap-legend">Less <span class="lvl-0"></span><span class="lvl-1"></span><span class="lvl-2"></span><span class="lvl-3"></span> More</span>
+                </div>
+                <div class="heatmap-grid" id="heatmap-grid"></div>
+            </div>
+            <div class="category-breakdown-section">
+                <h4 class="stats-subheading">Categories</h4>
+                <div id="category-bars-container" class="category-bars"></div>
+            </div>
+            <button type="button" class="hide" id="close-analytics-btn"></button>
+        </div>
+    </div><!-- END #analytics-modal -->
+
+
+    <!-- ======== PAGE 3: SETTINGS ======== -->
+    <div class="page-view hide" id="profile-modal">
+        <header class="app-header page-header">
+            <div class="header-left">
+                <span class="header-date-badge" style="color:var(--accent-warning);">PREFERENCES</span>
+                <h1 class="header-date-title">Settings</h1>
+                <span class="header-status-sub">Appearance, sync &amp; app info</span>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="close-profile-modal" title="Back to Tasks"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </header>
+        <div class="page-body">
+
+            <!-- Interface / Visibility Preferences -->
+            <div class="settings-group">
+                <h4>Interface</h4>
+                <p class="settings-group-desc">Show or hide elements on the Tasks page.</p>
+
+                <div class="pref-toggle-row">
+                    <div class="pref-toggle-info">
+                        <span class="pref-toggle-label">Category Filters</span>
+                        <span class="pref-toggle-desc">All · Morning · Work · Health · Personal · Evening</span>
+                    </div>
+                    <label class="toggle-switch" for="toggle-category-filters">
+                        <input type="checkbox" id="toggle-category-filters" checked>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+
+                <div class="pref-toggle-row">
+                    <div class="pref-toggle-info">
+                        <span class="pref-toggle-label">Quick Add Bar</span>
+                        <span class="pref-toggle-desc">Inline input to add tasks without opening the modal</span>
+                    </div>
+                    <label class="toggle-switch" for="toggle-quick-add-bar">
+                        <input type="checkbox" id="toggle-quick-add-bar" checked>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Appearance -->
+            <div class="settings-group">
+                <h4>Appearance</h4>
+                <div class="theme-mode-toggle">
+                    <button type="button" class="theme-mode-btn" data-theme-mode="light"><i class="fa-solid fa-sun" style="color:#f59e0b;"></i> Light Mode</button>
+                    <button type="button" class="theme-mode-btn" data-theme-mode="dark"><i class="fa-solid fa-moon" style="color:#6366f1;"></i> Dark Mode</button>
+                </div>
+            </div>
+            <div class="settings-group">
+                <h4>Profile</h4>
+                <div class="form-group">
+                    <label for="profile-name-input">Display Name</label>
+                    <input type="text" id="profile-name-input" class="clean-input" placeholder="Your name">
+                </div>
+                <div class="avatar-selector hide">
+                    <button class="avatar-opt" data-avatar="&#x1F680;">&#x1F680;</button>
+                </div>
+            </div>
+            <div class="settings-group">
+                <h4>Cloud Sync &amp; Accounts</h4>
+                <div class="users-list-grid" id="users-list-grid"></div>
+                <button class="btn btn-secondary btn-block" id="add-new-account-btn" style="margin-top:6px;"><i class="fa-brands fa-google"></i> Connect Google Account</button>
+                <div class="google-backup-actions" style="margin-top:10px;">
+                    <button class="btn btn-secondary" id="gdrive-backup-btn"><i class="fa-brands fa-google-drive"></i> Backup Now</button>
+                    <button class="btn btn-secondary" id="gdrive-restore-btn"><i class="fa-solid fa-cloud-arrow-down"></i> Restore</button>
+                </div>
+                <span id="gdrive-status-title" class="hide"></span>
+                <span id="gdrive-last-backup-text" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;"></span>
+                <select id="backup-frequency-select" class="hide"><option value="daily">Daily</option></select>
+            </div>
+            <div class="settings-group">
+                <h4>Data Management</h4>
+                <div class="backup-actions">
+                    <button class="btn btn-secondary" id="export-data-btn"><i class="fa-solid fa-download"></i> Export JSON</button>
+                    <button class="btn btn-secondary" id="import-data-btn"><i class="fa-solid fa-upload"></i> Import JSON</button>
+                    <input type="file" id="import-file-input" accept=".json" class="hide">
+                </div>
+                <button class="btn btn-danger-outline" id="reset-data-btn" style="margin-top:8px;"><i class="fa-solid fa-arrow-rotate-left"></i> Reset Tasks</button>
+            </div>
+            <div class="settings-group app-update-group">
+                <h4>App Version &amp; Updates</h4>
+                <div class="version-info-card">
+                    <div class="version-details">
+                        <span class="version-label">RoutineCraft Version</span>
+                        <strong class="version-value" id="current-version-display">v2.1.0</strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary check-update-btn" id="check-updates-btn"><i class="fa-solid fa-arrows-rotate"></i> Check Update</button>
+                </div>
+                <input type="text" id="github-repo-input" value="shinchan2222/TODO_LIST-APP" class="hide">
+                <small class="help-text" id="update-status-text" style="margin-top:6px; display:block;">Latest version installed</small>
+            </div>
+            <div style="padding-top:4px; margin-bottom:24px;">
+                <button type="button" class="btn btn-primary btn-block" id="save-profile-btn" style="padding:12px; font-weight:600;"><i class="fa-solid fa-check"></i> Save Changes</button>
+            </div>
+        </div>
+    </div><!-- END #profile-modal -->
+
+
+    <!-- ======== BOTTOM NAV (always visible) ======== -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-nav="tasks"><i class="fa-solid fa-list-check"></i><span>Tasks</span></button>
+        <button class="nav-item" data-nav="analytics"><i class="fa-solid fa-chart-simple"></i><span>Stats</span></button>
+        <button class="nav-item" data-nav="settings"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
+    </nav>
+
+
+    <!-- ======== FLOATING MODALS ======== -->
+
+    <!-- Add/Edit Task Modal -->
+    <div class="modal-overlay hide" id="task-modal">
+        <div class="modal-content glass-card task-modal-clean">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-heading">New Task</h3>
+                <button class="close-modal-btn" id="close-task-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="task-form" class="modal-form">
+                <input type="hidden" id="task-id">
+                <div class="form-group">
+                    <input type="text" id="task-title-input" class="clean-title-input" required placeholder="What needs to be done?">
+                </div>
+                <div class="form-row">
                     <div class="form-group">
-                        <input type="text" id="task-title-input" class="clean-title-input" required placeholder="What needs to be done?">
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="task-category-select">Category</label>
-                            <select id="task-category-select" class="clean-select">
-                                <option value="morning">🌅 Morning</option>
-                                <option value="work">💼 Work</option>
-                                <option value="health">🏋️ Health</option>
-                                <option value="personal">👤 Personal</option>
-                                <option value="evening">🌙 Evening</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="task-priority-select">Priority</label>
-                            <select id="task-priority-select" class="clean-select">
-                                <option value="low">🟢 Low</option>
-                                <option value="medium" selected>⚡ Medium</option>
-                                <option value="high">🔥 High</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="task-date-input">Due Date</label>
-                            <input type="date" id="task-date-input" class="clean-input" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="task-time-input">Time (Optional)</label>
-                            <input type="time" id="task-time-input" class="clean-input">
-                        </div>
-                    </div>
-
-                    <div class="date-presets minimal-presets">
-                        <button type="button" class="date-preset-btn" data-preset="today">Today</button>
-                        <button type="button" class="date-preset-btn" data-preset="tomorrow">Tomorrow</button>
-                        <button type="button" class="date-preset-btn" data-preset="nextweek">Next Week</button>
-                    </div>
-
-                    <div class="form-group" style="margin-top: 10px;">
-                        <label for="task-recurring-select">Repeat</label>
-                        <select id="task-recurring-select" class="clean-select">
-                            <option value="none">Never</option>
-                            <option value="daily">Every Day</option>
-                            <option value="weekdays">Weekdays (Mon-Fri)</option>
-                            <option value="weekends">Weekends (Sat-Sun)</option>
+                        <label for="task-category-select">Category</label>
+                        <select id="task-category-select" class="clean-select">
+                            <option value="morning">&#x1F305; Morning</option>
+                            <option value="work">&#x1F4BC; Work</option>
+                            <option value="health">&#x1F3CB;&#xFE0F; Health</option>
+                            <option value="personal">&#x1F464; Personal</option>
+                            <option value="evening">&#x1F319; Evening</option>
                         </select>
                     </div>
-
-                    <!-- Subtasks Checklist -->
-                    <div class="form-group subtasks-group">
-                        <label>Sub-tasks Checklist</label>
-                        <div class="subtask-input-group">
-                            <input type="text" id="subtask-builder-input" class="clean-input" placeholder="Add a checklist item...">
-                            <button type="button" class="btn btn-secondary btn-sm" id="add-subtask-btn">Add</button>
-                        </div>
-                        <ul class="subtask-builder-list" id="subtask-builder-list">
-                            <!-- Items inserted dynamically -->
-                        </ul>
-                    </div>
-
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-secondary" id="cancel-task-btn">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="save-task-btn">Done</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- 2. Google Backup Permission Modal -->
-        <div class="modal-overlay hide" id="gdrive-permission-modal">
-            <div class="modal-content glass-card permission-modal-card">
-                <div class="modal-header">
-                    <h3 class="modal-title"><i class="fa-brands fa-google-drive" style="color:#4285F4;"></i> Google Drive Backup</h3>
-                    <button class="close-modal-btn" id="close-gdrive-perm-modal">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="google-user-card" id="permission-user-card">
-                        <div class="guser-avatar" id="guser-avatar-display">👤</div>
-                        <div class="guser-info">
-                            <strong id="guser-name-display">Google Account</strong>
-                            <span id="guser-email-display">user@gmail.com</span>
-                        </div>
-                    </div>
-
-                    <div class="form-group" id="account-entry-group">
-                        <label for="gdrive-email-input">Account Email</label>
-                        <input type="email" id="gdrive-email-input" class="clean-input" placeholder="user@gmail.com" value="user@gmail.com">
-                        <div class="sample-accounts-row">
-                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Presets:</span>
-                            <button type="button" class="btn-chip-account" data-email="alex.productivity@gmail.com">Alex</button>
-                            <button type="button" class="btn-chip-account" data-email="sarah.daily@gmail.com">Sarah</button>
-                            <button type="button" class="btn-chip-account" data-email="jordan.planner@gmail.com">Jordan</button>
-                        </div>
-                    </div>
-
                     <div class="form-group">
-                        <label>Backup Schedule:</label>
-                        <div class="backup-frequency-options">
-                            <label class="freq-radio-card active">
-                                <input type="radio" name="backup-freq-choice" value="daily" checked>
-                                <div class="freq-content">
-                                    <strong>Daily Backup</strong>
-                                    <span>Syncs daily tasks automatically.</span>
-                                </div>
-                            </label>
-
-                            <label class="freq-radio-card">
-                                <input type="radio" name="backup-freq-choice" value="weekly">
-                                <div class="freq-content">
-                                    <strong>Weekly Backup</strong>
-                                    <span>Syncs once every 7 days.</span>
-                                </div>
-                            </label>
-
-                            <label class="freq-radio-card">
-                                <input type="radio" name="backup-freq-choice" value="custom">
-                                <div class="freq-content">
-                                    <strong>Manual Only</strong>
-                                    <span>Syncs when you tap Backup.</span>
-                                </div>
-                            </label>
-                        </div>
+                        <label for="task-priority-select">Priority</label>
+                        <select id="task-priority-select" class="clean-select">
+                            <option value="low">&#x1F7E2; Low</option>
+                            <option value="medium" selected>&#x26A1; Medium</option>
+                            <option value="high">&#x1F525; High</option>
+                        </select>
                     </div>
                 </div>
-
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="task-date-input">Due Date</label>
+                        <input type="date" id="task-date-input" class="clean-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-time-input">Time (Optional)</label>
+                        <input type="time" id="task-time-input" class="clean-input">
+                    </div>
+                </div>
+                <div class="date-presets minimal-presets">
+                    <button type="button" class="date-preset-btn" data-preset="today">Today</button>
+                    <button type="button" class="date-preset-btn" data-preset="tomorrow">Tomorrow</button>
+                    <button type="button" class="date-preset-btn" data-preset="nextweek">Next Week</button>
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label for="task-recurring-select">Repeat</label>
+                    <select id="task-recurring-select" class="clean-select">
+                        <option value="none">Never</option>
+                        <option value="daily">Every Day</option>
+                        <option value="weekdays">Weekdays (Mon-Fri)</option>
+                        <option value="weekends">Weekends (Sat-Sun)</option>
+                    </select>
+                </div>
+                <div class="form-group subtasks-group">
+                    <label>Sub-tasks Checklist</label>
+                    <div class="subtask-input-group">
+                        <input type="text" id="subtask-builder-input" class="clean-input" placeholder="Add a checklist item...">
+                        <button type="button" class="btn btn-secondary btn-sm" id="add-subtask-btn">Add</button>
+                    </div>
+                    <ul class="subtask-builder-list" id="subtask-builder-list"></ul>
+                </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="skip-gdrive-perm-btn">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="confirm-gdrive-perm-btn">Save</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-task-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="save-task-btn">Done</button>
                 </div>
-            </div>
+            </form>
         </div>
-
-        <!-- 3. Settings Modal (Clean iOS List Style) -->
-        <div class="modal-overlay hide" id="profile-modal">
-            <div class="modal-content glass-card settings-modal-clean">
-                <div class="modal-header">
-                    <h3 class="modal-title">Settings</h3>
-                    <button class="close-modal-btn" id="close-profile-modal">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-                
-                <div class="modal-body">
-                    <!-- Appearance: Light / Dark Mode -->
-                    <div class="settings-group">
-                        <h4>Appearance</h4>
-                        <div class="theme-mode-toggle">
-                            <button type="button" class="theme-mode-btn" data-theme-mode="light">
-                                <i class="fa-solid fa-sun" style="color:#f59e0b;"></i> Light Mode
-                            </button>
-                            <button type="button" class="theme-mode-btn" data-theme-mode="dark">
-                                <i class="fa-solid fa-moon" style="color:#6366f1;"></i> Dark Mode
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Profile Name -->
-                    <div class="settings-group">
-                        <h4>Profile</h4>
-                        <div class="form-group">
-                            <label for="profile-name-input">Display Name</label>
-                            <input type="text" id="profile-name-input" class="clean-input" placeholder="Your name">
-                        </div>
-                        <div class="avatar-selector hide">
-                            <button class="avatar-opt" data-avatar="🚀">🚀</button>
-                        </div>
-                    </div>
-
-                    <!-- Accounts & Sync -->
-                    <div class="settings-group">
-                        <h4>Cloud Sync & Accounts</h4>
-                        <div class="users-list-grid" id="users-list-grid"></div>
-                        <button class="btn btn-secondary btn-block" id="add-new-account-btn" style="margin-top:6px;">
-                            <i class="fa-brands fa-google"></i> Connect Google Account
-                        </button>
-                        
-                        <div class="google-backup-actions" style="margin-top:10px;">
-                            <button class="btn btn-secondary" id="gdrive-backup-btn">
-                                <i class="fa-brands fa-google-drive"></i> Backup Now
-                            </button>
-                            <button class="btn btn-secondary" id="gdrive-restore-btn">
-                                <i class="fa-solid fa-cloud-arrow-down"></i> Restore
-                            </button>
-                        </div>
-                        <span id="gdrive-status-title" class="hide"></span>
-                        <span id="gdrive-last-backup-text" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;"></span>
-                        <select id="backup-frequency-select" class="hide"><option value="daily">Daily</option></select>
-                    </div>
-
-                    <!-- Local Data Backup & Reset -->
-                    <div class="settings-group">
-                        <h4>Data Management</h4>
-                        <div class="backup-actions">
-                            <button class="btn btn-secondary" id="export-data-btn">
-                                <i class="fa-solid fa-download"></i> Export JSON
-                            </button>
-                            <button class="btn btn-secondary" id="import-data-btn">
-                                <i class="fa-solid fa-upload"></i> Import JSON
-                            </button>
-                            <input type="file" id="import-file-input" accept=".json" class="hide">
-                        </div>
-                        <button class="btn btn-danger-outline" id="reset-data-btn" style="margin-top:8px;">
-                            <i class="fa-solid fa-arrow-rotate-left"></i> Reset Tasks
-                        </button>
-                    </div>
-
-                    <!-- App Version & Updates -->
-                    <div class="settings-group app-update-group">
-                        <h4>App Version & Updates</h4>
-                        <div class="version-info-card">
-                            <div class="version-details">
-                                <span class="version-label">RoutineCraft Version</span>
-                                <strong class="version-value" id="current-version-display">v2.0.0</strong>
-                            </div>
-                            <button type="button" class="btn btn-secondary check-update-btn" id="check-updates-btn">
-                                <i class="fa-solid fa-arrows-rotate"></i> Check Update
-                            </button>
-                        </div>
-                        <input type="text" id="github-repo-input" value="shinchan2222/TODO_LIST-APP" class="hide">
-                        <small class="help-text" id="update-status-text" style="margin-top:6px; display:block;">Latest version installed</small>
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-primary" id="save-profile-btn">Done</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 4. STATS DASHBOARD MODAL -->
-        <div class="modal-overlay hide" id="analytics-modal">
-            <div class="modal-content glass-card analytics-modal-clean">
-                <div class="modal-header">
-                    <h3 class="modal-title">Activity & Trends</h3>
-                    <button class="close-modal-btn" id="close-analytics-modal">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <!-- Overall Progress Card -->
-                    <section class="overall-progress-card">
-                        <div class="overall-progress-header">
-                            <span class="ratio-val" id="overall-ratio-val">0 / 0 completed</span>
-                            <span class="ring-pct-text" id="overall-pct-text">0%</span>
-                        </div>
-                        
-                        <div class="overall-progress-body">
-                            <div class="overall-chart-container">
-                                <div class="chart-y-axis">
-                                    <span>10</span>
-                                    <span>5</span>
-                                    <span>0</span>
-                                </div>
-                                <div class="overall-bars-wrapper" id="overall-bars-wrapper">
-                                    <!-- Mon-Sun Bars -->
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Retained hidden element -->
-                        <svg width="1" height="1" class="hide"><circle id="overall-ring-fill" r="1" cx="1" cy="1"/></svg>
-                    </section>
-
-                    <!-- Weekly Day Breakdown -->
-                    <div class="planner-grid-section">
-                        <h4 class="stats-subheading">This Week</h4>
-                        <div class="weekly-planner-grid" id="weekly-planner-grid"></div>
-                    </div>
-
-                    <!-- 30-Day Activity Heatmap -->
-                    <div class="heatmap-section">
-                        <div class="heatmap-header">
-                            <h4 class="stats-subheading">Last 30 Days</h4>
-                            <span class="heatmap-legend">Less <span class="lvl-0"></span><span class="lvl-1"></span><span class="lvl-2"></span><span class="lvl-3"></span> More</span>
-                        </div>
-                        <div class="heatmap-grid" id="heatmap-grid"></div>
-                    </div>
-
-                    <!-- Category Breakdown -->
-                    <div class="category-breakdown-section">
-                        <h4 class="stats-subheading">Categories</h4>
-                        <div id="category-bars-container" class="category-bars"></div>
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="close-analytics-btn">Close</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 5. IN-APP UPDATE NOTIFICATION & INSTALL MODAL -->
-        <div class="modal-overlay hide" id="update-modal">
-            <div class="modal-content glass-card update-modal-card">
-                <div class="modal-header">
-                    <h3 class="modal-title">Update Available</h3>
-                    <button class="close-modal-btn" id="close-update-modal">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="update-banner">
-                        <div class="version-comparison">
-                            <span class="ver-old" id="modal-curr-ver">v2.0.0</span>
-                            <i class="fa-solid fa-arrow-right ver-arrow"></i>
-                            <span class="ver-new" id="modal-new-ver">v2.0.1</span>
-                        </div>
-                    </div>
-
-                    <h4 class="update-release-title" id="update-release-title">Version 2.0.0</h4>
-                    
-                    <div class="release-notes-wrapper">
-                        <div class="release-notes-box" id="update-release-notes">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-actions update-actions">
-                    <button type="button" class="btn btn-secondary" id="dismiss-update-btn">Later</button>
-                    <a href="#" class="btn btn-primary" id="download-update-btn" target="_blank" rel="noopener noreferrer">
-                        <i class="fa-solid fa-download"></i> Download APK
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Toast Notification Container -->
-        <div class="toast-container" id="toast-container"></div>
-
     </div>
 
-    <!-- Service Worker Registration for Offline PWA -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW Ready', reg.scope))
-                    .catch(err => console.log('SW Error: ', err));
-            });
-        }
-    </script>
-    <script src="app.js"></script>
+    <!-- Google Drive Permission Modal -->
+    <div class="modal-overlay hide" id="gdrive-permission-modal">
+        <div class="modal-content glass-card permission-modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-brands fa-google-drive" style="color:#4285F4;"></i> Google Drive Backup</h3>
+                <button class="close-modal-btn" id="close-gdrive-perm-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="google-user-card" id="permission-user-card">
+                    <div class="guser-avatar" id="guser-avatar-display">&#x1F464;</div>
+                    <div class="guser-info">
+                        <strong id="guser-name-display">Google Account</strong>
+                        <span id="guser-email-display">user@gmail.com</span>
+                    </div>
+                </div>
+                <div class="form-group" id="account-entry-group">
+                    <label for="gdrive-email-input">Account Email</label>
+                    <input type="email" id="gdrive-email-input" class="clean-input" placeholder="user@gmail.com" value="user@gmail.com">
+                    <div class="sample-accounts-row">
+                        <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Presets:</span>
+                        <button type="button" class="btn-chip-account" data-email="alex.productivity@gmail.com">Alex</button>
+                        <button type="button" class="btn-chip-account" data-email="sarah.daily@gmail.com">Sarah</button>
+                        <button type="button" class="btn-chip-account" data-email="jordan.planner@gmail.com">Jordan</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Backup Schedule:</label>
+                    <div class="backup-frequency-options">
+                        <label class="freq-radio-card active">
+                            <input type="radio" name="backup-freq-choice" value="daily" checked>
+                            <div class="freq-content"><strong>Daily Backup</strong><span>Syncs daily tasks automatically.</span></div>
+                        </label>
+                        <label class="freq-radio-card">
+                            <input type="radio" name="backup-freq-choice" value="weekly">
+                            <div class="freq-content"><strong>Weekly Backup</strong><span>Syncs once every 7 days.</span></div>
+                        </label>
+                        <label class="freq-radio-card">
+                            <input type="radio" name="backup-freq-choice" value="custom">
+                            <div class="freq-content"><strong>Manual Only</strong><span>Syncs when you tap Backup.</span></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="skip-gdrive-perm-btn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-gdrive-perm-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- In-App Update Modal -->
+    <div class="modal-overlay hide" id="update-modal">
+        <div class="modal-content glass-card update-modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Update Available</h3>
+                <button class="close-modal-btn" id="close-update-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="update-banner">
+                    <div class="version-comparison">
+                        <span class="ver-old" id="modal-curr-ver">v2.1.0</span>
+                        <i class="fa-solid fa-arrow-right ver-arrow"></i>
+                        <span class="ver-new" id="modal-new-ver">v2.1.1</span>
+                    </div>
+                </div>
+                <h4 class="update-release-title" id="update-release-title">Version 2.1.0</h4>
+                <div class="release-notes-wrapper">
+                    <div class="release-notes-box" id="update-release-notes"></div>
+                </div>
+            </div>
+            <div class="modal-actions update-actions">
+                <button type="button" class="btn btn-secondary" id="dismiss-update-btn">Later</button>
+                <a href="#" class="btn btn-primary" id="download-update-btn" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-download"></i> Download APK</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+</div><!-- END .app-shell -->
+
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW Ready', reg.scope))
+                .catch(err => console.log('SW Error: ', err));
+        });
+    }
+</script>
+<script src="app.js"></script>
 </body>
 </html>

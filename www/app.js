@@ -7,8 +7,8 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 20;
-    const APP_RELEASE_VERSION = '2.0.0';
+    const APP_VERSION = 21;
+    const APP_RELEASE_VERSION = '2.1.0';
     const DEFAULT_GITHUB_REPO = 'shinchan2222/TODO_LIST-APP';
 
     // --- ACCURATE LOCAL DATE HELPERS (TIMEZONE AWARE) ---
@@ -80,7 +80,9 @@
         notificationsEnabled: false,
         lastBackupTime: null,
         backupFrequency: 'daily',
-        isGoogleSynced: false
+        isGoogleSynced: false,
+        showCategoryFilters: true,
+        showQuickAddBar: true
     };
 
     const DEFAULT_TASKS = [
@@ -212,6 +214,10 @@
     if (state.profile.theme !== 'light' && state.profile.theme !== 'dark') {
         state.profile.theme = (state.profile.theme === 'dark-glass' || state.profile.theme === 'neon-cyber') ? 'dark' : 'light';
     }
+
+    // Migrate: ensure new interface prefs exist for existing users
+    if (state.profile.showCategoryFilters === undefined) state.profile.showCategoryFilters = true;
+    if (state.profile.showQuickAddBar === undefined) state.profile.showQuickAddBar = true;
 
     // Ensure all tasks have proper dueDates
     state.tasks.forEach(t => {
@@ -375,6 +381,7 @@
         updateGreeting();
         renderHeaderProfile();
         renderTasks();
+        applyInterfacePrefs();
         renderAccountStatusBar();
         checkAutoBackupSchedule();
         checkReminderNotification();
@@ -829,7 +836,7 @@
         }
     }
 
-    function openAnalyticsModal() {
+    function renderAnalyticsContent() {
         renderOverallProgressCard();
         renderWeeklyPlannerGrid();
 
@@ -874,12 +881,57 @@
             `;
             dom.categoryBarsContainer.appendChild(item);
         });
+    }
 
-        dom.analyticsModal.classList.remove('hide');
+    function switchPageView(viewName) {
+        const target = (viewName === 'stats' || viewName === 'analytics') ? 'analytics' : (viewName === 'settings' ? 'settings' : 'tasks');
+        const tasksPage = document.getElementById('page-tasks');
+
+        // Update bottom navigation bar active state
+        dom.bottomNavItems.forEach(n => {
+            if (n.dataset.nav === target) {
+                n.classList.add('active');
+            } else {
+                n.classList.remove('active');
+            }
+        });
+
+        // Close transient floating modals
+        dom.taskModal.classList.add('hide');
+        if (dom.updateModal) dom.updateModal.classList.add('hide');
+        if (dom.gdrivePermissionModal) dom.gdrivePermissionModal.classList.add('hide');
+        if (dom.sortMenu) dom.sortMenu.classList.add('hide');
+
+        let activePageEl = null;
+        if (target === 'tasks') {
+            if (tasksPage) tasksPage.classList.remove('hide');
+            if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
+            if (dom.profileModal) dom.profileModal.classList.add('hide');
+            activePageEl = tasksPage;
+            renderTasks();
+        } else if (target === 'analytics') {
+            if (tasksPage) tasksPage.classList.add('hide');
+            if (dom.profileModal) dom.profileModal.classList.add('hide');
+            if (dom.analyticsModal) dom.analyticsModal.classList.remove('hide');
+            activePageEl = dom.analyticsModal;
+            renderAnalyticsContent();
+        } else if (target === 'settings') {
+            if (tasksPage) tasksPage.classList.add('hide');
+            if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
+            if (dom.profileModal) dom.profileModal.classList.remove('hide');
+            activePageEl = dom.profileModal;
+            renderSettingsContent();
+        }
+
+        if (activePageEl) activePageEl.scrollTop = 0;
+    }
+
+    function openAnalyticsModal() {
+        switchPageView('analytics');
     }
 
     function closeAnalyticsModal() {
-        dom.analyticsModal.classList.add('hide');
+        switchPageView('tasks');
     }
 
     // --- TASK FILTERING & RENDERING ENGINE ---
@@ -1340,7 +1392,7 @@
         });
     }
 
-    function openProfileModal() {
+    function renderSettingsContent() {
         dom.profileNameInput.value = state.profile.name;
         dom.avatarOpts.forEach(opt => {
             if (opt.dataset.avatar === state.profile.avatar) opt.classList.add('active');
@@ -1348,18 +1400,38 @@
         });
         renderAccountStatusBar();
         renderUsersGrid();
-        dom.profileModal.classList.remove('hide');
+
+        // Sync interface preference toggles
+        const catToggle = document.getElementById('toggle-category-filters');
+        const qaToggle = document.getElementById('toggle-quick-add-bar');
+        if (catToggle) catToggle.checked = state.profile.showCategoryFilters !== false;
+        if (qaToggle) qaToggle.checked = state.profile.showQuickAddBar !== false;
+    }
+
+    // Apply interface preferences to the Tasks page elements
+    function applyInterfacePrefs() {
+        const catContainer = document.getElementById('categories-container');
+        const qaBar = document.querySelector('.quick-add-bar');
+
+        if (catContainer) {
+            catContainer.classList.toggle('hide', !state.profile.showCategoryFilters);
+        }
+        if (qaBar) {
+            qaBar.classList.toggle('hide', !state.profile.showQuickAddBar);
+        }
+    }
+
+    function openProfileModal() {
+        switchPageView('settings');
     }
 
     function closeProfileModal() {
-        dom.profileModal.classList.add('hide');
+        switchPageView('tasks');
     }
 
     function closeAllModals() {
         dom.taskModal.classList.add('hide');
-        dom.profileModal.classList.add('hide');
-        dom.analyticsModal.classList.add('hide');
-        dom.gdrivePermissionModal.classList.add('hide');
+        if (dom.gdrivePermissionModal) dom.gdrivePermissionModal.classList.add('hide');
         if (dom.updateModal) dom.updateModal.classList.add('hide');
     }
 
@@ -1675,10 +1747,29 @@
         dom.saveProfileBtn.addEventListener('click', () => {
             state.profile.name = dom.profileNameInput.value.trim() || 'Productivity Hero';
             state.profile.backupFrequency = dom.backupFrequencySelect.value;
+            const catToggle = document.getElementById('toggle-category-filters');
+            const qaToggle = document.getElementById('toggle-quick-add-bar');
+            if (catToggle) state.profile.showCategoryFilters = catToggle.checked;
+            if (qaToggle) state.profile.showQuickAddBar = qaToggle.checked;
+            applyInterfacePrefs();
             saveState();
             renderHeaderProfile();
             closeProfileModal();
             showToast('Profile & Settings saved! ✅');
+        });
+
+        // Interface preference toggles (category filters & quick-add bar)
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'toggle-category-filters') {
+                state.profile.showCategoryFilters = e.target.checked;
+                saveState();
+                applyInterfacePrefs();
+            }
+            if (e.target.id === 'toggle-quick-add-bar') {
+                state.profile.showQuickAddBar = e.target.checked;
+                saveState();
+                applyInterfacePrefs();
+            }
         });
 
         // Google Account Modal Controls (No browser prompt)
@@ -1740,27 +1831,15 @@
             }
         });
 
-        // Bottom Navigation Bar with Clean Modal Switch
+        // Bottom Navigation Bar with Direct Page View Switch
         dom.bottomNavItems.forEach(nav => {
             nav.addEventListener('click', () => {
-                dom.bottomNavItems.forEach(n => n.classList.remove('active'));
-                nav.classList.add('active');
-                const view = nav.dataset.nav;
-
-                closeAllModals();
-
-                if (view === 'tasks') {
-                    renderTasks();
-                } else if (view === 'analytics') {
-                    openAnalyticsModal();
-                } else if (view === 'settings') {
-                    openProfileModal();
-                }
+                switchPageView(nav.dataset.nav);
             });
         });
 
-        // Dismiss modals when tapping backdrop outside the sheet/card (Native Android touch habit)
-        [dom.taskModal, dom.profileModal, dom.analyticsModal, dom.updateModal, dom.gdrivePermissionModal].forEach(overlay => {
+        // Dismiss floating modals when tapping backdrop outside the sheet/card
+        [dom.taskModal, dom.updateModal, dom.gdrivePermissionModal].forEach(overlay => {
             if (!overlay) return;
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
@@ -1773,8 +1852,6 @@
         function handleAndroidBack() {
             const modals = [
                 dom.taskModal,
-                dom.profileModal,
-                dom.analyticsModal,
                 dom.updateModal,
                 dom.gdrivePermissionModal
             ];
@@ -1792,8 +1869,7 @@
             // If not on tasks tab, return to Tasks tab first
             const activeNav = Array.from(dom.bottomNavItems).find(n => n.classList.contains('active'));
             if (activeNav && activeNav.dataset.nav !== 'tasks') {
-                const tasksNavBtn = Array.from(dom.bottomNavItems).find(n => n.dataset.nav === 'tasks');
-                if (tasksNavBtn) tasksNavBtn.click();
+                switchPageView('tasks');
                 return true;
             }
 

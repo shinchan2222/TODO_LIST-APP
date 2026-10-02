@@ -1,4 +1,5 @@
 # RoutineCraft - Complete Project Status & Session Summary
+**Current Version**: `v2.1.0` (Build 21)  
 **Generated**: October 2, 2026  
 **Repository**: [shinchan2222/TODO_LIST-APP](https://github.com/shinchan2222/TODO_LIST-APP)  
 **Local Project Directory**: `c:\Users\Naveen\OneDrive\Desktop\daily todo checklist`
@@ -7,7 +8,11 @@
 
 ## 📌 Executive Summary
 
-The entire UI/UX has been decluttered and redesigned into an **Apple Reminders & Things 3 minimal aesthetic**. All bloated gamification elements (Level, XP, avatars, motivational quotes) were removed, replaced by a calm linear progress bar, refined typography, smooth circular checkmarks, a frictionless inline Quick-Add bar, and iOS-style segmented controls. The app is synchronized, compiled into a fresh Android APK, and pushed to GitHub `main`.
+RoutineCraft has been updated to **v2.1.0 (Build 21)**. In this release:
+- **Interface Customization Toggles in Settings**: Added dedicated options in Settings to show or hide the Category Filters (`All`, `Morning`, `Work`, `Health`, `Personal`, `Evening`) and the Quick-Add Task Bar.
+- **Native Full Page Views**: Stats & Activity and Settings & Preferences have been converted from floating modal sheets into full native page views that transition in-place with the bottom navigation bar.
+- **Apple Reminders & Things 3 Minimal Design**: Clean typography, linear progress bar, subtle card styling, and decluttered header.
+- **Accurate Timezone & Recurrence Core**: Robust daily checklist logic, persistent completed tasks, and offline-first data synchronization.
 
 ---
 

@@ -1,6 +1,6 @@
 {
-  "version": 20,
-  "versionName": "2.0.0",
-  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/releases/download/v2.0.0/RoutineCraft_v2.0.0.apk",
-  "releaseNotes": "RoutineCraft v2.0.0 (Build 20): Major overhaul featuring accurate timezone handling, persistent completed tasks, clean Light/Dark modes, mobile safe-area insets, hardware back-button support, and real analytics."
+  "version": 21,
+  "versionName": "2.1.0",
+  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/releases/download/v2.1.0/RoutineCraft_v2.1.0.apk",
+  "releaseNotes": "RoutineCraft v2.1.0 (Build 21): Added interface customization toggles in Settings to show/hide category filters and quick-add bar. Full native page views for Stats and Settings for seamless navigation."
 }
