@@ -2,13 +2,5 @@
   "appId": "com.routinecraft.app",
   "appName": "RoutineCraft",
   "webDir": "www",
-  "bundledWebRuntime": false,
-  "plugins": {
-    "GoogleAuth": {
-      "scopes": ["profile", "email"],
-      "serverClientId": "1037852256619-o1ppgajd9rr0lfbg37rbbabqn4rpagvn.apps.googleusercontent.com",
-      "clientId": "1037852256619-o1ppgajd9rr0lfbg37rbbabqn4rpagvn.apps.googleusercontent.com",
-      "forceCodeForRefreshToken": false
-    }
-  }
+  "bundledWebRuntime": false
 }

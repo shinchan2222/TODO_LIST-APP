@@ -1,6 +1,6 @@
 {
-  "version": 19,
-  "versionName": "1.8.1",
-  "apkUrl": "https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v19.apk",
-  "releaseNotes": "Version 19 (Persistent Notification Reliability Fix): Upgraded Android AlarmManager to use DateMatch cron recurring triggers and allowWhileIdle wakeup. Daily reminders and summary alerts now repeat automatically every day in the background without needing the app to be opened."
+  "version": 20,
+  "versionName": "2.0.0",
+  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/releases/download/v2.0.0/RoutineCraft_v2.0.0.apk",
+  "releaseNotes": "RoutineCraft v2.0.0 (Build 20): Major overhaul featuring accurate timezone handling, persistent completed tasks, clean Light/Dark modes, mobile safe-area insets, hardware back-button support, and real analytics."
 }

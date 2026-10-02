@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>RoutineCraft - Personal Daily Task & Habit Tracker</title>
     <meta name="description" content="A modern, mobile-friendly multi-user daily task checklist with Google Sign-In, automatic Google Drive cloud backup schedules (Daily, Weekly, Custom), custom themes, and visual analytics.">
-    <meta name="theme-color" content="#0d131a">
+    <meta name="theme-color" content="#f8fafc" id="theme-color-meta">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="manifest" href="manifest.json">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,16 +17,10 @@
     <!-- Font Awesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <!-- Firebase App & Auth SDK (v10 compat for browser authentication) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <script src="src/firebase.js"></script>
-
     <!-- Google Identity Services API for Multi-User Google Sign-In & Drive Backup -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
-<body data-theme="neon-cyber">
+<body data-theme="light">
     <div class="app-container">
 
         <!-- Top Header & Profile Bar with Multi-User Support -->
@@ -43,26 +37,31 @@
             </div>
 
             <div class="header-actions">
-                <a href="./RoutineCraft_v19.apk" download="RoutineCraft_v19.apk" class="icon-btn download-apk-btn hide-on-native" id="website-download-app-btn" title="Download Android App APK" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; background:rgba(61,220,132,0.12); border:1px solid rgba(61,220,132,0.3); padding:4px 10px; border-radius:18px;">
-                    <i class="fa-brands fa-android" style="color:#3DDC84; font-size:1rem;"></i>
-                    <span style="font-size:0.78rem; font-weight:700; color:var(--text-primary);">Get App</span>
-                </a>
                 <button class="icon-btn google-login-btn" id="header-google-login-btn" title="Sign In with Google">
                     <i class="fa-brands fa-google"></i> <span id="google-btn-text">Sign In</span>
                 </button>
-                <button class="icon-btn notify-badge" id="notify-btn" title="Toggle Reminders / Notifications" aria-label="Toggle notifications" aria-pressed="true">
-                    <i class="fa-solid fa-bell" aria-hidden="true"></i>
+                <button class="icon-btn notify-badge" id="notify-btn" title="Toggle Reminders / Notifications">
+                    <i class="fa-solid fa-bell"></i>
                 </button>
                 <button class="icon-btn streak-badge" id="streak-btn" title="View Stats & Overall Progress">
                     <i class="fa-solid fa-fire fire-icon"></i>
                     <span id="streak-count">5</span> <small>days</small>
                 </button>
-                <button class="icon-btn theme-toggle-btn" id="quick-theme-btn" title="Quick Theme Switch">
-                    <i class="fa-solid fa-palette"></i>
+                <button class="icon-btn theme-toggle-btn" id="quick-theme-btn" title="Toggle Light / Dark Mode">
+                    <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
                 </button>
             </div>
         </header>
 
+        <!-- Multi-User Account Bar (Shows logged in Google user email) -->
+        <div class="account-status-bar hide" id="account-status-bar">
+            <div class="account-info">
+                <i class="fa-brands fa-google-drive" style="color:#4285F4;"></i>
+                <span>Synced as <strong id="account-email-display">user@gmail.com</strong></span>
+                <span class="badge-frequency" id="account-freq-badge">Auto: Daily</span>
+            </div>
+            <button class="switch-account-btn" id="switch-account-btn"><i class="fa-solid fa-arrows-rotate"></i> Switch</button>
+        </div>
 
         <!-- Progress Overview Ring Card -->
         <section class="progress-card">
@@ -90,27 +89,19 @@
 
             <div class="progress-ring-container">
                 <svg class="progress-ring" width="80" height="80">
-                    <circle class="progress-ring-bg" stroke-width="8" r="36" cx="40" cy="40"/>
-                    <circle class="progress-ring-circle" stroke-width="8" r="36" cx="40" cy="40" id="progress-circle"/>
+                    <circle class="progress-ring-bg" fill="none" stroke-width="8" r="36" cx="40" cy="40"/>
+                    <circle class="progress-ring-circle" fill="none" stroke-width="8" r="36" cx="40" cy="40" id="progress-circle"/>
                 </svg>
                 <span class="progress-percentage" id="progress-percentage-text">0%</span>
             </div>
         </section>
-
-        <!-- App Update Available Floating Pill -->
-        <div class="update-toast-pill hide" id="update-banner">
-            <i class="fa-solid fa-wand-magic-sparkles" style="color:#f59e0b;"></i>
-            <span id="update-banner-title" style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">New update available</span>
-            <button type="button" class="update-pill-btn" id="update-action-btn">Refresh</button>
-            <button type="button" class="update-close-btn" id="dismiss-update-btn"><i class="fa-solid fa-xmark"></i></button>
-        </div>
 
         <!-- Active Reminder Banner -->
         <div class="reminder-banner hide" id="reminder-banner">
             <div class="reminder-icon"><i class="fa-solid fa-bell fa-bounce"></i></div>
             <div class="reminder-text">
                 <strong id="reminder-title">Scheduled Task Reminder!</strong>
-                <span id="reminder-desc">You have 1 task scheduled for today.</span>
+                <span id="reminder-desc">You have tasks scheduled for today.</span>
             </div>
             <button class="reminder-dismiss" id="dismiss-reminder-btn"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -159,6 +150,26 @@
 
         <!-- Main Task Checklist -->
         <main class="tasks-main">
+            <!-- Quick Add Bar for Frictionless Everyday Task Creation -->
+            <div class="quick-add-bar">
+                <i class="fa-solid fa-bolt quick-add-icon"></i>
+                <input type="text" id="quick-task-input" class="quick-add-input" placeholder="Quick add a task for today... (Press Enter)">
+                <button type="button" class="quick-add-btn" id="quick-add-submit-btn" title="Add to Today">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+
+            <!-- Overdue Tasks Action Banner -->
+            <div class="overdue-action-banner hide" id="overdue-action-banner">
+                <div class="overdue-banner-text">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>You have <strong id="overdue-banner-count">0</strong> overdue task(s).</span>
+                </div>
+                <button type="button" class="btn-reschedule-all" id="reschedule-all-btn">
+                    <i class="fa-solid fa-calendar-check"></i> Move All to Today
+                </button>
+            </div>
+
             <div class="section-header">
                 <h3 class="section-title" id="current-view-title">Today's Checklist</h3>
                 <div class="sort-dropdown">
@@ -204,77 +215,17 @@
                 <i class="fa-solid fa-list-check"></i>
                 <span>Tasks</span>
             </button>
-            <button class="nav-item" data-nav="focus">
-                <i class="fa-solid fa-stopwatch"></i>
-                <span>Focus</span>
-            </button>
             <button class="nav-item" data-nav="analytics">
                 <i class="fa-solid fa-chart-pie"></i>
                 <span>Stats</span>
             </button>
             <button class="nav-item" data-nav="settings">
-                <i class="fa-solid fa-gear"></i>
-                <span>Settings</span>
+                <i class="fa-solid fa-sliders"></i>
+                <span>Customize</span>
             </button>
         </nav>
 
         <!-- MODALS -->
-
-        <!-- 0. FIREBASE AUTHENTICATION & LOGIN MODAL (GOOGLE EXCLUSIVE) -->
-        <div class="modal-overlay hide" id="auth-modal">
-            <div class="modal-content glass-card auth-modal-card">
-                <div class="modal-header">
-                    <h3 class="modal-title" id="auth-modal-heading">
-                        <i class="fa-brands fa-google" style="color:#4285F4;"></i> Sign In with Google
-                    </h3>
-                    <button class="close-modal-btn" id="close-auth-modal">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-
-                <div class="modal-body" style="text-align:center;">
-                    <div style="font-size:3rem; margin-bottom:12px;">🚀</div>
-                    <p class="auth-subtitle">Sign in with your Google account to back up your habits, sync tasks across devices, and track your streaks.</p>
-
-                    <!-- Error / Status Message Alert -->
-                    <div class="auth-error-msg hide" id="auth-error-msg"></div>
-
-                    <!-- Code 10 / SHA-1 Setup Help & Quick Connect Fallback Box -->
-                    <div class="sha1-help-box hide" id="sha1-help-box" style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); border-radius:12px; padding:14px; margin-top:14px; text-align:left; font-size:0.82rem;">
-                        <div style="font-weight:700; color:#f87171; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-triangle-exclamation"></i> SHA-1 Setup Required (Code 10)
-                        </div>
-                        <div style="color:var(--text-secondary); margin-bottom:8px; line-height:1.4;">
-                            Google Play Services requires your app's SHA-1 fingerprint in <strong>Firebase Console → Project Settings → Android App (com.routinecraft.app)</strong>:
-                        </div>
-                        <div style="background:rgba(0,0,0,0.3); padding:8px 10px; border-radius:8px; font-family:monospace; font-size:0.75rem; word-break:break-all; color:#00f2fe; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                            <span id="app-sha1-text">5F:F3:25:F5:62:8F:C7:71:B6:12:83:56:C8:38:AB:FF:88:4D:42:43</span>
-                            <button type="button" id="copy-sha1-btn" style="background:rgba(0,242,254,0.15); border:1px solid rgba(0,242,254,0.3); color:#00f2fe; border-radius:6px; padding:4px 8px; font-size:0.72rem; cursor:pointer; flex-shrink:0;">
-                                Copy
-                            </button>
-                        </div>
-                        <div style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.08); padding-top:10px;">
-                            <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Or Quick Connect with your Google Email:</div>
-                            <div style="display:flex; gap:6px;">
-                                <input type="email" id="fallback-email-input" placeholder="name@gmail.com" style="flex:1; padding:8px 10px; font-size:0.85rem; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:#fff; outline:none;">
-                                <button type="button" id="fallback-email-login-btn" style="background:var(--accent-primary); color:#051329; font-weight:700; border:none; border-radius:8px; padding:8px 12px; font-size:0.8rem; cursor:pointer;">
-                                    Connect
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Google Sign-In Primary Button -->
-                    <button type="button" class="btn btn-google-full" id="google-login-modal-btn" style="margin-top:14px; width:100%;">
-                        <i class="fa-brands fa-google" style="color:#4285F4; font-size:1.1rem;"></i> Sign In with Google
-                    </button>
-
-                    <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:20px; opacity:0.8;">
-                        🔒 Safe & Secure. Authenticated directly via your Google Account.
-                    </p>
-                </div>
-            </div>
-        </div>
 
         <!-- 1. Add / Edit Task Modal -->
         <div class="modal-overlay hide" id="task-modal">
@@ -290,7 +241,7 @@
                     
                     <div class="form-group">
                         <label for="task-title-input">Task Title *</label>
-                        <input type="text" id="task-title-input" required placeholder="e.g. Gym workout" aria-required="true" autocomplete="off">
+                        <input type="text" id="task-title-input" required placeholder="e.g. Gym workout">
                     </div>
 
                     <div class="form-row">
@@ -386,7 +337,18 @@
                         </div>
                     </div>
 
-                    <p class="perm-desc">RoutineCraft can automatically back up your daily tasks, habits, and streaks directly to your Google Drive.</p>
+                    <div class="form-group" id="account-entry-group">
+                        <label for="gdrive-email-input">Account Email</label>
+                        <input type="email" id="gdrive-email-input" placeholder="e.g. user@gmail.com" value="user@gmail.com">
+                        <div class="sample-accounts-row">
+                            <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Presets:</span>
+                            <button type="button" class="btn-chip-account" data-email="alex.productivity@gmail.com">Alex</button>
+                            <button type="button" class="btn-chip-account" data-email="sarah.daily@gmail.com">Sarah</button>
+                            <button type="button" class="btn-chip-account" data-email="jordan.planner@gmail.com">Jordan</button>
+                        </div>
+                    </div>
+
+                    <p class="perm-desc">RoutineCraft will securely back up your daily tasks, habits, and streaks directly to your account storage.</p>
 
                     <div class="form-group">
                         <label>Choose Automatic Backup Frequency:</label>
@@ -419,9 +381,9 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="skip-gdrive-perm-btn">Skip for Now</button>
+                    <button type="button" class="btn btn-secondary" id="skip-gdrive-perm-btn">Cancel</button>
                     <button type="button" class="btn btn-gdrive" id="confirm-gdrive-perm-btn">
-                        <i class="fa-brands fa-google-drive"></i> Enable Backup & Continue
+                        <i class="fa-brands fa-google-drive"></i> Save & Connect
                     </button>
                 </div>
             </div>
@@ -440,21 +402,13 @@
                 <div class="modal-body">
                     <!-- Multi-User Account Selector -->
                     <div class="settings-group">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <h4 style="margin-bottom:0;"><i class="fa-solid fa-users"></i> Account & Sync</h4>
-                            <span id="sync-status-badge" class="account-badge badge-synced" style="font-size:0.75rem; font-weight:700; padding:3px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:5px;"></span>
-                        </div>
+                        <h4><i class="fa-solid fa-users"></i> Switch User Account</h4>
                         <div class="users-list-grid" id="users-list-grid">
                             <!-- Multi-user accounts rendered dynamically -->
                         </div>
-                        <div style="display:flex; gap:8px; margin-top:8px;">
-                            <button class="btn btn-secondary btn-block" id="add-new-account-btn" style="flex:1;">
-                                <i class="fa-brands fa-google"></i> Sign In / Add Account
-                            </button>
-                            <button class="btn hide" id="logout-settings-btn" style="background:rgba(225,29,72,0.12); color:#e11d48; border:1px solid rgba(225,29,72,0.3); font-weight:700; padding:0 14px;">
-                                <i class="fa-solid fa-right-from-bracket"></i> Sign Out
-                            </button>
-                        </div>
+                        <button class="btn btn-secondary btn-block" id="add-new-account-btn">
+                            <i class="fa-brands fa-google"></i> Sign In / Add Google Account
+                        </button>
                     </div>
 
                     <!-- Active Profile Customization -->
@@ -516,149 +470,52 @@
                         </div>
                     </div>
 
-                    <!-- Theme Selector -->
-                    <div class="settings-group" role="group" aria-labelledby="theme-settings-heading">
-                        <h4 id="theme-settings-heading"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> App Theme</h4>
-                        <div class="theme-grid" role="radiogroup" aria-label="Choose app theme">
-                            <button class="theme-card" data-set-theme="sunset-glow" aria-label="Pastel Pink Rose theme" role="radio" aria-checked="false">
-                                <div class="theme-preview sunset-preview" aria-hidden="true"></div>
-                                <span>Pastel Pink Rose</span>
-                            </button>
-                            <button class="theme-card" data-set-theme="dark-glass" aria-label="Midnight Glass theme" role="radio" aria-checked="false">
-                                <div class="theme-preview dark-glass-preview" aria-hidden="true"></div>
-                                <span>Midnight Glass</span>
-                            </button>
-                            <button class="theme-card active" data-set-theme="neon-cyber" aria-label="Neon Cyber theme" role="radio" aria-checked="true">
-                                <div class="theme-preview neon-preview" aria-hidden="true"></div>
-                                <span>Neon Cyber</span>
-                            </button>
-                            <button class="theme-card" data-set-theme="minimal-light" aria-label="Minimal Light theme" role="radio" aria-checked="false">
-                                <div class="theme-preview light-preview" aria-hidden="true"></div>
-                                <span>Minimal Light</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Notification Schedule Settings -->
-                    <div class="settings-group" role="group" aria-labelledby="notif-settings-heading">
-                        <h4 id="notif-settings-heading">
-                            <i class="fa-solid fa-bell" aria-hidden="true"></i> Notification Schedule
-                        </h4>
-                        <p class="settings-desc">Set when you'd like your daily summary and task reminders to fire.</p>
-
-                        <div class="form-group">
-                            <label for="summary-notif-time-input">
-                                <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Daily Summary Time
-                            </label>
-                            <input
-                                type="time"
-                                id="summary-notif-time-input"
-                                value="20:00"
-                                aria-label="Time for daily summary notification"
-                                aria-describedby="summary-notif-help"
-                            >
-                            <small class="help-text" id="summary-notif-help">
-                                📊 You'll get a summary of today's completed tasks at this time.
-                            </small>
-                        </div>
-
-                        <div class="notif-info-card">
-                            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-                            <span>Individual task reminders fire at each task's scheduled time. Enable notifications with the <strong>🔔 bell</strong> button in the header.</span>
-                        </div>
-                    </div>
-
-                    <!-- Streak Protection & Rest Days -->
+                    <!-- Appearance: Light / Dark Mode -->
                     <div class="settings-group">
-                        <h4><i class="fa-solid fa-shield-halved" style="color:var(--accent-primary);"></i> Streak Protection & Rest Days</h4>
-                        <div class="streak-protection-card" style="background:rgba(255,255,255,0.04); padding:12px; border-radius:12px; border:1px solid var(--card-border); margin-bottom:10px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                <div>
-                                    <strong style="font-size:0.88rem; color:var(--text-primary);">🛡️ Streak Freeze Tokens</strong>
-                                    <p style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Automatically protects your streak if you miss a day.</p>
-                                </div>
-                                <span class="badge" style="background:rgba(0,242,254,0.18); color:#00f2fe; font-weight:700; font-size:0.82rem; padding:4px 8px; border-radius:8px;" id="streak-freeze-count-badge">2 / 2 Active</span>
-                            </div>
-
-                            <label style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:6px;">
-                                Planned Rest Days (Streaks won't break on these days):
-                            </label>
-                            <div class="rest-days-selector" id="rest-days-selector" style="display:flex; gap:6px; flex-wrap:wrap;">
-                                <button type="button" class="rest-day-pill" data-day="0">Sun</button>
-                                <button type="button" class="rest-day-pill" data-day="1">Mon</button>
-                                <button type="button" class="rest-day-pill" data-day="2">Tue</button>
-                                <button type="button" class="rest-day-pill" data-day="3">Wed</button>
-                                <button type="button" class="rest-day-pill" data-day="4">Thu</button>
-                                <button type="button" class="rest-day-pill" data-day="5">Fri</button>
-                                <button type="button" class="rest-day-pill" data-day="6">Sat</button>
-                            </div>
+                        <h4><i class="fa-solid fa-circle-half-stroke"></i> Appearance Mode</h4>
+                        <div class="theme-mode-toggle">
+                            <button type="button" class="theme-mode-btn" data-theme-mode="light">
+                                <i class="fa-solid fa-sun" style="color:#f59e0b;"></i> Light Mode
+                            </button>
+                            <button type="button" class="theme-mode-btn" data-theme-mode="dark">
+                                <i class="fa-solid fa-moon" style="color:#6366f1;"></i> Dark Mode
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Sound FX & Haptics Toggle -->
+                    <!-- Local Data Backup & Reset -->
                     <div class="settings-group">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <h4 style="margin:0; font-size:0.92rem;"><i class="fa-solid fa-volume-high"></i> Sound FX & Haptics</h4>
-                                <span style="font-size:0.75rem; color:var(--text-secondary);">Subtle audio chimes & vibrations upon completing tasks.</span>
-                            </div>
-                            <input type="checkbox" id="sound-haptics-toggle" checked style="width:20px; height:20px; cursor:pointer; accent-color:var(--accent-primary);">
-                        </div>
-                    </div>
-
-                    <!-- APP UPDATES & VERSION SECTION -->
-                    <div class="settings-group">
-                        <h4><i class="fa-solid fa-cloud-arrow-down"></i> App Updates</h4>
-                        <div class="cloud-status-card" style="margin-bottom:10px;">
-                            <div class="cloud-status-info" id="update-settings-status-box">
-                                <i class="fa-solid fa-circle-check cloud-icon" id="update-settings-icon" style="color:var(--accent-success);"></i>
-                                <div>
-                                    <strong id="update-settings-title">Already in latest version</strong>
-                                    <span id="update-settings-subtext">RoutineCraft v1.8.1 (Build 19) — Latest</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:8px;">
-                            <button type="button" class="btn btn-secondary btn-block" id="check-update-settings-btn" style="flex:1;">
-                                <i class="fa-solid fa-rotate"></i> Check for Updates
+                        <h4><i class="fa-solid fa-database"></i> Offline File Export / Reset</h4>
+                        <div class="backup-actions">
+                            <button class="btn btn-secondary" id="export-data-btn">
+                                <i class="fa-solid fa-download"></i> Export JSON
                             </button>
-                            <button type="button" class="btn btn-primary btn-block hide" id="apply-update-settings-btn" style="flex:1; background:var(--accent-primary);">
-                                <i class="fa-solid fa-sparkles"></i> Update Now
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- DOWNLOAD ANDROID APP (WEBSITE ONLY) -->
-                    <div class="settings-group hide-on-native" id="website-download-section">
-                        <h4><i class="fa-brands fa-android" style="color:#3DDC84;"></i> Android App Download</h4>
-                        <p class="settings-desc">Download the standalone Android app APK for native offline tracking & reminders.</p>
-                        <a href="https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v19.apk" download="RoutineCraft_v19.apk" class="btn btn-block" style="background:rgba(61,220,132,0.14); color:#15803d; border:1px solid rgba(61,220,132,0.35); font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; padding:10px 16px;">
-                            <i class="fa-brands fa-android" style="font-size:1.1rem; color:#3DDC84;"></i> Download RoutineCraft_v19.apk (v1.8.1)
-                        </a>
-                    </div>
-
-                    <!-- Local Data Backup, Export & Migration -->
-                    <div class="settings-group">
-                        <h4><i class="fa-solid fa-database"></i> Data Export & Backup</h4>
-                        <p class="settings-desc">Export your checklist and habit data for Excel, Notion, Obsidian, or backup.</p>
-                        <div class="backup-actions" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:10px;">
-                            <button type="button" class="btn btn-secondary" id="export-csv-btn">
-                                <i class="fa-solid fa-file-csv" style="color:#10b981;"></i> Export CSV
-                            </button>
-                            <button type="button" class="btn btn-secondary" id="export-notion-btn">
-                                <i class="fa-solid fa-file-lines" style="color:#6366f1;"></i> Notion / MD
-                            </button>
-                            <button type="button" class="btn btn-secondary" id="export-data-btn">
-                                <i class="fa-solid fa-download" style="color:#00f2fe;"></i> Backup JSON
-                            </button>
-                            <button type="button" class="btn btn-secondary" id="import-data-btn">
-                                <i class="fa-solid fa-upload" style="color:#f59e0b;"></i> Restore JSON
+                            <button class="btn btn-secondary" id="import-data-btn">
+                                <i class="fa-solid fa-upload"></i> Import JSON
                             </button>
                             <input type="file" id="import-file-input" accept=".json" class="hide">
                         </div>
-                        <button type="button" class="btn btn-danger-outline" id="reset-data-btn" style="width:100%;">
+                        <button class="btn btn-danger-outline" id="reset-data-btn">
                             <i class="fa-solid fa-arrow-rotate-left"></i> Reset Current User Tasks
                         </button>
+                    </div>
+                    <!-- In-App Updates & GitHub Sync -->
+                    <div class="settings-group app-update-group">
+                        <h4><i class="fa-solid fa-cloud-arrow-down"></i> App Version & Updates</h4>
+                        <div class="version-info-card">
+                            <div class="version-details">
+                                <span class="version-label">Installed Version</span>
+                                <strong class="version-value" id="current-version-display">v2.0.0</strong>
+                            </div>
+                            <button type="button" class="btn btn-secondary check-update-btn" id="check-updates-btn">
+                                <i class="fa-solid fa-arrows-rotate"></i> Check for Updates
+                            </button>
+                        </div>
+                        <div class="form-group" style="margin-top:6px;">
+                            <label for="github-repo-input" style="font-size:0.75rem;">GitHub Repository</label>
+                            <input type="text" id="github-repo-input" value="shinchan2222/TODO_LIST-APP" style="font-size:0.8rem; padding:6px 10px;">
+                        </div>
+                        <small class="help-text" id="update-status-text">Connected to github.com/shinchan2222/TODO_LIST-APP</small>
                     </div>
                 </div>
 
@@ -679,57 +536,16 @@
                 </div>
 
                 <div class="modal-body">
-                    <!-- Time-Range Selector Tabs -->
-                    <div class="stats-time-range-tabs" id="stats-time-range-tabs">
-                        <button type="button" class="tab-btn active" data-stats-range="week"><i class="fa-solid fa-calendar-week"></i> This Week</button>
-                        <button type="button" class="tab-btn" data-stats-range="month"><i class="fa-solid fa-calendar-days"></i> Last 30 Days</button>
-                        <button type="button" class="tab-btn" data-stats-range="all"><i class="fa-solid fa-infinity"></i> All Time</button>
-                    </div>
-
-                    <!-- LIFETIME & ALL-TIME MILESTONES OVERVIEW CARD -->
-                    <section class="stats-milestone-card" id="stats-milestone-card">
-                        <div class="milestone-grid">
-                            <div class="milestone-item">
-                                <span class="milestone-icon">🚀</span>
-                                <div class="milestone-text">
-                                    <span class="milestone-label">Started App On</span>
-                                    <strong class="milestone-val" id="stats-member-since-val">Aug 12, 2026</strong>
-                                </div>
-                            </div>
-                            <div class="milestone-item">
-                                <span class="milestone-icon">🏆</span>
-                                <div class="milestone-text">
-                                    <span class="milestone-label">All-Time Completed</span>
-                                    <strong class="milestone-val" id="stats-lifetime-completed-val">24 tasks</strong>
-                                </div>
-                            </div>
-                            <div class="milestone-item">
-                                <span class="milestone-icon">🔥</span>
-                                <div class="milestone-text">
-                                    <span class="milestone-label">Best Streak</span>
-                                    <strong class="milestone-val" id="stats-best-streak-val">5 days</strong>
-                                </div>
-                            </div>
-                            <div class="milestone-item">
-                                <span class="milestone-icon">📅</span>
-                                <div class="milestone-text">
-                                    <span class="milestone-label">Active Days</span>
-                                    <strong class="milestone-val" id="stats-active-days-val">6 days</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
                     <!-- OVERALL PROGRESS DASHBOARD CARD -->
-                    <section class="overall-progress-card" id="stats-progress-card">
+                    <section class="overall-progress-card">
                         <div class="overall-progress-header">
-                            <h3 id="stats-chart-title">Weekly Progress</h3>
+                            <h3>Overall Progress</h3>
                         </div>
                         
                         <div class="overall-progress-body">
-                            <!-- Left: Bar Chart -->
+                            <!-- Left: Mon-Sun Bar Chart with 0-10 Y-Axis Scale -->
                             <div class="overall-chart-container">
-                                <div class="chart-y-axis" id="stats-chart-y-axis">
+                                <div class="chart-y-axis">
                                     <span>10</span>
                                     <span>8</span>
                                     <span>6</span>
@@ -738,7 +554,7 @@
                                     <span>0</span>
                                 </div>
                                 <div class="overall-bars-wrapper" id="overall-bars-wrapper">
-                                    <!-- Dynamic Bars -->
+                                    <!-- Mon-Sun Bars -->
                                 </div>
                             </div>
 
@@ -746,8 +562,8 @@
                             <div class="overall-ring-container">
                                 <div class="ring-donut">
                                     <svg width="84" height="84">
-                                        <circle class="ring-bg" stroke-width="7" r="34" cx="42" cy="42"/>
-                                        <circle class="ring-fill" stroke-width="7" r="34" cx="42" cy="42" id="overall-ring-fill"/>
+                                        <circle class="ring-bg" fill="none" stroke-width="7" r="34" cx="42" cy="42"/>
+                                        <circle class="ring-fill" fill="none" stroke-width="7" r="34" cx="42" cy="42" id="overall-ring-fill"/>
                                     </svg>
                                     <span class="ring-pct-text" id="overall-pct-text">37%</span>
                                 </div>
@@ -760,7 +576,7 @@
                     </section>
 
                     <!-- WEEKLY DAY COLUMNS DASHBOARD -->
-                    <div class="planner-grid-section" id="weekly-planner-section">
+                    <div class="planner-grid-section">
                         <h4 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
                             <i class="fa-solid fa-calendar-week" style="color:var(--accent-primary);"></i> Daily Completion & Task Breakdown
                         </h4>
@@ -772,25 +588,11 @@
                     <!-- 30-Day Habit Activity Heatmap Matrix Grid -->
                     <div class="heatmap-section">
                         <div class="heatmap-header">
-                            <h4 id="heatmap-section-title"><i class="fa-solid fa-border-all"></i> 30-Day Habit Activity Heatmap</h4>
+                            <h4><i class="fa-solid fa-border-all"></i> 30-Day Habit Activity Heatmap</h4>
                             <span class="heatmap-legend">Less <span class="lvl-0"></span><span class="lvl-1"></span><span class="lvl-2"></span><span class="lvl-3"></span> More</span>
                         </div>
                         <div class="heatmap-grid" id="heatmap-grid">
-                            <!-- Glowing Tile Boxes -->
-                        </div>
-
-                        <!-- Interactive Day Detail Card -->
-                        <div class="heatmap-day-detail glass-card hide" id="heatmap-day-detail" style="margin-top:12px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.06); border:1px solid var(--card-border);">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span style="font-size:1.1rem;">📅</span>
-                                    <strong id="heatmap-detail-date" style="font-size:0.88rem; color:var(--text-primary);">Aug 17, 2026</strong>
-                                </div>
-                                <button type="button" id="close-heatmap-detail-btn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.9rem; padding:4px;"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                            <div id="heatmap-detail-tasks-list" style="display:flex; flex-direction:column; gap:6px; font-size:0.84rem;">
-                                <!-- Task items populated on tile click -->
-                            </div>
+                            <!-- 30 Glowing Tile Boxes -->
                         </div>
                     </div>
 
@@ -801,99 +603,47 @@
                             <!-- Category progress bars -->
                         </div>
                     </div>
-
-                    <!-- Full Activity History Explorer -->
-                    <div class="history-log-section" id="history-log-section" style="margin-top:16px;">
-                        <h4 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                            <span><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-primary);"></i> Full History from Start Date</span>
-                            <span style="font-size:0.75rem; color:var(--text-secondary); font-weight:600;" id="history-total-days-count">Recorded Days</span>
-                        </h4>
-                        <div class="history-days-list" id="history-days-list" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding-right:4px;">
-                            <!-- History items rendered dynamically -->
-                        </div>
-                    </div>
                 </div>
 
-                <div class="modal-actions" style="display:flex; gap:8px;">
-                    <button type="button" class="btn btn-secondary" id="print-pdf-report-btn" style="flex:1;">
-                        <i class="fa-solid fa-file-pdf"></i> Print / PDF Report
-                    </button>
-                    <button type="button" class="btn btn-secondary" id="close-analytics-btn" style="flex:1;">Close Stats</button>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="close-analytics-btn">Close Stats</button>
                 </div>
             </div>
         </div>
 
-        <!-- 5. POMODORO FOCUS TIMER MODAL -->
-        <div class="modal-overlay hide" id="focus-modal">
-            <div class="modal-content glass-card focus-modal-card" style="max-width:440px;">
+        <!-- 5. IN-APP UPDATE NOTIFICATION & INSTALL MODAL -->
+        <div class="modal-overlay hide" id="update-modal">
+            <div class="modal-content glass-card update-modal-card">
                 <div class="modal-header">
-                    <h3 class="modal-title"><i class="fa-solid fa-stopwatch" style="color:var(--accent-primary);"></i> Pomodoro Focus Timer</h3>
-                    <button class="close-modal-btn" id="close-focus-modal">
+                    <h3 class="modal-title"><i class="fa-solid fa-cloud-arrow-down" style="color:var(--accent-primary);"></i> Update Available!</h3>
+                    <button class="close-modal-btn" id="close-update-modal">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
-                <div class="modal-body" style="text-align:center;">
-                    <!-- Mode Selector -->
-                    <div class="focus-modes-tabs" id="focus-modes-tabs" style="display:flex; gap:6px; background:var(--input-bg); padding:4px; border-radius:var(--radius-md); margin-bottom:14px;">
-                        <button type="button" class="tab-btn active" data-focus-mode="pomodoro" style="flex:1; padding:8px 4px; font-size:0.8rem; border-radius:var(--radius-sm); border:none; background:transparent; color:var(--text-secondary); cursor:pointer;">Focus (25m)</button>
-                        <button type="button" class="tab-btn" data-focus-mode="shortBreak" style="flex:1; padding:8px 4px; font-size:0.8rem; border-radius:var(--radius-sm); border:none; background:transparent; color:var(--text-secondary); cursor:pointer;">Break (5m)</button>
-                        <button type="button" class="tab-btn" data-focus-mode="longBreak" style="flex:1; padding:8px 4px; font-size:0.8rem; border-radius:var(--radius-sm); border:none; background:transparent; color:var(--text-secondary); cursor:pointer;">Long (15m)</button>
+                <div class="modal-body">
+                    <div class="update-banner">
+                        <div class="version-comparison">
+                            <span class="ver-old" id="modal-curr-ver">v2.0.0</span>
+                            <i class="fa-solid fa-arrow-right ver-arrow"></i>
+                            <span class="ver-new" id="modal-new-ver">v2.0.1</span>
+                        </div>
+                        <span class="update-badge">New Release</span>
                     </div>
 
-                    <!-- Task Selector -->
-                    <div class="form-group" style="margin-bottom:16px; text-align:left;">
-                        <label for="focus-task-select" style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-bottom:4px; display:block;">Active Task Goal:</label>
-                        <select id="focus-task-select" style="width:100%; padding:10px 12px; border-radius:10px; background:var(--input-bg); border:1px solid var(--card-border); color:var(--text-primary); font-size:0.85rem;">
-                            <option value="">🎯 General Focus Session</option>
-                        </select>
-                    </div>
-
-                    <!-- Circular Animated Timer Ring -->
-                    <div class="focus-timer-container" style="position:relative; width:200px; height:200px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center;">
-                        <svg width="200" height="200" style="transform:rotate(-90deg);">
-                            <circle stroke="rgba(255,255,255,0.08)" stroke-width="10" fill="transparent" r="85" cx="100" cy="100"/>
-                            <circle id="focus-ring-fill" stroke="var(--accent-primary)" stroke-width="10" stroke-linecap="round" fill="transparent" r="85" cx="100" cy="100" style="stroke-dasharray:534.07; stroke-dashoffset:0; transition:stroke-dashoffset 0.5s ease;"/>
-                        </svg>
-                        <div style="position:absolute; display:flex; flex-direction:column; align-items:center;">
-                            <span id="focus-time-display" style="font-size:2.4rem; font-weight:800; font-family:var(--font-family-heading); color:var(--text-primary); letter-spacing:1px;">25:00</span>
-                            <span id="focus-status-label" style="font-size:0.75rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Ready to Focus</span>
+                    <h4 class="update-release-title" id="update-release-title">Version 2.0.0</h4>
+                    
+                    <div class="release-notes-wrapper">
+                        <span class="release-notes-label">What's New:</span>
+                        <div class="release-notes-box" id="update-release-notes">
+                            <!-- Populated dynamically -->
                         </div>
                     </div>
-
-                    <!-- Timer Controls -->
-                    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:16px;">
-                        <button type="button" class="btn btn-primary" id="focus-toggle-btn" style="min-width:140px; padding:12px 24px; font-size:0.95rem; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px;">
-                            <i class="fa-solid fa-play" id="focus-toggle-icon"></i> <span id="focus-toggle-text">Start Focus</span>
-                        </button>
-                        <button type="button" class="btn btn-secondary" id="focus-reset-btn" title="Reset Timer" style="padding:12px 16px;">
-                            <i class="fa-solid fa-rotate-left"></i>
-                        </button>
-                    </div>
-
-                    <!-- Ambient Sound Selector -->
-                    <div style="background:rgba(255,255,255,0.03); padding:12px; border-radius:12px; border:1px solid var(--card-border); margin-bottom:14px;">
-                        <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; display:block; margin-bottom:8px;">
-                            <i class="fa-solid fa-headphones"></i> Ambient Focus Soundscape (Synthesizer)
-                        </label>
-                        <div id="focus-sound-chips" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
-                            <button type="button" class="sound-chip active" data-sound="none" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🔇 Off</button>
-                            <button type="button" class="sound-chip" data-sound="lofi" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🎧 Cyber Pulse</button>
-                            <button type="button" class="sound-chip" data-sound="rain" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🌧️ Rain</button>
-                            <button type="button" class="sound-chip" data-sound="waves" style="padding:6px 10px; font-size:0.75rem; border-radius:16px; border:1px solid var(--card-border); background:var(--card-bg); color:var(--text-secondary); cursor:pointer;">🌊 Ocean Waves</button>
-                        </div>
-                    </div>
-
-                    <!-- Focus Stats Mini-Grid -->
-                    <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;">
-                        <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; border:1px solid var(--card-border);">
-                            <strong id="focus-today-minutes-val" style="font-size:1.1rem; color:var(--accent-primary); display:block;">0</strong>
-                            <span style="font-size:0.72rem; color:var(--text-secondary);">Focus Mins Today</span>
-                        </div>
-                        <div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:10px; border:1px solid var(--card-border);">
-                            <strong id="focus-completed-sessions-val" style="font-size:1.1rem; color:var(--accent-success); display:block;">0</strong>
-                            <span style="font-size:0.72rem; color:var(--text-secondary);">Sessions Completed</span>
-                        </div>
-                    </div>
+                </div>
+                <div class="modal-actions update-actions">
+                    <button type="button" class="btn btn-secondary" id="dismiss-update-btn">Later</button>
+                    <a href="#" class="btn btn-primary" id="download-update-btn" target="_blank" rel="noopener noreferrer">
+                        <i class="fa-solid fa-download"></i> Download & Install APK
+                    </a>
                 </div>
             </div>
         </div>
@@ -907,14 +657,12 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // Hardcode version query to force update SW cache
-                navigator.serviceWorker.register('./sw.js?v=19')
+                navigator.serviceWorker.register('./sw.js')
                     .then(reg => console.log('Service Worker Registered for Offline Mode 🚀', reg.scope))
                     .catch(err => console.log('SW registration failed: ', err));
             });
         }
     </script>
-    <script src="src/plugins/local-notifications.js?v=19"></script>
-    <script src="app.js?v=19"></script>
+    <script src="app.js"></script>
 </body>
 </html>

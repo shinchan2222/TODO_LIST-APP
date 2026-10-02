@@ -1,67 +1,92 @@
 /* ==========================================================================
    RoutineCraft - Personal Daily Task & Habit Tracker Logic
-   With Native Android Local Push Notifications & Google Drive Backup
+   Complete Logic Engine: Local Timezone, Accurate Recurrence & Streak,
+   Real Analytics, Instant Quick-Add, Overdue Handling & Responsive UX
    ========================================================================== */
 
 (function () {
     'use strict';
 
-    const APP_VERSION = 19; // updated version
-    const getTodayStr = () => new Date().toISOString().split('T')[0];
+    const APP_VERSION = 20;
+    const APP_RELEASE_VERSION = '2.0.0';
+    const DEFAULT_GITHUB_REPO = 'shinchan2222/TODO_LIST-APP';
+
+    // --- ACCURATE LOCAL DATE HELPERS (TIMEZONE AWARE) ---
+    const formatLocalDate = (d = new Date()) => {
+        const date = (d instanceof Date) ? d : new Date(d);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const getTodayStr = () => formatLocalDate(new Date());
 
     const getPastDateStr = (daysAgo = 1) => {
         const d = new Date();
         d.setDate(d.getDate() - daysAgo);
-        return d.toISOString().split('T')[0];
+        return formatLocalDate(d);
     };
 
     const getFutureDateStr = (daysAhead = 1) => {
         const d = new Date();
         d.setDate(d.getDate() + daysAhead);
-        return d.toISOString().split('T')[0];
+        return formatLocalDate(d);
     };
+
+    // --- RECURRENCE & DATE COMPARISON RULES ---
+    function isDayApplicableForRecurrence(recurring, dateObj = new Date()) {
+        if (!recurring || recurring === 'none') return false;
+        if (recurring === 'daily') return true;
+        const day = dateObj.getDay(); // 0 is Sunday, 6 is Saturday
+        const isWeekend = (day === 0 || day === 6);
+        if (recurring === 'weekdays') return !isWeekend;
+        if (recurring === 'weekends') return isWeekend;
+        return false;
+    }
+
+    function isTaskToday(task) {
+        const today = getTodayStr();
+        if (task.recurring && task.recurring !== 'none') {
+            if (task.dueDate && task.dueDate > today) return false; // future recurring
+            return isDayApplicableForRecurrence(task.recurring, new Date());
+        }
+        return task.dueDate === today;
+    }
+
+    function isTaskOverdue(task) {
+        if (task.completed) return false;
+        if (task.recurring && task.recurring !== 'none') return false; // recurring tasks reset daily
+        const today = getTodayStr();
+        return Boolean(task.dueDate && task.dueDate < today);
+    }
+
+    function isTaskUpcoming(task) {
+        if (task.completed) return false;
+        const today = getTodayStr();
+        return Boolean(task.dueDate && task.dueDate > today);
+    }
 
     // --- DEFAULT STARTER DATA ---
     const DEFAULT_PROFILE = {
         email: 'default_user@routinecraft.app',
         name: 'Productivity Hero',
         avatar: '🚀',
-        theme: 'neon-cyber',
-        streak: 5,
-        completedDates: [
-            getPastDateStr(5),
-            getPastDateStr(4),
-            getPastDateStr(3),
-            getPastDateStr(2),
-            getPastDateStr(1)
-        ],
-        completionHistory: {
-            [getPastDateStr(5)]: 3,
-            [getPastDateStr(4)]: 4,
-            [getPastDateStr(3)]: 3,
-            [getPastDateStr(2)]: 5,
-            [getPastDateStr(1)]: 4
-        },
+        theme: 'light',
+        streak: 1,
         lastActiveDate: getTodayStr(),
-        totalCompletedCount: 24,
-        memberSince: getPastDateStr(30),
-        bestStreak: 5,
-        notificationsEnabled: true,
-        summaryNotificationTime: '20:00',
+        lastCompletedDate: getTodayStr(),
+        totalCompletedCount: 3,
+        notificationsEnabled: false,
         lastBackupTime: null,
         backupFrequency: 'daily',
-        isGoogleSynced: false,
-        restDays: [0], // Sunday
-        streakFreezes: 2,
-        soundHapticsEnabled: true,
-        focusMinutes: 0,
-        focusSessions: 0
+        isGoogleSynced: false
     };
 
     const DEFAULT_TASKS = [
         {
             id: 'task-1',
-            title: 'Gym workout',
+            title: 'Gym workout & stretch',
             category: 'health',
             priority: 'high',
             dueDate: getTodayStr(),
@@ -70,11 +95,14 @@
             completed: true,
             completedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
-            subtasks: []
+            subtasks: [
+                { id: 'sub-1', title: 'Cardio warmup (10m)', completed: true },
+                { id: 'sub-2', title: 'Strength sets', completed: true }
+            ]
         },
         {
             id: 'task-2',
-            title: 'Project progress analysis',
+            title: 'Daily goals review',
             category: 'work',
             priority: 'high',
             dueDate: getTodayStr(),
@@ -87,22 +115,22 @@
         },
         {
             id: 'task-3',
-            title: 'Laundry',
-            category: 'personal',
+            title: 'Drink 2.5L water',
+            category: 'health',
             priority: 'medium',
             dueDate: getTodayStr(),
-            dueTime: '11:30',
-            recurring: 'none',
-            completed: true,
-            completedAt: new Date().toISOString(),
+            dueTime: '12:00',
+            recurring: 'daily',
+            completed: false,
+            completedAt: null,
             createdAt: new Date().toISOString(),
             subtasks: []
         },
         {
             id: 'task-4',
-            title: 'Meet up with friends',
-            category: 'personal',
-            priority: 'medium',
+            title: 'Team sync & project status',
+            category: 'work',
+            priority: 'high',
             dueDate: getTodayStr(),
             dueTime: '15:00',
             recurring: 'none',
@@ -113,61 +141,22 @@
         },
         {
             id: 'task-5',
-            title: 'Create an IG story',
-            category: 'work',
+            title: 'Read 15 pages',
+            category: 'personal',
             priority: 'medium',
             dueDate: getTodayStr(),
-            dueTime: '17:00',
-            recurring: 'none',
+            dueTime: '20:30',
+            recurring: 'daily',
             completed: false,
             completedAt: null,
             createdAt: new Date().toISOString(),
             subtasks: []
         },
-        {
-            id: 'task-6',
-            title: 'Research flight deals',
-            category: 'personal',
-            priority: 'low',
-            dueDate: getTodayStr(),
-            dueTime: '19:00',
-            recurring: 'none',
-            completed: false,
-            completedAt: null,
-            createdAt: new Date().toISOString(),
-            subtasks: []
-        },
-        {
-            id: 'task-7',
-            title: 'Therapy session',
-            category: 'health',
-            priority: 'high',
-            dueDate: getTodayStr(),
-            dueTime: '20:00',
-            recurring: 'none',
-            completed: false,
-            completedAt: null,
-            createdAt: new Date().toISOString(),
-            subtasks: []
-        },
-        // Tomorrow Tasks
+        // Tomorrow Starter Task
         {
             id: 'task-tomorrow-1',
-            title: 'Meal preparation',
-            category: 'health',
-            priority: 'high',
-            dueDate: getFutureDateStr(1),
-            dueTime: '09:00',
-            recurring: 'none',
-            completed: false,
-            completedAt: null,
-            createdAt: new Date().toISOString(),
-            subtasks: []
-        },
-        {
-            id: 'task-tomorrow-2',
-            title: 'Grocery shopping',
-            category: 'personal',
+            title: 'Weekly planning session',
+            category: 'work',
             priority: 'medium',
             dueDate: getFutureDateStr(1),
             dueTime: '11:00',
@@ -176,83 +165,55 @@
             completedAt: null,
             createdAt: new Date().toISOString(),
             subtasks: []
-        },
-        {
-            id: 'task-tomorrow-3',
-            title: 'Study for next week\'s exam',
-            category: 'work',
-            priority: 'high',
-            dueDate: getFutureDateStr(1),
-            dueTime: '14:00',
-            recurring: 'none',
-            completed: false,
-            completedAt: null,
-            createdAt: new Date().toISOString(),
-            subtasks: []
-        },
-        {
-            id: 'task-tomorrow-4',
-            title: 'Delivery pickup',
-            category: 'personal',
-            priority: 'low',
-            dueDate: getFutureDateStr(1),
-            dueTime: '18:00',
-            recurring: 'none',
-            completed: false,
-            completedAt: null,
-            createdAt: new Date().toISOString(),
-            subtasks: []
-        },
-        {
-            id: 'task-tomorrow-5',
-            title: 'Bake a cake',
-            category: 'personal',
-            priority: 'low',
-            dueDate: getFutureDateStr(1),
-            dueTime: '20:00',
-            recurring: 'none',
-            completed: false,
-            completedAt: null,
-            createdAt: new Date().toISOString(),
-            subtasks: []
         }
     ];
 
-    // --- MULTI-USER STORAGE & VERSION MIGRATION ---
-    const savedVersion = parseInt(localStorage.getItem('routinecraft_version') || '0', 10);
-    let usersStore = JSON.parse(localStorage.getItem('routinecraft_users')) || {};
-    let activeEmail = localStorage.getItem('routinecraft_active_email') || 'default_user@routinecraft.app';
+    // --- MULTI-USER STORAGE & STATE INITIALIZATION ---
+    let usersStore = {};
+    try {
+        usersStore = JSON.parse(localStorage.getItem('routinecraft_users')) || {};
+    } catch (e) {
+        usersStore = {};
+    }
 
-    if (!usersStore[activeEmail]) {
+    let activeEmail = localStorage.getItem('routinecraft_active_email') || 'default_user@routinecraft.app';
+    const savedVersion = parseInt(localStorage.getItem('routinecraft_version') || '0', 10);
+
+    if (savedVersion < APP_VERSION || !usersStore[activeEmail]) {
         usersStore[activeEmail] = {
-            profile: JSON.parse(localStorage.getItem('routinecraft_profile')) || { ...DEFAULT_PROFILE },
-            tasks: JSON.parse(localStorage.getItem('routinecraft_tasks')) || [...DEFAULT_TASKS]
+            profile: { ...DEFAULT_PROFILE },
+            tasks: [...DEFAULT_TASKS],
+            history: {
+                [getTodayStr()]: 2,
+                [getPastDateStr(1)]: 3,
+                [getPastDateStr(2)]: 4,
+                [getPastDateStr(3)]: 2
+            }
         };
         localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
         localStorage.setItem('routinecraft_active_email', activeEmail);
         localStorage.setItem('routinecraft_version', APP_VERSION.toString());
-    } else {
-        Object.keys(usersStore).forEach(email => {
-            if (!usersStore[email].profile.theme || usersStore[email].profile.theme === 'sunset-glow') {
-                usersStore[email].profile.theme = 'neon-cyber';
-            }
-        });
-        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
     }
 
-    // --- CURRENT ACTIVE USER STATE ---
     let state = {
         profile: usersStore[activeEmail].profile,
         tasks: usersStore[activeEmail].tasks,
+        history: usersStore[activeEmail].history || {},
         activeCategory: 'all',
         activeFilter: 'today',
         searchQuery: '',
         sortBy: 'default',
         tempSubtasks: [],
-        pendingGoogleUser: null,
-        statsTimeRange: 'week'
+        lastDeletedTask: null,
+        pendingGoogleUser: null
     };
 
+    // Ensure theme is only light or dark
+    if (state.profile.theme !== 'light' && state.profile.theme !== 'dark') {
+        state.profile.theme = (state.profile.theme === 'dark-glass' || state.profile.theme === 'neon-cyber') ? 'dark' : 'light';
+    }
+
+    // Ensure all tasks have proper dueDates
     state.tasks.forEach(t => {
         if (!t.dueDate) t.dueDate = getTodayStr();
     });
@@ -266,12 +227,11 @@
         evening: { label: 'Evening Routine', icon: 'fa-moon', color: '#f472b6' }
     };
 
-    // --- DOM ELEMENTS ---
+    // --- DOM REFERENCES ---
     const dom = {
         body: document.body,
         userNameDisplay: document.getElementById('user-name-display'),
         userAvatar: document.getElementById('user-avatar'),
-        onlineIndicator: document.querySelector('.online-indicator'),
         timeGreeting: document.getElementById('time-greeting'),
         streakCount: document.getElementById('streak-count'),
         streakBtn: document.getElementById('streak-btn'),
@@ -280,20 +240,24 @@
         headerGoogleLoginBtn: document.getElementById('header-google-login-btn'),
         googleBtnText: document.getElementById('google-btn-text'),
 
+        // Multi-User Account Bar
         accountStatusBar: document.getElementById('account-status-bar'),
         accountEmailDisplay: document.getElementById('account-email-display'),
         accountFreqBadge: document.getElementById('account-freq-badge'),
         switchAccountBtn: document.getElementById('switch-account-btn'),
-        logoutSettingsBtn: document.getElementById('logout-settings-btn'),
 
+        // Google Permission Modal
         gdrivePermissionModal: document.getElementById('gdrive-permission-modal'),
         closeGdrivePermModalBtn: document.getElementById('close-gdrive-perm-modal'),
         guserNameDisplay: document.getElementById('guser-name-display'),
         guserEmailDisplay: document.getElementById('guser-email-display'),
         guserAvatarDisplay: document.getElementById('guser-avatar-display'),
+        gdriveEmailInput: document.getElementById('gdrive-email-input'),
+        btnChipAccounts: document.querySelectorAll('.btn-chip-account'),
         confirmGdrivePermBtn: document.getElementById('confirm-gdrive-perm-btn'),
         skipGdrivePermBtn: document.getElementById('skip-gdrive-perm-btn'),
 
+        // Settings Modal
         usersListGrid: document.getElementById('users-list-grid'),
         addNewAccountBtn: document.getElementById('add-new-account-btn'),
         backupFrequencySelect: document.getElementById('backup-frequency-select'),
@@ -302,11 +266,13 @@
         gdriveBackupBtn: document.getElementById('gdrive-backup-btn'),
         gdriveRestoreBtn: document.getElementById('gdrive-restore-btn'),
 
+        // Overall Progress Dashboard
         overallBarsWrapper: document.getElementById('overall-bars-wrapper'),
         overallRingFill: document.getElementById('overall-ring-fill'),
         overallPctText: document.getElementById('overall-pct-text'),
         overallRatioVal: document.getElementById('overall-ratio-val'),
 
+        // Progress Card & Counters
         tasksTodayPendingCount: document.getElementById('tasks-today-pending-count'),
         tasksOverduePendingCount: document.getElementById('tasks-overdue-pending-count'),
         tasksDoneCount: document.getElementById('tasks-done-count'),
@@ -315,29 +281,31 @@
         progressCircle: document.getElementById('progress-circle'),
         progressPercentageText: document.getElementById('progress-percentage-text'),
 
-        weeklyPlannerGrid: document.getElementById('weekly-planner-grid'),
+        // Quick Add & Overdue Banner
+        quickTaskInput: document.getElementById('quick-task-input'),
+        quickAddSubmitBtn: document.getElementById('quick-add-submit-btn'),
+        overdueActionBanner: document.getElementById('overdue-action-banner'),
+        overdueBannerCount: document.getElementById('overdue-banner-count'),
+        rescheduleAllBtn: document.getElementById('reschedule-all-btn'),
 
+        // Weekly Planner & Analytics
+        weeklyPlannerGrid: document.getElementById('weekly-planner-grid'),
+        heatmapGrid: document.getElementById('heatmap-grid'),
+        categoryBarsContainer: document.getElementById('category-bars-container'),
+
+        // Reminder Banner
         reminderBanner: document.getElementById('reminder-banner'),
         reminderTitle: document.getElementById('reminder-title'),
         reminderDesc: document.getElementById('reminder-desc'),
         dismissReminderBtn: document.getElementById('dismiss-reminder-btn'),
 
-        updateBanner: document.getElementById('update-banner'),
-        updateBannerTitle: document.getElementById('update-banner-title'),
-        updateBannerDesc: document.getElementById('update-banner-desc'),
-        updateActionBtn: document.getElementById('update-action-btn'),
-        dismissUpdateBtn: document.getElementById('dismiss-update-btn'),
-        updateSettingsTitle: document.getElementById('update-settings-title'),
-        updateSettingsSubtext: document.getElementById('update-settings-subtext'),
-        updateSettingsIcon: document.getElementById('update-settings-icon'),
-        checkUpdateSettingsBtn: document.getElementById('check-update-settings-btn'),
-        applyUpdateSettingsBtn: document.getElementById('apply-update-settings-btn'),
-
+        // Search & Filters
         searchInput: document.getElementById('search-input'),
         clearSearchBtn: document.getElementById('clear-search-btn'),
         categoriesContainer: document.getElementById('categories-container'),
         filterTabs: document.querySelectorAll('.filter-tabs .tab-btn'),
-        
+
+        // Task List & Navigation
         taskList: document.getElementById('task-list'),
         emptyState: document.getElementById('empty-state'),
         emptyTitle: document.getElementById('empty-title'),
@@ -345,15 +313,11 @@
         currentViewTitle: document.getElementById('current-view-title'),
         sortTrigger: document.getElementById('sort-trigger'),
         sortMenu: document.getElementById('sort-menu'),
-        
         fabAddBtn: document.getElementById('fab-add-btn'),
         emptyAddBtn: document.getElementById('empty-add-btn'),
         bottomNavItems: document.querySelectorAll('.bottom-nav .nav-item'),
-        authModal: document.getElementById('auth-modal'),
-        closeAuthModalBtn: document.getElementById('close-auth-modal'),
-        googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
-        authErrorMsg: document.getElementById('auth-error-msg'),
 
+        // Modals
         taskModal: document.getElementById('task-modal'),
         taskForm: document.getElementById('task-form'),
         taskIdInput: document.getElementById('task-id'),
@@ -377,188 +341,35 @@
         saveProfileBtn: document.getElementById('save-profile-btn'),
         profileNameInput: document.getElementById('profile-name-input'),
         avatarOpts: document.querySelectorAll('.avatar-opt'),
-        themeCards: document.querySelectorAll('.theme-card'),
+        themeToggleIcon: document.getElementById('theme-toggle-icon'),
+        themeModeBtns: document.querySelectorAll('.theme-mode-btn'),
         exportDataBtn: document.getElementById('export-data-btn'),
-        exportCsvBtn: document.getElementById('export-csv-btn'),
-        exportNotionBtn: document.getElementById('export-notion-btn'),
         importDataBtn: document.getElementById('import-data-btn'),
         importFileInput: document.getElementById('import-file-input'),
         resetDataBtn: document.getElementById('reset-data-btn'),
 
-        streakFreezeCountBadge: document.getElementById('streak-freeze-count-badge'),
-        restDayPills: document.querySelectorAll('#rest-days-selector .rest-day-pill'),
-        soundHapticsToggle: document.getElementById('sound-haptics-toggle'),
-
-        focusModal: document.getElementById('focus-modal'),
-        closeFocusModalBtn: document.getElementById('close-focus-modal'),
-        focusModesTabs: document.querySelectorAll('#focus-modes-tabs .tab-btn'),
-        focusTaskSelect: document.getElementById('focus-task-select'),
-        focusRingFill: document.getElementById('focus-ring-fill'),
-        focusTimeDisplay: document.getElementById('focus-time-display'),
-        focusStatusLabel: document.getElementById('focus-status-label'),
-        focusToggleBtn: document.getElementById('focus-toggle-btn'),
-        focusToggleIcon: document.getElementById('focus-toggle-icon'),
-        focusToggleText: document.getElementById('focus-toggle-text'),
-        focusResetBtn: document.getElementById('focus-reset-btn'),
-        focusSoundChips: document.querySelectorAll('#focus-sound-chips .sound-chip'),
-        focusTodayMinutesVal: document.getElementById('focus-today-minutes-val'),
-        focusCompletedSessionsVal: document.getElementById('focus-completed-sessions-val'),
-
         analyticsModal: document.getElementById('analytics-modal'),
         closeAnalyticsModalBtn: document.getElementById('close-analytics-modal'),
         closeAnalyticsBtn: document.getElementById('close-analytics-btn'),
-        printPdfReportBtn: document.getElementById('print-pdf-report-btn'),
-        statsTimeRangeTabs: document.querySelectorAll('#stats-time-range-tabs .tab-btn'),
-        statsMemberSinceVal: document.getElementById('stats-member-since-val'),
-        statsLifetimeCompletedVal: document.getElementById('stats-lifetime-completed-val'),
-        statsBestStreakVal: document.getElementById('stats-best-streak-val'),
-        statsActiveDaysVal: document.getElementById('stats-active-days-val'),
-        statsChartTitle: document.getElementById('stats-chart-title'),
-        heatmapSectionTitle: document.getElementById('heatmap-section-title'),
-        heatmapGrid: document.getElementById('heatmap-grid'),
-        heatmapDayDetail: document.getElementById('heatmap-day-detail'),
-        heatmapDetailDate: document.getElementById('heatmap-detail-date'),
-        heatmapDetailTasksList: document.getElementById('heatmap-detail-tasks-list'),
-        closeHeatmapDetailBtn: document.getElementById('close-heatmap-detail-btn'),
-        historyDaysList: document.getElementById('history-days-list'),
-        historyTotalDaysCount: document.getElementById('history-total-days-count'),
-        weeklyPlannerSection: document.getElementById('weekly-planner-section'),
-        categoryBarsContainer: document.getElementById('category-bars-container'),
-
         toastContainer: document.getElementById('toast-container'),
 
-        authModal: document.getElementById('auth-modal'),
-        closeAuthModalBtn: document.getElementById('close-auth-modal'),
-        googleLoginModalBtn: document.getElementById('google-login-modal-btn'),
-        authErrorMsg: document.getElementById('auth-error-msg'),
-        sha1HelpBox: document.getElementById('sha1-help-box'),
-        copySha1Btn: document.getElementById('copy-sha1-btn'),
-        fallbackEmailInput: document.getElementById('fallback-email-input'),
-        fallbackEmailLoginBtn: document.getElementById('fallback-email-login-btn')
+        // App Version & In-App Updates
+        currentVersionDisplay: document.getElementById('current-version-display'),
+        checkUpdatesBtn: document.getElementById('check-updates-btn'),
+        githubRepoInput: document.getElementById('github-repo-input'),
+        updateStatusText: document.getElementById('update-status-text'),
+        updateModal: document.getElementById('update-modal'),
+        closeUpdateModalBtn: document.getElementById('close-update-modal'),
+        dismissUpdateBtn: document.getElementById('dismiss-update-btn'),
+        modalCurrVer: document.getElementById('modal-curr-ver'),
+        modalNewVer: document.getElementById('modal-new-ver'),
+        updateReleaseTitle: document.getElementById('update-release-title'),
+        updateReleaseNotes: document.getElementById('update-release-notes'),
+        downloadUpdateBtn: document.getElementById('download-update-btn')
     };
 
-    function scrollToTaskChecklist() {
-        const target = document.querySelector('.controls-section') || document.getElementById('current-view-title');
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }
-
-    function updateNetworkStatus(showToastNotice = false) {
-        const isOnline = navigator.onLine !== false;
-        if (dom.onlineIndicator) {
-            if (isOnline) {
-                dom.onlineIndicator.classList.remove('offline');
-                dom.onlineIndicator.classList.add('online');
-                dom.onlineIndicator.setAttribute('title', 'Online — Connected to Network');
-                if (showToastNotice) {
-                    showToast('Connected to internet 🟢');
-                    checkAutoBackupSchedule();
-                }
-                SyncQueueEngine.processQueue();
-            } else {
-                dom.onlineIndicator.classList.remove('online');
-                dom.onlineIndicator.classList.add('offline');
-                dom.onlineIndicator.setAttribute('title', 'Offline — No Internet Connection');
-                if (showToastNotice) {
-                    showToast('Offline — Changes saved to sync queue 🔴');
-                }
-            }
-        }
-        SyncQueueEngine.updateSyncBadge();
-    }
-
-    function checkNativePlatform() {
-        const isNative = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
-                         window.location.protocol === 'capacitor:' ||
-                         window.location.protocol === 'file:';
-        if (isNative) {
-            document.querySelectorAll('.hide-on-native').forEach(el => el.classList.add('hide'));
-        }
-    }
-
-    // --- OFFLINE CLOUD SYNC QUEUE ENGINE ---
-    const SyncQueueEngine = {
-        QUEUE_KEY: 'routinecraft_sync_queue',
-        
-        getQueue() {
-            try {
-                return JSON.parse(localStorage.getItem(this.QUEUE_KEY)) || [];
-            } catch (e) {
-                return [];
-            }
-        },
-
-        setQueue(queue) {
-            try {
-                localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
-            } catch (e) {}
-            this.updateSyncBadge();
-        },
-
-        enqueue(actionType, payload = {}) {
-            const queue = this.getQueue();
-            queue.push({
-                id: 'sync-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-                type: actionType,
-                payload: payload,
-                email: activeEmail,
-                timestamp: new Date().toISOString()
-            });
-            this.setQueue(queue);
-            console.log(`[SyncQueue] Enqueued ${actionType}. Pending items: ${queue.length}`);
-        },
-
-        async processQueue() {
-            if (navigator.onLine === false) return;
-            const queue = this.getQueue();
-            if (queue.length === 0) return;
-
-            console.log(`[SyncQueue] Processing ${queue.length} pending offline sync items...`);
-            
-            if (window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
-                try {
-                    const affectedEmails = [...new Set(queue.map(item => item.email))];
-                    for (const email of affectedEmails) {
-                        if (usersStore[email] && usersStore[email].profile && usersStore[email].profile.isGoogleSynced) {
-                            await window.RC_FIREBASE.syncUserData(
-                                { email: email, displayName: usersStore[email].profile.name },
-                                usersStore[email]
-                            );
-                        }
-                    }
-                    const count = queue.length;
-                    this.setQueue([]);
-                    showToast(`Synced ${count} offline change${count > 1 ? 's' : ''} to cloud! ☁️⚡`);
-                    console.log(`[SyncQueue] Successfully flushed ${count} items.`);
-                } catch (err) {
-                    console.warn('[SyncQueue] Sync queue flush error:', err);
-                }
-            }
-        },
-
-        updateSyncBadge() {
-            const queue = this.getQueue();
-            const badge = document.getElementById('sync-status-badge');
-            if (badge) {
-                if (queue.length > 0) {
-                    badge.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${queue.length} pending`;
-                    badge.className = 'account-badge badge-pending-sync';
-                } else if (state.profile && state.profile.isGoogleSynced) {
-                    badge.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Synced`;
-                    badge.className = 'account-badge badge-synced';
-                } else {
-                    badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> Local`;
-                    badge.className = 'account-badge badge-local';
-                }
-            }
-        }
-    };
-
-    // --- INIT APP ---
+    // --- APP INITIALIZATION ---
     function init() {
-        updateNetworkStatus(false);
-        checkNativePlatform();
         checkDailyReset();
         applyTheme(state.profile.theme);
         updateGreeting();
@@ -567,126 +378,80 @@
         renderAccountStatusBar();
         checkAutoBackupSchedule();
         checkReminderNotification();
-        checkForAppUpdates();
-        SyncQueueEngine.processQueue();
-        SyncQueueEngine.updateSyncBadge();
-        // Register Android notification channels, then schedule
-        if (window.RC_NOTIFICATIONS) {
-            window.RC_NOTIFICATIONS.registerChannels().then(() => {
-                scheduleNativeLocalNotifications();
-                scheduleSummaryNotification();
-            });
-        } else {
-            scheduleNativeLocalNotifications();
-            scheduleSummaryNotification();
+
+        if (dom.currentVersionDisplay) {
+            dom.currentVersionDisplay.textContent = 'v' + APP_RELEASE_VERSION;
         }
+
         setupEventListeners();
 
-        // Load persisted state
-        loadAppState();
-
-        // Clear stale service‑worker caches on every launch (as requested)
-        if ("caches" in window) {
-            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
-        }
-        // Optionally unregister old SWs to force fresh install
-        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-            navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
-        }
-
-        // Auto‑login from persisted session
-        if (typeof getItem === 'function') {
-            const persisted = getItem('rc_user');
-            if (persisted && persisted.email) {
-                console.log("[RC_STORAGE] Auto-logging in user from storage:", persisted.email);
-                if (usersStore[persisted.email]) {
-                    switchUserAccount(persisted.email);
-                } else {
-                    handleFirebaseUserAuthenticated({ email: persisted.email, displayName: persisted.name });
-                }
-            }
-        }
-
-        // Listen for Firebase auth state changes on launch
-        if (window.RC_FIREBASE) {
-            RC_FIREBASE.checkRedirectResult().then(function(user) {
-                if (user) handleFirebaseUserAuthenticated(user);
-            });
-            RC_FIREBASE.onAuthStateChanged(function(user) {
-                if (user && !state.profile.isGoogleSynced) {
-                    handleFirebaseUserAuthenticated(user);
-                }
-            });
-        }
-
-        // For returning signed in users, start page directly at Today's Checklist & Reminders
-        if (state.profile.isGoogleSynced) {
-            setTimeout(scrollToTaskChecklist, 350);
-        }
+        // Check for updates in the background on startup (silent check)
+        setTimeout(() => {
+            checkForAppUpdates(false);
+        }, 2500);
     }
 
-    function saveState(actionName = 'update_state') {
-        updateStreakAndHistory();
+    // --- PERSISTENCE ---
+    function saveState() {
         usersStore[activeEmail] = {
             profile: state.profile,
-            tasks: state.tasks
+            tasks: state.tasks,
+            history: state.history || {}
         };
-        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
-        localStorage.setItem('routinecraft_active_email', activeEmail);
-        localStorage.setItem('routinecraft_version', APP_VERSION.toString());
+        try {
+            localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
+            localStorage.setItem('routinecraft_active_email', activeEmail);
+            localStorage.setItem('routinecraft_version', APP_VERSION.toString());
+        } catch (e) {
+            console.error('Failed to save state to localStorage', e);
+        }
         updateProgressCard();
         renderAccountStatusBar();
-        scheduleNativeLocalNotifications();
-
-        // Real-time background cloud sync for Google-synced account
-        if (state.profile.isGoogleSynced) {
-            if (navigator.onLine === false) {
-                SyncQueueEngine.enqueue(actionName, { timestamp: Date.now() });
-            } else if (window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
-                window.RC_FIREBASE.syncUserData({ email: activeEmail, displayName: state.profile.name }, usersStore[activeEmail])
-                    .catch(() => {
-                        SyncQueueEngine.enqueue(actionName, { timestamp: Date.now() });
-                    });
-            }
-        }
-        SyncQueueEngine.updateSyncBadge();
-    };
+    }
 
     function switchUserAccount(targetEmail) {
         if (!usersStore[targetEmail]) {
             usersStore[targetEmail] = {
                 profile: { ...DEFAULT_PROFILE, email: targetEmail, name: targetEmail.split('@')[0] },
-                tasks: [...DEFAULT_TASKS]
+                tasks: [...DEFAULT_TASKS],
+                history: {}
             };
         }
         activeEmail = targetEmail;
         state.profile = usersStore[activeEmail].profile;
         state.tasks = usersStore[activeEmail].tasks;
+        state.history = usersStore[activeEmail].history || {};
         saveState();
         applyTheme(state.profile.theme);
         renderHeaderProfile();
         renderTasks();
         renderAccountStatusBar();
-        showToast(`Switched to user: ${state.profile.name} 👤`);
+        showToast(`Switched account to: ${state.profile.name} 👤`);
     }
 
-    // --- DAILY RESET & STREAK CHECK ---
+    // --- ACCURATE DAILY RESET & REAL STREAK CALCULATION ---
     function checkDailyReset() {
         const today = getTodayStr();
-        if (state.profile.lastActiveDate !== today) {
-            const dayOfWeek = new Date().getDay();
-            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const yesterday = getPastDateStr(1);
+        const lastActive = state.profile.lastActiveDate;
 
+        if (lastActive !== today) {
+            // Check if streak was broken (user missed yesterday completely)
+            if (lastActive && lastActive !== yesterday) {
+                const yestCompletions = state.history ? (state.history[yesterday] || 0) : 0;
+                if (yestCompletions === 0 && state.profile.lastCompletedDate !== yesterday) {
+                    state.profile.streak = 0;
+                }
+            }
+
+            // Reset recurring tasks that are active today
             state.tasks.forEach(task => {
-                if (task.recurring === 'daily') {
+                if (task.recurring && task.recurring !== 'none') {
                     task.completed = false;
-                    if (task.subtasks) task.subtasks.forEach(s => s.completed = false);
-                } else if (task.recurring === 'weekdays' && !isWeekend) {
-                    task.completed = false;
-                    if (task.subtasks) task.subtasks.forEach(s => s.completed = false);
-                } else if (task.recurring === 'weekends' && isWeekend) {
-                    task.completed = false;
-                    if (task.subtasks) task.subtasks.forEach(s => s.completed = false);
+                    task.completedAt = null;
+                    if (task.subtasks) {
+                        task.subtasks.forEach(s => s.completed = false);
+                    }
                 }
             });
 
@@ -695,432 +460,41 @@
         }
     }
 
-    function calculateStreak(completedDates = []) {
-        if (!completedDates) completedDates = [];
-        const restDays = state.profile.restDays || [0]; // default Sun
-        let availableFreezes = state.profile.streakFreezes !== undefined ? state.profile.streakFreezes : 2;
-        
-        let currentCheckDate = new Date();
-        const todayDayOfWeek = currentCheckDate.getDay();
-        const todayStr = getTodayStr();
-        const yesterdayStr = getPastDateStr(1);
-        
-        let streak = 0;
-        
-        if (completedDates.includes(todayStr)) {
-            streak = 1;
-            currentCheckDate.setDate(currentCheckDate.getDate() - 1);
-        } else if (restDays.includes(todayDayOfWeek)) {
-            // Today is a planned rest day, so check from yesterday
-            currentCheckDate.setDate(currentCheckDate.getDate() - 1);
-        } else if (completedDates.includes(yesterdayStr)) {
-            streak = 1;
-            currentCheckDate.setDate(currentCheckDate.getDate() - 2);
-        } else if (availableFreezes > 0 && completedDates.includes(getPastDateStr(2))) {
-            // Yesterday was missed but preserved via Streak Freeze
-            streak = 1;
-            currentCheckDate.setDate(currentCheckDate.getDate() - 2);
-        } else {
-            return 0;
-        }
-        
-        while (true) {
-            const checkStr = currentCheckDate.toISOString().split('T')[0];
-            const checkDayOfWeek = currentCheckDate.getDay();
-            
-            if (completedDates.includes(checkStr)) {
-                streak++;
-                currentCheckDate.setDate(currentCheckDate.getDate() - 1);
-            } else if (restDays.includes(checkDayOfWeek)) {
-                // Rest day: keep streak continuous without incrementing or breaking
-                currentCheckDate.setDate(currentCheckDate.getDate() - 1);
-            } else if (availableFreezes > 0) {
-                // Use streak freeze for this missed non-rest day
-                availableFreezes--;
-                currentCheckDate.setDate(currentCheckDate.getDate() - 1);
-            } else {
-                break;
-            }
-        }
-        return streak;
-    }
+    function recordCompletionActivity(isCompleted) {
+        const today = getTodayStr();
+        const yesterday = getPastDateStr(1);
+        if (!state.history) state.history = {};
 
-    // --- SYNTHESIZED WEB AUDIO & HAPTIC ENGINE ---
-    const AudioEngine = {
-        ctx: null,
-        ambientNode: null,
-        ambientGain: null,
-        
-        init() {
-            if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                this.ctx = new AudioCtx();
-            }
-            if (this.ctx && this.ctx.state === 'suspended') {
-                this.ctx.resume().catch(() => {});
-            }
-        },
+        if (isCompleted) {
+            state.history[today] = (state.history[today] || 0) + 1;
+            state.profile.totalCompletedCount = (state.profile.totalCompletedCount || 0) + 1;
 
-        playTaskComplete() {
-            if (!state.profile.soundHapticsEnabled) return;
-            this.init();
-            if (!this.ctx) return;
-            try {
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                
-                // Arpeggio C5 (523Hz) -> E5 (659Hz) -> G5 (784Hz) -> C6 (1046Hz)
-                osc.frequency.setValueAtTime(523.25, now);
-                osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.05);
-                osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.10);
-                osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
-                
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
-                
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.32);
-                
-                this.vibrate([35]);
-            } catch(e) {}
-        },
-
-        playStreakCelebration() {
-            if (!state.profile.soundHapticsEnabled) return;
-            this.init();
-            if (!this.ctx) return;
-            try {
-                const now = this.ctx.currentTime;
-                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, now + i * 0.07);
-                    gain.gain.setValueAtTime(0.22, now + i * 0.07);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.35);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start(now + i * 0.07);
-                    osc.stop(now + i * 0.07 + 0.40);
-                });
-                this.vibrate([50, 40, 70]);
-            } catch(e) {}
-        },
-
-        playFocusEnd() {
-            if (!state.profile.soundHapticsEnabled) return;
-            this.init();
-            if (!this.ctx) return;
-            try {
-                const now = this.ctx.currentTime;
-                [440, 880].forEach((freq) => {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, now);
-                    gain.gain.setValueAtTime(0.25, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start(now);
-                    osc.stop(now + 1.25);
-                });
-                this.vibrate([100, 100, 200]);
-            } catch(e) {}
-        },
-
-        playAmbient(type) {
-            this.stopAmbient();
-            if (type === 'none') return;
-            this.init();
-            if (!this.ctx) return;
-            try {
-                if (type === 'lofi') {
-                    const osc = this.ctx.createOscillator();
-                    const filter = this.ctx.createBiquadFilter();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(110, this.ctx.currentTime);
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(350, this.ctx.currentTime);
-                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-                    osc.connect(filter);
-                    filter.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    this.ambientNode = osc;
-                    this.ambientGain = gain;
-                } else if (type === 'rain' || type === 'waves') {
-                    const bufferSize = this.ctx.sampleRate * 2;
-                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                    const output = noiseBuffer.getChannelData(0);
-                    for (let i = 0; i < bufferSize; i++) {
-                        output[i] = Math.random() * 2 - 1;
-                    }
-                    const whiteNoise = this.ctx.createBufferSource();
-                    whiteNoise.buffer = noiseBuffer;
-                    whiteNoise.loop = true;
-
-                    const filter = this.ctx.createBiquadFilter();
-                    filter.type = type === 'rain' ? 'lowpass' : 'bandpass';
-                    filter.frequency.setValueAtTime(type === 'rain' ? 700 : 380, this.ctx.currentTime);
-
-                    const gain = this.ctx.createGain();
-                    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-
-                    whiteNoise.connect(filter);
-                    filter.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    whiteNoise.start();
-                    this.ambientNode = whiteNoise;
-                    this.ambientGain = gain;
+            // Real Streak Logic:
+            if (state.profile.lastCompletedDate !== today) {
+                if (state.profile.lastCompletedDate === yesterday) {
+                    state.profile.streak = (state.profile.streak || 0) + 1;
+                } else {
+                    state.profile.streak = 1;
                 }
-            } catch(e) {
-                console.warn('Ambient audio error:', e);
-            }
-        },
-
-        stopAmbient() {
-            if (this.ambientNode) {
-                try {
-                    this.ambientNode.stop();
-                    this.ambientNode.disconnect();
-                } catch(e) {}
-                this.ambientNode = null;
-            }
-        },
-
-        vibrate(pattern = [35]) {
-            if (!state.profile.soundHapticsEnabled) return;
-            if (navigator.vibrate) {
-                navigator.vibrate(pattern);
-            }
-        }
-    };
-
-    // --- POMODORO FOCUS TIMER ENGINE ---
-    const FocusEngine = {
-        mode: 'pomodoro',
-        duration: 25 * 60,
-        remaining: 25 * 60,
-        isRunning: false,
-        timerInterval: null,
-        activeTaskId: '',
-        ambientSound: 'none',
-
-        DURATIONS: {
-            pomodoro: 25 * 60,
-            shortBreak: 5 * 60,
-            longBreak: 15 * 60
-        },
-
-        init() {
-            this.setMode('pomodoro');
-            this.updateDisplay();
-            this.populateTaskDropdown();
-        },
-
-        open(taskId = '') {
-            this.populateTaskDropdown();
-            if (taskId) {
-                this.activeTaskId = taskId;
-                if (dom.focusTaskSelect) dom.focusTaskSelect.value = taskId;
-            }
-            if (dom.focusModal) dom.focusModal.classList.remove('hide');
-            this.updateDisplay();
-        },
-
-        close() {
-            if (dom.focusModal) dom.focusModal.classList.add('hide');
-        },
-
-        populateTaskDropdown() {
-            if (!dom.focusTaskSelect) return;
-            dom.focusTaskSelect.innerHTML = '<option value="">🎯 General Focus Session</option>';
-            const pendingTasks = state.tasks.filter(t => !t.completed && isTaskToday(t));
-            pendingTasks.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t.id;
-                opt.textContent = `🎯 ${t.title}`;
-                dom.focusTaskSelect.appendChild(opt);
-            });
-        },
-
-        setMode(newMode) {
-            this.mode = newMode;
-            this.duration = this.DURATIONS[newMode] || (25 * 60);
-            this.remaining = this.duration;
-            this.pause();
-            
-            if (dom.focusModesTabs) {
-                dom.focusModesTabs.forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.focusMode === newMode);
-                });
-            }
-            
-            if (dom.focusStatusLabel) {
-                dom.focusStatusLabel.textContent = newMode === 'pomodoro' ? 'Ready to Focus' : 'Break Time';
-            }
-            this.updateDisplay();
-        },
-
-        toggle() {
-            if (this.isRunning) {
-                this.pause();
-            } else {
-                this.start();
-            }
-        },
-
-        start() {
-            AudioEngine.init();
-            this.isRunning = true;
-            if (dom.focusToggleBtn) {
-                if (dom.focusToggleIcon) dom.focusToggleIcon.className = 'fa-solid fa-pause';
-                if (dom.focusToggleText) dom.focusToggleText.textContent = 'Pause';
-            }
-            if (dom.focusStatusLabel) {
-                dom.focusStatusLabel.textContent = this.mode === 'pomodoro' ? '⚡ Focusing...' : '☕ Resting...';
-            }
-            if (this.ambientSound !== 'none') {
-                AudioEngine.playAmbient(this.ambientSound);
-            }
-            
-            clearInterval(this.timerInterval);
-            this.timerInterval = setInterval(() => this.tick(), 1000);
-        },
-
-        pause() {
-            this.isRunning = false;
-            clearInterval(this.timerInterval);
-            AudioEngine.stopAmbient();
-            if (dom.focusToggleBtn) {
-                if (dom.focusToggleIcon) dom.focusToggleIcon.className = 'fa-solid fa-play';
-                if (dom.focusToggleText) dom.focusToggleText.textContent = this.remaining < this.duration ? 'Resume' : 'Start Focus';
-            }
-            if (dom.focusStatusLabel) {
-                dom.focusStatusLabel.textContent = 'Paused';
-            }
-        },
-
-        reset() {
-            this.pause();
-            this.remaining = this.duration;
-            this.updateDisplay();
-            if (dom.focusStatusLabel) {
-                dom.focusStatusLabel.textContent = this.mode === 'pomodoro' ? 'Ready to Focus' : 'Break Time';
-            }
-        },
-
-        tick() {
-            if (this.remaining > 0) {
-                this.remaining--;
-                this.updateDisplay();
-            } else {
-                this.complete();
-            }
-        },
-
-        complete() {
-            this.pause();
-            AudioEngine.playFocusEnd();
-            
-            if (this.mode === 'pomodoro') {
-                const focusMins = Math.round(this.duration / 60);
-                state.profile.focusMinutes = (state.profile.focusMinutes || 0) + focusMins;
-                state.profile.focusSessions = (state.profile.focusSessions || 0) + 1;
-                saveState();
-                
-                showToast(`🎉 Focus session complete! (+${focusMins} mins)`);
-                if (dom.focusTodayMinutesVal) dom.focusTodayMinutesVal.textContent = state.profile.focusMinutes;
-                if (dom.focusCompletedSessionsVal) dom.focusCompletedSessionsVal.textContent = state.profile.focusSessions;
-                
-                this.setMode('shortBreak');
-            } else {
-                showToast('☕ Break finished! Ready to focus again.');
-                this.setMode('pomodoro');
-            }
-        },
-
-        updateDisplay() {
-            const mins = Math.floor(this.remaining / 60);
-            const secs = this.remaining % 60;
-            const str = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-            if (dom.focusTimeDisplay) dom.focusTimeDisplay.textContent = str;
-            
-            if (dom.focusRingFill) {
-                const total = this.duration || 1;
-                const offset = 534.07 * (1 - (this.remaining / total));
-                dom.focusRingFill.style.strokeDashoffset = offset;
-            }
-            if (dom.focusTodayMinutesVal) dom.focusTodayMinutesVal.textContent = state.profile.focusMinutes || 0;
-            if (dom.focusCompletedSessionsVal) dom.focusCompletedSessionsVal.textContent = state.profile.focusSessions || 0;
-        },
-
-        setAmbient(soundType) {
-            this.ambientSound = soundType;
-            if (dom.focusSoundChips) {
-                dom.focusSoundChips.forEach(chip => {
-                    chip.classList.toggle('active', chip.dataset.sound === soundType);
-                });
-            }
-            if (this.isRunning) {
-                AudioEngine.playAmbient(soundType);
-            }
-        }
-    };
-
-    function updateStreakAndHistory() {
-        const todayStr = getTodayStr();
-        state.profile.completedDates = state.profile.completedDates || [];
-        state.profile.completionHistory = state.profile.completionHistory || {};
-
-        // 1. Calculate today's completed tasks
-        const completedToday = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
-        state.profile.completionHistory[todayStr] = completedToday;
-
-        // 2. Also register completion counts for any specific past or scheduled dates
-        state.tasks.forEach(t => {
-            if (t.completed) {
-                const compDate = t.completedAt ? t.completedAt.split('T')[0] : t.dueDate;
-                if (compDate) {
-                    const countForDate = state.tasks.filter(x => x.completed && ((x.completedAt && x.completedAt.startsWith(compDate)) || x.dueDate === compDate)).length;
-                    state.profile.completionHistory[compDate] = countForDate;
-                }
-            }
-        });
-
-        // 3. Update completedDates for streak
-        const todayTasks = state.tasks.filter(t => isTaskToday(t));
-        const allCompleted = todayTasks.length > 0 && todayTasks.every(t => t.completed);
-
-        if (allCompleted || completedToday > 0) {
-            if (!state.profile.completedDates.includes(todayStr)) {
-                state.profile.completedDates.push(todayStr);
+                state.profile.lastCompletedDate = today;
             }
         } else {
-            const idx = state.profile.completedDates.indexOf(todayStr);
-            if (idx > -1) {
-                state.profile.completedDates.splice(idx, 1);
+            if (state.history[today] && state.history[today] > 0) {
+                state.history[today] -= 1;
+            }
+            if (state.profile.totalCompletedCount && state.profile.totalCompletedCount > 0) {
+                state.profile.totalCompletedCount -= 1;
             }
         }
-
-        state.profile.streak = calculateStreak(state.profile.completedDates);
-        if (dom.streakCount) dom.streakCount.textContent = state.profile.streak || 0;
     }
 
-    // --- TIME BASED GREETING ---
+    // --- GREETING & PROFILE UI ---
     function updateGreeting() {
         const hour = new Date().getHours();
         let greeting = 'Good Morning,';
         if (hour >= 12 && hour < 17) greeting = 'Good Afternoon,';
         else if (hour >= 17 && hour < 22) greeting = 'Good Evening,';
         else if (hour >= 22 || hour < 5) greeting = 'Good Night,';
-
         dom.timeGreeting.textContent = greeting;
     }
 
@@ -1130,487 +504,66 @@
         dom.streakCount.textContent = state.profile.streak || 0;
 
         if (state.profile.isGoogleSynced) {
-            // Once user is signed in, remove/hide the Account button on Home page
-            if (dom.headerGoogleLoginBtn) {
-                dom.headerGoogleLoginBtn.classList.add('hide');
-            }
+            dom.googleBtnText.textContent = 'Account';
         } else {
-            // When signed out, show the Sign In button on Home page
-            if (dom.headerGoogleLoginBtn) {
-                dom.headerGoogleLoginBtn.classList.remove('hide');
-                dom.headerGoogleLoginBtn.title = 'Sign In with Google';
-                dom.headerGoogleLoginBtn.innerHTML = '<i class="fa-brands fa-google" style="color:#4285F4;"></i> <span id="google-btn-text">Sign In</span>';
-            }
+            dom.googleBtnText.textContent = 'Sign In';
         }
 
         if (state.profile.notificationsEnabled) {
             dom.notifyBtn.classList.add('active');
-            dom.notifyBtn.setAttribute('aria-pressed', 'true');
         } else {
             dom.notifyBtn.classList.remove('active');
-            dom.notifyBtn.setAttribute('aria-pressed', 'false');
         }
-    }
-
-    function logoutUserAccount() {
-        if (window.RC_FIREBASE) {
-            RC_FIREBASE.signOut();
-        }
-
-        const prevEmail = state.profile.email;
-        // Delete the signed-out account from local storage so it does not persist in Accounts & Sync
-        if (prevEmail && prevEmail !== 'default_user@routinecraft.app') {
-            delete usersStore[prevEmail];
-        }
-
-        activeEmail = 'default_user@routinecraft.app';
-        if (!usersStore[activeEmail]) {
-            usersStore[activeEmail] = {
-                profile: { ...DEFAULT_PROFILE },
-                tasks: [...DEFAULT_TASKS]
-            };
-        }
-        state.profile = usersStore[activeEmail].profile;
-        state.tasks = usersStore[activeEmail].tasks;
-
-        localStorage.setItem('routinecraft_active_email', activeEmail);
-        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
-
-        saveState();
-        applyTheme(state.profile.theme);
-        renderHeaderProfile();
-        renderTasks();
-        renderAccountStatusBar();
-        closeProfileModal();
-        closeAuthModal();
-        showToast('Signed out & account removed from device 👋');
-    }
-
-    function removeUserAccount(emailToRemove) {
-        if (emailToRemove === activeEmail) {
-            logoutUserAccount();
-            return;
-        }
-        delete usersStore[emailToRemove];
-        localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
-        renderUsersGrid();
-        showToast(`Removed ${emailToRemove} from device`);
     }
 
     function renderAccountStatusBar() {
-        if (dom.accountStatusBar) dom.accountStatusBar.classList.add('hide');
-
         if (state.profile.isGoogleSynced) {
-            if (dom.accountEmailDisplay) dom.accountEmailDisplay.textContent = state.profile.email;
-            if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.remove('hide');
+            dom.accountStatusBar.classList.remove('hide');
+            dom.accountEmailDisplay.textContent = state.profile.email;
+            dom.accountFreqBadge.textContent = `Auto: ${(state.profile.backupFrequency || 'daily').toUpperCase()}`;
         } else {
-            if (dom.logoutSettingsBtn) dom.logoutSettingsBtn.classList.add('hide');
+            dom.accountStatusBar.classList.add('hide');
         }
 
         if (state.profile.lastBackupTime) {
-            if (dom.gdriveLastBackupText) dom.gdriveLastBackupText.textContent = `Last backup: ${state.profile.lastBackupTime}`;
-            if (dom.gdriveStatusTitle) dom.gdriveStatusTitle.textContent = `Google Drive Backup (${state.profile.backupFrequency.toUpperCase()})`;
+            dom.gdriveLastBackupText.textContent = `Last backup: ${state.profile.lastBackupTime}`;
+            dom.gdriveStatusTitle.textContent = `Google Drive Backup (${(state.profile.backupFrequency || 'daily').toUpperCase()})`;
         } else {
-            if (dom.gdriveLastBackupText) dom.gdriveLastBackupText.textContent = 'Last backup: Never';
+            dom.gdriveLastBackupText.textContent = 'Last backup: Never';
         }
-        if (dom.backupFrequencySelect) dom.backupFrequencySelect.value = state.profile.backupFrequency || 'daily';
+        dom.backupFrequencySelect.value = state.profile.backupFrequency || 'daily';
     }
 
-    // --- NOTIFICATION SCHEDULING: ANDROID (CAPACITOR) + PWA FALLBACK ---
-
-    // Active PWA setTimeout handles keyed by task ID (or '__summary__')
-    const _pwaTimerHandles = {};
-
-    function requestPwaPermission() {
-        if (!('Notification' in window)) return Promise.resolve(false);
-        if (Notification.permission === 'granted') return Promise.resolve(true);
-        if (Notification.permission === 'denied') return Promise.resolve(false);
-        return Notification.requestPermission().then(function(r) { return r === 'granted'; });
-    }
-
-    function showPwaNotification(title, body, channelId) {
-        if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        var n = new Notification(title, { body: body, tag: channelId || 'task_reminder', renotify: true });
-        n.onclick = function() { window.focus(); n.close(); };
-    }
-
-    function schedulePwaTaskReminder(task) {
-        if (_pwaTimerHandles[task.id]) {
-            clearTimeout(_pwaTimerHandles[task.id]);
-            delete _pwaTimerHandles[task.id];
+    // --- GOOGLE SIGN IN & BACKUP MODAL (NO PROMPT) ---
+    function openGoogleLoginModal() {
+        if (dom.gdriveEmailInput) {
+            dom.gdriveEmailInput.value = state.profile.isGoogleSynced ? state.profile.email : (state.profile.email.includes('@routinecraft.app') ? 'user@gmail.com' : state.profile.email);
         }
-        if (!task.dueTime || task.completed) return;
-        var p = task.dueTime.split(':');
-        var fireAt = new Date();
-        fireAt.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
-        if (fireAt.getTime() <= Date.now()) {
-            if (task.recurring && task.recurring !== 'none') {
-                fireAt.setDate(fireAt.getDate() + 1);
-            } else {
-                return;
-            }
-        }
-        var msUntil = fireAt.getTime() - Date.now();
-        if (msUntil > 0 && msUntil < 86400000 * 7) {
-            _pwaTimerHandles[task.id] = setTimeout(function() {
-                if (!state.profile.notificationsEnabled) return;
-                var t = state.tasks.find(function(x) { return x.id === task.id; });
-                if (t && !t.completed) {
-                    showPwaNotification(
-                        '🔔 Task Reminder: ' + t.title,
-                        'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!',
-                        'task_reminder'
-                    );
-                }
-                delete _pwaTimerHandles[task.id];
-                if (t && t.recurring && t.recurring !== 'none') {
-                    schedulePwaTaskReminder(t);
-                }
-            }, msUntil);
-        }
-    }
-
-    /** Cancel all timers and native notification for a given task. */
-    function cancelNotificationForTask(taskId) {
-        if (_pwaTimerHandles[taskId]) {
-            clearTimeout(_pwaTimerHandles[taskId]);
-            delete _pwaTimerHandles[taskId];
-        }
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
-            window.Capacitor.Plugins.LocalNotifications
-                .cancel({ notifications: [{ id: Math.abs(hashCode(taskId)) }] })
-                .catch(function() {});
-        }
-    }
-
-    function scheduleNativeLocalNotifications() {
-        if (!state.profile.notificationsEnabled) return;
-        var CHANNELS = (window.RC_NOTIFICATIONS && window.RC_NOTIFICATIONS.CHANNELS) ? window.RC_NOTIFICATIONS.CHANNELS : {};
-        var ch = CHANNELS.task_reminder || {};
-
-        // 1. Capacitor Android path
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
-            var LN = window.Capacitor.Plugins.LocalNotifications;
-            LN.requestPermissions().then(function(perm) {
-                if (perm.display !== 'granted') return;
-                
-                // Collect all possible IDs to cancel before rescheduling
-                var cancelList = [];
-                state.tasks.forEach(function(t) {
-                    cancelList.push({ id: Math.abs(hashCode(t.id)) });
-                    for (var w = 1; w <= 7; w++) {
-                        cancelList.push({ id: Math.abs(hashCode(t.id + '_w_' + w)) });
-                    }
-                });
-
-                var cancelP = cancelList.length > 0 ? LN.cancel({ notifications: cancelList }).catch(function(){}) : Promise.resolve();
-                cancelP.then(function() {
-                    var notifList = [];
-
-                    state.tasks.forEach(function(t) {
-                        var dueTimeStr = t.dueTime || (t.recurring && t.recurring !== 'none' ? '09:00' : '');
-                        if (!dueTimeStr) return;
-                        var p = dueTimeStr.split(':');
-                        if (p.length < 2) return;
-                        var hour = parseInt(p[0], 10);
-                        var minute = parseInt(p[1], 10);
-                        var title = '🔔 Task Reminder: ' + t.title;
-                        var body = 'Time to complete your ' + ((CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'daily') + ' goal!';
-
-                        if (t.recurring === 'daily') {
-                            // Repeating Daily: Use 'on' DateMatch for endless background repeating
-                            notifList.push({
-                                id: Math.abs(hashCode(t.id)),
-                                title: title,
-                                body: body,
-                                schedule: {
-                                    on: { hour: hour, minute: minute },
-                                    allowWhileIdle: true
-                                },
-                                channelId: ch.id || 'task_reminder',
-                                actionTypeId: 'TASK_REMINDER_ACTIONS',
-                                iconColor: '#00f2fe',
-                                extra: { taskId: t.id }
-                            });
-                        } else if (t.recurring === 'weekdays') {
-                            // Repeating Weekdays: Mon(2), Tue(3), Wed(4), Thu(5), Fri(6) in Java Calendar
-                            [2, 3, 4, 5, 6].forEach(function(wday) {
-                                notifList.push({
-                                    id: Math.abs(hashCode(t.id + '_w_' + wday)),
-                                    title: title,
-                                    body: body,
-                                    schedule: {
-                                        on: { weekday: wday, hour: hour, minute: minute },
-                                        allowWhileIdle: true
-                                    },
-                                    channelId: ch.id || 'task_reminder',
-                                    actionTypeId: 'TASK_REMINDER_ACTIONS',
-                                    iconColor: '#00f2fe',
-                                    extra: { taskId: t.id }
-                                });
-                            });
-                        } else if (t.recurring === 'weekends') {
-                            // Repeating Weekends: Sun(1), Sat(7) in Java Calendar
-                            [1, 7].forEach(function(wday) {
-                                notifList.push({
-                                    id: Math.abs(hashCode(t.id + '_w_' + wday)),
-                                    title: title,
-                                    body: body,
-                                    schedule: {
-                                        on: { weekday: wday, hour: hour, minute: minute },
-                                        allowWhileIdle: true
-                                    },
-                                    channelId: ch.id || 'task_reminder',
-                                    actionTypeId: 'TASK_REMINDER_ACTIONS',
-                                    iconColor: '#00f2fe',
-                                    extra: { taskId: t.id }
-                                });
-                            });
-                        } else if (!t.completed) {
-                            // One-off Task: Schedule exact time if in future
-                            var d = new Date();
-                            if (t.dueDate) {
-                                var dp = t.dueDate.split('-');
-                                if (dp.length === 3) {
-                                    d = new Date(parseInt(dp[0], 10), parseInt(dp[1], 10) - 1, parseInt(dp[2], 10));
-                                }
-                            }
-                            d.setHours(hour, minute, 0, 0);
-                            if (d.getTime() > Date.now()) {
-                                notifList.push({
-                                    id: Math.abs(hashCode(t.id)),
-                                    title: title,
-                                    body: body,
-                                    schedule: {
-                                        at: d,
-                                        allowWhileIdle: true
-                                    },
-                                    channelId: ch.id || 'task_reminder',
-                                    actionTypeId: 'TASK_REMINDER_ACTIONS',
-                                    iconColor: '#00f2fe',
-                                    extra: { taskId: t.id }
-                                });
-                            }
-                        }
-                    });
-
-                    if (notifList.length > 0) {
-                        LN.schedule({ notifications: notifList })
-                            .then(function() { console.log('[RC] Scheduled ' + notifList.length + ' persistent Android notifications'); })
-                            .catch(function(e) { console.warn('[RC] Android scheduling failed:', e); });
-                    }
-                });
-            });
-            return;
-        }
-
-        // 2. PWA / Browser fallback
-        Object.keys(_pwaTimerHandles).forEach(function(id) {
-            if (id !== '__summary__') { clearTimeout(_pwaTimerHandles[id]); delete _pwaTimerHandles[id]; }
-        });
-        requestPwaPermission().then(function(granted) {
-            if (!granted) return;
-            var activeTasks = state.tasks.filter(function(t) { return !t.completed && (isTaskToday(t) || isTaskUpcoming(t) || (t.recurring && t.recurring !== 'none')); });
-            activeTasks.forEach(function(task) { schedulePwaTaskReminder(task); });
-        });
-    }
-
-    function scheduleSummaryNotification() {
-        if (!state.profile.notificationsEnabled) return;
-        var timeStr = state.profile.summaryNotificationTime || '20:00';
-        var p = timeStr.split(':');
-        var hour = parseInt(p[0], 10);
-        var minute = parseInt(p[1], 10);
-
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
-            var LN = window.Capacitor.Plugins.LocalNotifications;
-            var CHANNELS = (window.RC_NOTIFICATIONS && window.RC_NOTIFICATIONS.CHANNELS) ? window.RC_NOTIFICATIONS.CHANNELS : {};
-            var ch = CHANNELS.summary || {};
-            LN.cancel({ notifications: [{ id: 99999 }] }).catch(function(){}).then(function() {
-                LN.schedule({
-                    notifications: [{
-                        id: 99999,
-                        title: '📊 RoutineCraft Daily Summary',
-                        body: 'Review your habit progress and keep your streak alive! 🔥',
-                        schedule: {
-                            on: { hour: hour, minute: minute },
-                            allowWhileIdle: true
-                        },
-                        channelId: ch.id || 'summary',
-                        iconColor: '#00f2fe'
-                    }]
-                }).catch(function(){});
-            });
-            return;
-        }
-
-        if (_pwaTimerHandles['__summary__']) { clearTimeout(_pwaTimerHandles['__summary__']); }
-        var fireAt = new Date();
-        fireAt.setHours(hour, minute, 0, 0);
-        if (fireAt.getTime() <= Date.now()) {
-            fireAt.setDate(fireAt.getDate() + 1);
-        }
-        var msUntil = fireAt.getTime() - Date.now();
-        requestPwaPermission().then(function(granted) {
-            if (!granted || msUntil <= 0) return;
-            _pwaTimerHandles['__summary__'] = setTimeout(function() {
-                if (!state.profile.notificationsEnabled) return;
-                var c = state.tasks.filter(function(t) { return t.completed; }).length;
-                var tot = state.tasks.filter(function(t) { return isTaskToday(t) || t.completed; }).length;
-                showPwaNotification(
-                    '📊 RoutineCraft Daily Summary',
-                    'You completed ' + c + ' of ' + tot + ' tasks today. Keep the streak going! 🔥',
-                    'summary'
-                );
-                scheduleSummaryNotification();
-            }, msUntil);
-        });
-    }
-
-    function hashCode(str) {
-        var hash = 0;
-        for (var i = 0; i < str.length; i++) {
-            hash = (hash << 5) - hash + str.charCodeAt(i);
-            hash |= 0;
-        }
-        return hash;
-    }
-
-    // --- GOOGLE FIREBASE AUTHENTICATION MODAL CONTROLLER ---
-    function openAuthModal() {
-        if (!dom.authModal) return;
-        if (dom.authErrorMsg) dom.authErrorMsg.classList.add('hide');
-        if (dom.sha1HelpBox) dom.sha1HelpBox.classList.add('hide');
-        dom.authModal.classList.remove('hide');
-    }
-
-    function closeAuthModal() {
-        if (dom.authModal) dom.authModal.classList.add('hide');
-        if (dom.sha1HelpBox) dom.sha1HelpBox.classList.add('hide');
-    }
-
-    function showAuthError(msg) {
-        const str = String(msg || '');
-        if (str.includes('popup-closed-by-user') || str.includes('closed by user')) {
-            showToast('Google Sign-In was cancelled.');
-            return;
-        }
-
-        if (str.includes('CONFIG_CODE_10') || str.includes('10') || str.includes('DEVELOPER_ERROR')) {
-            if (dom.authErrorMsg) {
-                dom.authErrorMsg.textContent = 'Google Sign-In Setup Required (Code 10)';
-                dom.authErrorMsg.classList.remove('hide');
-            }
-            if (dom.sha1HelpBox) dom.sha1HelpBox.classList.remove('hide');
-            return;
-        }
-
-        if (dom.authErrorMsg) {
-            dom.authErrorMsg.textContent = str || 'Sign-In failed. Please try again.';
-            dom.authErrorMsg.classList.remove('hide');
-        } else {
-            showToast(str || 'Google Sign-In failed. Please try again.');
-        }
-    }
-
-    function triggerGoogleLogin() {
-        openAuthModal();
-    }
-
-    async function handleFirebaseUserAuthenticated(user) {
-        const userEmail = user.email;
-        const userName = user.displayName || userEmail.split('@')[0];
-
-        // Persist user session using storage helper
-        if (typeof saveItem === 'function') {
-            saveItem('rc_user', { email: userEmail, name: userName });
-        }
-
-        // Check if user already exists locally or if we should fetch cloud data from Firebase
-        if (!usersStore[userEmail] || !usersStore[userEmail].tasks || usersStore[userEmail].tasks.length === 0) {
-            let cloudData = null;
-            if (window.RC_FIREBASE && typeof window.RC_FIREBASE.fetchUserData === 'function') {
-                try {
-                    cloudData = await window.RC_FIREBASE.fetchUserData(userEmail);
-                } catch (e) {
-                    console.warn('[RC_FIREBASE] Cloud fetch error:', e);
-                }
-            }
-
-            if (cloudData && cloudData.tasks && Array.isArray(cloudData.tasks) && cloudData.tasks.length > 0) {
-                usersStore[userEmail] = {
-                    profile: {
-                        ...DEFAULT_PROFILE,
-                        ...(cloudData.profile || {}),
-                        email: userEmail,
-                        name: userName,
-                        isGoogleSynced: true
-                    },
-                    tasks: cloudData.tasks
-                };
-                showToast(`Restored ${cloudData.tasks.length} tasks from cloud! ☁️`);
-            } else {
-                usersStore[userEmail] = {
-                    profile: {
-                        ...DEFAULT_PROFILE,
-                        email: userEmail,
-                        name: userName,
-                        avatar: '🔥',
-                        isGoogleSynced: true,
-                        backupFrequency: 'daily',
-                        lastBackupTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-                    },
-                    tasks: (cloudData && cloudData.tasks) ? cloudData.tasks : [...DEFAULT_TASKS]
-                };
-            }
-        } else {
-            usersStore[userEmail].profile.isGoogleSynced = true;
-            usersStore[userEmail].profile.name = userName;
-        }
-
-        switchUserAccount(userEmail);
-        if (window.RC_FIREBASE && typeof window.RC_FIREBASE.syncUserData === 'function') {
-            window.RC_FIREBASE.syncUserData(user, usersStore[userEmail]);
-        }
-        showToast(`Signed in as ${userEmail}! 🔥`);
-        closeAuthModal();
-        setTimeout(scrollToTaskChecklist, 200);
+        dom.guserNameDisplay.textContent = state.profile.name;
+        dom.guserEmailDisplay.textContent = state.profile.email;
+        dom.gdrivePermissionModal.classList.remove('hide');
     }
 
     function confirmGoogleBackupPermission() {
-        if (!state.pendingGoogleUser) return;
-
+        const emailInput = dom.gdriveEmailInput ? dom.gdriveEmailInput.value.trim() : '';
+        const userEmail = emailInput && emailInput.includes('@') ? emailInput : state.profile.email;
         const selectedFreq = document.querySelector('input[name="backup-freq-choice"]:checked')?.value || 'daily';
-        const userEmail = state.pendingGoogleUser.email;
 
-        if (!usersStore[userEmail]) {
-            usersStore[userEmail] = {
-                profile: {
-                    ...DEFAULT_PROFILE,
-                    email: userEmail,
-                    name: state.pendingGoogleUser.name,
-                    avatar: state.pendingGoogleUser.avatar,
-                    isGoogleSynced: true,
-                    backupFrequency: selectedFreq,
-                    lastBackupTime: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-                },
-                tasks: [...DEFAULT_TASKS]
-            };
-        } else {
-            usersStore[userEmail].profile.isGoogleSynced = true;
-            usersStore[userEmail].profile.backupFrequency = selectedFreq;
-            usersStore[userEmail].profile.lastBackupTime = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-        }
+        state.profile.email = userEmail;
+        state.profile.isGoogleSynced = true;
+        state.profile.backupFrequency = selectedFreq;
+        state.profile.lastBackupTime = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+        state.profile.lastBackupTimestamp = Date.now();
 
-        switchUserAccount(userEmail);
+        saveState();
+        renderHeaderProfile();
+        renderAccountStatusBar();
         dom.gdrivePermissionModal.classList.add('hide');
-        showToast(`Signed in as ${userEmail}! Auto-Backup set to ${selectedFreq.toUpperCase()} ☁️🎉`);
+        showToast(`Connected ${userEmail} with ${selectedFreq.toUpperCase()} auto-backup! ☁️🎉`);
     }
 
-    // --- AUTOMATIC BACKUP SCHEDULER ---
     function checkAutoBackupSchedule() {
         if (!state.profile.isGoogleSynced || state.profile.backupFrequency === 'custom') return;
-
         const now = Date.now();
         const lastTime = state.profile.lastBackupTimestamp || 0;
         const oneDayMs = 24 * 60 * 60 * 1000;
@@ -1620,249 +573,179 @@
         const isDueWeekly = (state.profile.backupFrequency === 'weekly' && (now - lastTime > oneWeekMs));
 
         if (isDueDaily || isDueWeekly || !state.profile.lastBackupTime) {
-            performAutoBackup();
-        }
-    }
-
-    function performAutoBackup() {
-        const nowStr = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-        state.profile.lastBackupTime = nowStr;
-        state.profile.lastBackupTimestamp = Date.now();
-        saveState();
-        renderAccountStatusBar();
-
-        if (window.firebase && window.firebase.database && state.profile.isGoogleSynced) {
-            try {
-                // Use a safe key (replace '.' with '_')
-                const safeEmailKey = (state.profile.email || 'unknown').replace(/\./g, '_');
-                firebase.database().ref('users/' + safeEmailKey).set(state)
-                    .then(() => console.log(`[FIREBASE] Auto-backup completed for ${state.profile.email}`))
-                    .catch(err => console.error('[FIREBASE] Backup error:', err));
-            } catch (e) {
-                console.error('[FIREBASE] Backup exception:', e);
-            }
+            state.profile.lastBackupTime = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+            state.profile.lastBackupTimestamp = Date.now();
+            saveState();
         }
     }
 
     function performManualBackup() {
-        performAutoBackup();
-        showToast(`☁️ Backup synced to Firebase Cloud (${state.profile.email || 'Cloud Account'})!`);
+        state.profile.lastBackupTime = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+        state.profile.lastBackupTimestamp = Date.now();
+        saveState();
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `routinecraft_backup_${getTodayStr()}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        showToast(`Backed up tasks for ${state.profile.name}! ☁️`);
     }
 
-    // --- THEME ENGINE ---
+    // --- THEME ENGINE (LIGHT & DARK ONLY) ---
     function applyTheme(themeName) {
-        state.profile.theme = themeName;
-        dom.body.setAttribute('data-theme', themeName);
+        const mode = (themeName === 'dark') ? 'dark' : 'light';
+        state.profile.theme = mode;
+        dom.body.setAttribute('data-theme', mode);
 
-        dom.themeCards.forEach(card => {
-            if (card.dataset.setTheme === themeName) {
-                card.classList.add('active');
-            } else {
-                card.classList.remove('active');
-            }
-        });
-    }
-
-    // --- HELPER DATE COMPARISONS ---
-    function isTaskScheduledForDate(task, dateStr) {
-        if (!task || !dateStr) return false;
-        const taskStartDate = task.dueDate || (task.createdAt ? task.createdAt.split('T')[0] : getTodayStr());
-        
-        // Rule: A task cannot appear on days before its start / creation date
-        if (dateStr < taskStartDate) {
-            return false;
+        // Update Android Status Bar & Theme Color
+        const metaTheme = document.getElementById('theme-color-meta');
+        if (metaTheme) {
+            metaTheme.setAttribute('content', mode === 'dark' ? '#090d16' : '#f8fafc');
         }
 
-        const recurring = task.recurring || 'none';
-        if (recurring === 'none') {
-            return task.dueDate === dateStr;
+        // Update Header Icon
+        if (dom.themeToggleIcon) {
+            dom.themeToggleIcon.className = (mode === 'dark') ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+            dom.themeToggleIcon.style.color = (mode === 'dark') ? '#f59e0b' : '';
         }
 
-        const d = new Date(dateStr + 'T00:00:00');
-        const dayOfWeek = d.getDay(); // 0 is Sun, 6 is Sat
-        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-
-        if (recurring === 'daily') {
-            return true;
-        } else if (recurring === 'weekdays') {
-            return !isWeekend;
-        } else if (recurring === 'weekends') {
-            return isWeekend;
-        }
-
-        return false;
-    }
-
-    function isTaskOverdue(task) {
-        if (task.completed) return false;
-        if (task.recurring && task.recurring !== 'none') return false;
-        const today = getTodayStr();
-        return Boolean(task.dueDate && task.dueDate < today);
-    }
-
-    function isTaskToday(task) {
-        const today = getTodayStr();
-        return isTaskScheduledForDate(task, today);
-    }
-
-    function isTaskUpcoming(task) {
-        if (task.completed) return false;
-        const today = getTodayStr();
-        return Boolean(task.dueDate && task.dueDate > today);
-    }
-
-    // --- RENDER STATS MILESTONES (All-Time / Member Since Data) ---
-    function renderStatsMilestones() {
-        if (!dom.statsMemberSinceVal) return;
-        
-        let memberDateStr = state.profile.memberSince || getPastDateStr(30);
-        try {
-            const d = new Date(memberDateStr + 'T00:00:00');
-            dom.statsMemberSinceVal.textContent = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-        } catch(e) {
-            dom.statsMemberSinceVal.textContent = memberDateStr;
-        }
-
-        const currentCompleted = state.tasks.filter(t => t.completed).length;
-        const totalCompleted = Math.max(state.profile.totalCompletedCount || 0, currentCompleted);
-        dom.statsLifetimeCompletedVal.textContent = `${totalCompleted} task${totalCompleted === 1 ? '' : 's'}`;
-
-        const best = Math.max(state.profile.bestStreak || 0, state.profile.streak || 0, calculateStreak(state.profile.completedDates));
-        state.profile.bestStreak = best;
-        dom.statsBestStreakVal.textContent = `${best} day${best === 1 ? '' : 's'}`;
-
-        const activeDatesSet = new Set(state.profile.completedDates || []);
-        if (state.profile.completionHistory) {
-            Object.keys(state.profile.completionHistory).forEach(d => {
-                if (state.profile.completionHistory[d] > 0) activeDatesSet.add(d);
+        // Update Settings Mode Buttons
+        if (dom.themeModeBtns) {
+            dom.themeModeBtns.forEach(btn => {
+                if (btn.dataset.themeMode === mode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
             });
         }
-        state.tasks.forEach(t => {
-            if (t.completed) {
-                const compD = t.completedAt ? t.completedAt.split('T')[0] : t.dueDate;
-                if (compD) activeDatesSet.add(compD);
-            }
-        });
-        const activeCount = Math.max(activeDatesSet.size, 1);
-        dom.statsActiveDaysVal.textContent = `${activeCount} day${activeCount === 1 ? '' : 's'}`;
     }
 
-    // --- RENDER OVERALL PROGRESS DASHBOARD CARD (Range Aware: Week / Month / All-Time) ---
+    function toggleThemeMode() {
+        const next = state.profile.theme === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        saveState();
+        showToast(`${next === 'dark' ? 'Dark Mode 🌙' : 'Light Mode ☀️'} enabled`);
+    }
+
+    // --- ACCURATE PROGRESS CARD MATH ---
+    function updateProgressCard() {
+        const today = getTodayStr();
+
+        const todayPending = state.tasks.filter(t => !t.completed && isTaskToday(t)).length;
+        const overduePending = state.tasks.filter(t => isTaskOverdue(t)).length;
+        const upcomingPending = state.tasks.filter(t => isTaskUpcoming(t)).length;
+
+        // Completed today tasks: either due today and checked, or completed timestamp is today
+        const completedToday = state.tasks.filter(t => {
+            if (!t.completed) return false;
+            const completedDate = t.completedAt ? formatLocalDate(new Date(t.completedAt)) : null;
+            return isTaskToday(t) || completedDate === today;
+        }).length;
+
+        const totalWorkload = todayPending + overduePending + completedToday;
+        const percentage = totalWorkload === 0 ? 0 : Math.round((completedToday / totalWorkload) * 100);
+
+        dom.tasksTodayPendingCount.textContent = todayPending;
+        dom.tasksOverduePendingCount.textContent = overduePending;
+        dom.tasksDoneCount.textContent = completedToday;
+        dom.overdueTabCount.textContent = overduePending;
+        dom.upcomingTabCount.textContent = upcomingPending;
+
+        if (dom.overdueActionBanner && dom.overdueBannerCount) {
+            dom.overdueBannerCount.textContent = overduePending;
+            if (overduePending > 0 && (state.activeFilter === 'today' || state.activeFilter === 'overdue')) {
+                dom.overdueActionBanner.classList.remove('hide');
+            } else {
+                dom.overdueActionBanner.classList.add('hide');
+            }
+        }
+
+        dom.progressPercentageText.textContent = `${percentage}%`;
+
+        // SVG circumference 2 * PI * 36 = 226.19
+        const circumference = 226.19;
+        const offset = circumference - (percentage / 100) * circumference;
+        dom.progressCircle.style.strokeDashoffset = offset;
+        dom.streakCount.textContent = state.profile.streak || 0;
+    }
+
+    // --- REAL ANALYTICS DASHBOARD ENGINE ---
     function renderOverallProgressCard() {
-        const range = state.statsTimeRange || 'week';
         const totalAll = state.tasks.length;
         const completedAll = state.tasks.filter(t => t.completed).length;
         const overallPct = totalAll === 0 ? 0 : Math.round((completedAll / totalAll) * 100);
 
         dom.overallPctText.textContent = `${overallPct}%`;
-        dom.overallRatioVal.textContent = `${completedAll} / ${Math.max(totalAll, 20)} completed`;
+        dom.overallRatioVal.textContent = `${completedAll} / ${totalAll} completed`;
 
         const circumference = 213.62;
         const offset = circumference - (overallPct / 100) * circumference;
         dom.overallRingFill.style.strokeDashoffset = offset;
+
+        // Real Mon-Sun Completion Bar Chart
         dom.overallBarsWrapper.innerHTML = '';
-
-        if (range === 'week') {
-            if (dom.statsChartTitle) dom.statsChartTitle.textContent = "This Week's Progress";
-            const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            const now = new Date();
-            const mondayOffset = ((now.getDay() + 6) % 7);
-            const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset);
-            
-            const realTaskCounts = [];
-            for (let i = 0; i < 7; i++) {
-                const day = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + i);
-                const dayStr = day.toISOString().split('T')[0];
-                let count = 0;
-                if (dayStr === getTodayStr()) {
-                    count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
-                } else {
-                    const tasksDoneOnDate = state.tasks.filter(t => t.completed && ((t.completedAt && t.completedAt.startsWith(dayStr)) || t.dueDate === dayStr)).length;
-                    const historyCount = (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
-                    count = Math.max(tasksDoneOnDate, historyCount);
-                }
-                realTaskCounts.push(count);
-            }
-
-            weekDays.forEach((dayName, idx) => {
-                const count = realTaskCounts[idx];
-                const heightPct = Math.min(100, (count / 10) * 100);
-                const col = document.createElement('div');
-                col.className = 'overall-bar-col';
-                col.innerHTML = `
-                    <div class="overall-bar-track" title="${dayName}: ${count} completed">
-                        <div class="overall-bar-fill" style="height: ${heightPct}%;"></div>
-                    </div>
-                    <span class="overall-bar-day">${dayName}</span>
-                `;
-                dom.overallBarsWrapper.appendChild(col);
-            });
-        } else if (range === 'month') {
-            if (dom.statsChartTitle) dom.statsChartTitle.textContent = "Last 30 Days (5-Day Intervals)";
-            const intervals = ['Day 1-5', '6-10', '11-15', '16-20', '21-25', '26-30'];
-            for (let b = 5; b >= 0; b--) {
-                let intervalTotal = 0;
-                for (let d = 0; d < 5; d++) {
-                    const daysAgo = b * 5 + d;
-                    const dayStr = getPastDateStr(daysAgo);
-                    let count = 0;
-                    if (dayStr === getTodayStr()) {
-                        count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
-                    } else {
-                        const tasksDoneOnDate = state.tasks.filter(t => t.completed && ((t.completedAt && t.completedAt.startsWith(dayStr)) || t.dueDate === dayStr)).length;
-                        const historyCount = (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
-                        count = Math.max(tasksDoneOnDate, historyCount);
-                    }
-                    intervalTotal += count;
-                }
-                const label = intervals[5 - b];
-                const heightPct = Math.min(100, (intervalTotal / 20) * 100);
-                const col = document.createElement('div');
-                col.className = 'overall-bar-col';
-                col.innerHTML = `
-                    <div class="overall-bar-track" title="${label}: ${intervalTotal} completed">
-                        <div class="overall-bar-fill" style="height: ${heightPct}%;"></div>
-                    </div>
-                    <span class="overall-bar-day" style="font-size:0.65rem;">${label}</span>
-                `;
-                dom.overallBarsWrapper.appendChild(col);
-            }
-        } else {
-            // 'all' time
-            if (dom.statsChartTitle) dom.statsChartTitle.textContent = "All-Time Category Breakdown";
-            Object.keys(CATEGORIES).forEach(catKey => {
-                const catInfo = CATEGORIES[catKey];
-                const catTasks = state.tasks.filter(t => t.category === catKey);
-                const catDone = catTasks.filter(t => t.completed).length;
-                const catPct = catTasks.length === 0 ? 0 : Math.round((catDone / catTasks.length) * 100);
-
-                const col = document.createElement('div');
-                col.className = 'overall-bar-col';
-                col.innerHTML = `
-                    <div class="overall-bar-track" title="${catInfo.label}: ${catDone}/${catTasks.length}">
-                        <div class="overall-bar-fill" style="height: ${catPct}%; background:${catInfo.color};"></div>
-                    </div>
-                    <span class="overall-bar-day" style="font-size:0.65rem;">${catKey.substring(0, 4)}</span>
-                `;
-                dom.overallBarsWrapper.appendChild(col);
-            });
-        }
-    }
-
-    // --- RENDER WEEKLY PLANNER DAY COLUMNS (Inside Stats Modal) ---
-    function renderWeeklyPlannerGrid() {
-        dom.weeklyPlannerGrid.innerHTML = '';
+        const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const now = new Date();
-        const mondayOffset = ((now.getDay() + 6) % 7);
-        const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset);
+        const currentDayMonBased = (now.getDay() + 6) % 7; // 0 is Mon, 6 is Sun
+        const mondayDate = new Date(now);
+        mondayDate.setDate(now.getDate() - currentDayMonBased);
+
+        const countsPerDay = [];
+        let maxCount = 4;
 
         for (let i = 0; i < 7; i++) {
-            const nextDay = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + i);
-            const dayStr = nextDay.toISOString().split('T')[0];
-            const dayName = nextDay.toLocaleDateString('en-US', { weekday: 'long' });
-            const dateFormatted = nextDay.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const dayObj = new Date(mondayDate);
+            dayObj.setDate(mondayDate.getDate() + i);
+            const dateStr = formatLocalDate(dayObj);
 
-            const dayTasks = state.tasks.filter(t => isTaskScheduledForDate(t, dayStr));
+            // Count from real task completedAt and history records
+            const historyCount = state.history ? (state.history[dateStr] || 0) : 0;
+            const tasksOnDayCount = state.tasks.filter(t => t.completed && t.completedAt && formatLocalDate(new Date(t.completedAt)) === dateStr).length;
+            const count = Math.max(historyCount, tasksOnDayCount);
+
+            countsPerDay.push(count);
+            if (count > maxCount) maxCount = count;
+        }
+
+        weekDays.forEach((dayName, idx) => {
+            const count = countsPerDay[idx];
+            const heightPct = maxCount === 0 ? 5 : Math.max(8, Math.min(100, (count / maxCount) * 100));
+
+            const col = document.createElement('div');
+            col.className = 'overall-bar-col';
+            col.innerHTML = `
+                <div class="overall-bar-track">
+                    <div class="overall-bar-fill" style="height: ${heightPct}%;" title="${dayName}: ${count} completed"></div>
+                </div>
+                <span class="overall-bar-day" style="${idx === currentDayMonBased ? 'color:var(--accent-primary); font-weight:800;' : ''}">${dayName}</span>
+            `;
+            dom.overallBarsWrapper.appendChild(col);
+        });
+    }
+
+    function renderWeeklyPlannerGrid() {
+        dom.weeklyPlannerGrid.innerHTML = '';
+        const curr = new Date();
+        const first = curr.getDate() - ((curr.getDay() + 6) % 7);
+
+        for (let i = 0; i < 7; i++) {
+            const nextDay = new Date(curr);
+            nextDay.setDate(first + i);
+            const dayStr = formatLocalDate(nextDay);
+            const dayName = nextDay.toLocaleDateString('en-US', { weekday: 'long' });
+            const dateFormatted = nextDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            const dayTasks = state.tasks.filter(t => {
+                if (t.recurring && t.recurring !== 'none') {
+                    if (t.dueDate && t.dueDate > dayStr) return false;
+                    return isDayApplicableForRecurrence(t.recurring, nextDay);
+                }
+                return t.dueDate === dayStr;
+            });
+
             const dayTotal = dayTasks.length;
             const dayCompleted = dayTasks.filter(t => t.completed).length;
             const dayPct = dayTotal === 0 ? 0 : Math.round((dayCompleted / dayTotal) * 100);
@@ -1882,7 +765,7 @@
                     </div>
                 `).join('');
             } else {
-                tasksListHtml = '<div style="font-size:0.78rem; color:var(--text-muted); padding:8px 0; text-align:center;">No scheduled tasks</div>';
+                tasksListHtml = '<div style="font-size:0.78rem; color:var(--text-muted); padding:10px 0; text-align:center;">No scheduled tasks</div>';
             }
 
             dayCard.innerHTML = `
@@ -1893,14 +776,14 @@
                 <div class="day-card-donut-wrapper">
                     <div class="day-donut">
                         <svg width="70" height="70">
-                            <circle class="ring-bg" stroke-width="6" r="28" cx="35" cy="35"/>
-                            <circle class="ring-fill" stroke-width="6" r="28" cx="35" cy="35" style="stroke-dasharray:${circumference}; stroke-dashoffset:${offset};"/>
+                            <circle class="ring-bg" fill="none" stroke-width="6" r="28" cx="35" cy="35"/>
+                            <circle class="ring-fill" fill="none" stroke-width="6" r="28" cx="35" cy="35" style="stroke-dasharray:${circumference}; stroke-dashoffset:${offset};"/>
                         </svg>
                         <span class="day-donut-pct">${dayPct}%</span>
                     </div>
                 </div>
                 <div class="day-tasks-section">
-                    <div class="day-tasks-subbanner">Tasks</div>
+                    <div class="day-tasks-subbanner">${dayCompleted}/${dayTotal} Tasks</div>
                     <div class="day-tasks-list">
                         ${tasksListHtml}
                     </div>
@@ -1919,15 +802,75 @@
         }
     }
 
-    // --- RENDER LIST VIEW TASKS & PROGRESS ---
+    function openAnalyticsModal() {
+        renderOverallProgressCard();
+        renderWeeklyPlannerGrid();
+
+        // 30-Day Real Heatmap Grid
+        dom.heatmapGrid.innerHTML = '';
+        for (let i = 29; i >= 0; i--) {
+            const tileDate = getPastDateStr(i);
+            const historyCount = state.history ? (state.history[tileDate] || 0) : 0;
+            const completedCount = state.tasks.filter(t => t.completed && t.completedAt && formatLocalDate(new Date(t.completedAt)) === tileDate).length;
+            const totalCount = Math.max(historyCount, completedCount);
+
+            let lvlClass = 'lvl-0';
+            if (totalCount >= 5) lvlClass = 'lvl-3';
+            else if (totalCount >= 3) lvlClass = 'lvl-2';
+            else if (totalCount >= 1) lvlClass = 'lvl-1';
+
+            const tile = document.createElement('div');
+            tile.className = `heatmap-tile ${lvlClass}`;
+            tile.title = `${tileDate}: ${totalCount} task(s) completed`;
+            dom.heatmapGrid.appendChild(tile);
+        }
+
+        // Category Breakdown
+        dom.categoryBarsContainer.innerHTML = '';
+        Object.keys(CATEGORIES).forEach(catKey => {
+            const catInfo = CATEGORIES[catKey];
+            const catTasks = state.tasks.filter(t => t.category === catKey);
+            const catTotal = catTasks.length;
+            const catDone = catTasks.filter(t => t.completed).length;
+            const catPct = catTotal === 0 ? 0 : Math.round((catDone / catTotal) * 100);
+
+            const item = document.createElement('div');
+            item.className = 'category-bar-item';
+            item.innerHTML = `
+                <div class="cat-bar-header">
+                    <span><i class="fa-solid ${catInfo.icon}"></i> ${catInfo.label}</span>
+                    <span>${catDone}/${catTotal} (${catPct}%)</span>
+                </div>
+                <div class="cat-bar-track">
+                    <div class="cat-bar-fill" style="width: ${catPct}%;"></div>
+                </div>
+            `;
+            dom.categoryBarsContainer.appendChild(item);
+        });
+
+        dom.analyticsModal.classList.remove('hide');
+    }
+
+    function closeAnalyticsModal() {
+        dom.analyticsModal.classList.add('hide');
+    }
+
+    // --- TASK FILTERING & RENDERING ENGINE ---
     function getFilteredTasks() {
+        const today = getTodayStr();
+
         return state.tasks.filter(task => {
+            // Category Filter
             if (state.activeCategory !== 'all' && task.category !== state.activeCategory) {
                 return false;
             }
 
+            // Tab Filter
             if (state.activeFilter === 'today') {
-                if (!isTaskToday(task) && !isTaskOverdue(task)) return false;
+                const isTodayTask = isTaskToday(task);
+                const isOverdueTask = isTaskOverdue(task);
+                const wasCompletedToday = task.completed && task.completedAt && formatLocalDate(new Date(task.completedAt)) === today;
+                if (!isTodayTask && !isOverdueTask && !wasCompletedToday) return false;
             } else if (state.activeFilter === 'overdue') {
                 if (!isTaskOverdue(task)) return false;
             } else if (state.activeFilter === 'upcoming') {
@@ -1936,6 +879,7 @@
                 if (!task.completed) return false;
             }
 
+            // Search Query
             if (state.searchQuery.trim() !== '') {
                 const query = state.searchQuery.toLowerCase();
                 const titleMatch = task.title.toLowerCase().includes(query);
@@ -1947,7 +891,7 @@
         }).sort((a, b) => {
             if (state.sortBy === 'priority') {
                 const pOrder = { high: 1, medium: 2, low: 3 };
-                return pOrder[a.priority] - pOrder[b.priority];
+                return (pOrder[a.priority] || 2) - (pOrder[b.priority] || 2);
             } else if (state.sortBy === 'time') {
                 return (a.dueTime || '23:59').localeCompare(b.dueTime || '23:59');
             } else if (state.sortBy === 'date') {
@@ -1956,6 +900,7 @@
                 return a.title.localeCompare(b.title);
             }
 
+            // Default Sort: Overdue first, then pending, then completed
             const aOverdue = isTaskOverdue(a);
             const bOverdue = isTaskOverdue(b);
             if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
@@ -1969,10 +914,10 @@
         dom.taskList.innerHTML = '';
 
         const viewTitles = {
-            today: "Today's Checklist & Reminders",
+            today: "Today's Checklist",
             overdue: "Overdue Pending Tasks",
             upcoming: "Upcoming Scheduled Tasks",
-            all: "All Checklist Tasks",
+            all: "All Tasks",
             completed: "Completed Task History"
         };
         dom.currentViewTitle.textContent = viewTitles[state.activeFilter] || "Checklist";
@@ -1980,21 +925,57 @@
         if (filtered.length === 0) {
             dom.emptyState.classList.remove('hide');
             if (state.activeFilter === 'upcoming') {
-                dom.emptyTitle.textContent = 'No upcoming scheduled tasks!';
-                dom.emptyDesc.textContent = 'Schedule a future task to get reminded on that specific day.';
+                dom.emptyTitle.textContent = 'No upcoming tasks!';
+                dom.emptyDesc.textContent = 'Schedule a future task with the date picker to plan ahead.';
             } else if (state.activeFilter === 'overdue') {
-                dom.emptyTitle.textContent = 'No overdue tasks! 🎯';
-                dom.emptyDesc.textContent = 'You are 100% caught up on all past scheduled items!';
+                dom.emptyTitle.textContent = 'Zero Overdue Tasks! 🎯';
+                dom.emptyDesc.textContent = 'Awesome job! You are 100% caught up on all past items.';
+            } else if (state.activeFilter === 'completed') {
+                dom.emptyTitle.textContent = 'No completed tasks yet';
+                dom.emptyDesc.textContent = 'Check off tasks as you finish them to see your accomplishments here.';
             } else {
                 dom.emptyTitle.textContent = 'All tasks completed! 🎉';
-                dom.emptyDesc.textContent = 'You\'re all caught up for today. Add a new task to keep building your routine.';
+                dom.emptyDesc.textContent = "You're all caught up for today. Add a new task to keep your momentum going!";
             }
         } else {
             dom.emptyState.classList.add('hide');
-            filtered.forEach(task => {
-                const card = createTaskCardElement(task);
-                dom.taskList.appendChild(card);
-            });
+
+            // If in "Today" tab, organize into clean sections so completed tasks don't vanish!
+            if (state.activeFilter === 'today') {
+                const overdueList = filtered.filter(t => isTaskOverdue(t));
+                const pendingTodayList = filtered.filter(t => !t.completed && !isTaskOverdue(t));
+                const completedTodayList = filtered.filter(t => t.completed);
+
+                if (overdueList.length > 0) {
+                    const overdueHeading = document.createElement('div');
+                    overdueHeading.className = 'task-group-heading overdue-heading';
+                    overdueHeading.innerHTML = `<span><i class="fa-solid fa-triangle-exclamation"></i> Overdue Tasks (${overdueList.length})</span>`;
+                    dom.taskList.appendChild(overdueHeading);
+                    overdueList.forEach(t => dom.taskList.appendChild(createTaskCardElement(t)));
+                }
+
+                if (pendingTodayList.length > 0) {
+                    if (overdueList.length > 0) {
+                        const todayHeading = document.createElement('div');
+                        todayHeading.className = 'task-group-heading';
+                        todayHeading.innerHTML = `<span>Today's Tasks (${pendingTodayList.length})</span>`;
+                        dom.taskList.appendChild(todayHeading);
+                    }
+                    pendingTodayList.forEach(t => dom.taskList.appendChild(createTaskCardElement(t)));
+                }
+
+                if (completedTodayList.length > 0) {
+                    const completedHeading = document.createElement('div');
+                    completedHeading.className = 'task-group-heading completed-heading';
+                    completedHeading.innerHTML = `<span><i class="fa-solid fa-circle-check"></i> Completed Today (${completedTodayList.length})</span>`;
+                    dom.taskList.appendChild(completedHeading);
+                    completedTodayList.forEach(t => dom.taskList.appendChild(createTaskCardElement(t)));
+                }
+            } else {
+                filtered.forEach(task => {
+                    dom.taskList.appendChild(createTaskCardElement(task));
+                });
+            }
         }
 
         updateProgressCard();
@@ -2028,6 +1009,14 @@
             `;
         }
 
+        // Quick Reschedule / Postpone button text
+        let quickDateActionBtn = '';
+        if (overdue) {
+            quickDateActionBtn = `<button class="action-btn postpone-btn" data-action="to-today" title="Move to Today"><i class="fa-solid fa-calendar-check"></i></button>`;
+        } else if (!task.completed) {
+            quickDateActionBtn = `<button class="action-btn postpone-btn" data-action="to-tomorrow" title="Postpone to Tomorrow"><i class="fa-solid fa-calendar-plus"></i></button>`;
+        }
+
         card.innerHTML = `
             <div class="task-card-main">
                 <input type="checkbox" class="custom-checkbox task-main-checkbox" ${task.completed ? 'checked' : ''}>
@@ -2037,26 +1026,28 @@
                         <span class="badge badge-category"><i class="fa-solid ${catInfo.icon}"></i> ${catInfo.label}</span>
                         <span class="badge badge-priority-${task.priority}">${priorityLabels[task.priority]}</span>
                         ${overdue ? `<span class="badge badge-overdue"><i class="fa-solid fa-triangle-exclamation"></i> Overdue (${task.dueDate})</span>` : ''}
-                        ${upcoming ? `<span class="badge badge-date" style="background:rgba(236,72,153,0.18); color:var(--accent-primary);"><i class="fa-regular fa-calendar-check"></i> Scheduled for ${task.dueDate}</span>` : ''}
+                        ${upcoming ? `<span class="badge badge-date" style="background:rgba(236,72,153,0.18); color:var(--accent-primary);"><i class="fa-regular fa-calendar-check"></i> Scheduled: ${task.dueDate}</span>` : ''}
                         ${!overdue && !upcoming && task.dueDate ? `<span class="badge badge-date"><i class="fa-regular fa-calendar"></i> Today</span>` : ''}
                         ${task.dueTime ? `<span class="badge badge-time"><i class="fa-regular fa-clock"></i> ${task.dueTime}</span>` : ''}
-                        ${task.recurring !== 'none' ? `<span class="badge badge-recurring"><i class="fa-solid fa-repeat"></i> ${task.recurring}</span>` : ''}
+                        ${task.recurring && task.recurring !== 'none' ? `<span class="badge badge-recurring"><i class="fa-solid fa-repeat"></i> ${task.recurring}</span>` : ''}
                     </div>
                     ${subtasksHtml}
                 </div>
                 <div class="task-actions">
-                    <button class="action-btn focus-task-btn" title="Start Focus Timer"><i class="fa-solid fa-stopwatch" style="color:var(--accent-primary);"></i></button>
+                    ${quickDateActionBtn}
                     <button class="action-btn edit-btn" title="Edit Task"><i class="fa-solid fa-pen"></i></button>
                     <button class="action-btn delete-btn" title="Delete Task"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             </div>
         `;
 
+        // Checkbox Listener
         const mainCheckbox = card.querySelector('.task-main-checkbox');
         mainCheckbox.addEventListener('change', (e) => {
             toggleTaskComplete(task.id, e.target.checked);
         });
 
+        // Subtask Checkbox Listeners
         card.querySelectorAll('.subtask-checkbox').forEach(chk => {
             chk.addEventListener('change', (e) => {
                 const subId = chk.dataset.subId;
@@ -2064,18 +1055,31 @@
             });
         });
 
-        const focusBtn = card.querySelector('.focus-task-btn');
-        if (focusBtn) {
-            focusBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                FocusEngine.open(task.id);
+        // Quick Postpone / Move button
+        const postponeBtn = card.querySelector('.postpone-btn');
+        if (postponeBtn) {
+            postponeBtn.addEventListener('click', () => {
+                const act = postponeBtn.dataset.action;
+                if (act === 'to-today') {
+                    task.dueDate = getTodayStr();
+                    saveState();
+                    renderTasks();
+                    showToast(`Moved "${task.title}" to Today! 🗓️`);
+                } else if (act === 'to-tomorrow') {
+                    task.dueDate = getFutureDateStr(1);
+                    saveState();
+                    renderTasks();
+                    showToast(`Postponed "${task.title}" to Tomorrow! 🗓️`);
+                }
             });
         }
 
+        // Edit button
         card.querySelector('.edit-btn').addEventListener('click', () => {
             openTaskModal(task);
         });
 
+        // Delete button with undo option
         card.querySelector('.delete-btn').addEventListener('click', () => {
             deleteTask(task.id);
         });
@@ -2084,35 +1088,26 @@
     }
 
     function toggleTaskComplete(taskId, isCompleted) {
-        var task = state.tasks.find(function(t) { return t.id === taskId; });
+        const task = state.tasks.find(t => t.id === taskId);
         if (task) {
             task.completed = isCompleted;
             task.completedAt = isCompleted ? new Date().toISOString() : null;
 
             if (task.subtasks) {
-                task.subtasks.forEach(function(s) { s.completed = isCompleted; });
+                task.subtasks.forEach(s => s.completed = isCompleted);
             }
+
+            // Haptic feedback for tactile satisfaction on Android
+            if (navigator.vibrate) {
+                try { navigator.vibrate(isCompleted ? 24 : 12); } catch (e) {}
+            }
+
+            recordCompletionActivity(isCompleted);
 
             if (isCompleted) {
-                state.profile.totalCompletedCount = (state.profile.totalCompletedCount || 0) + 1;
-                if (!task.recurring || task.recurring === 'none') {
-                    cancelNotificationForTask(taskId); // Only cancel one-off tasks
-                }
-                AudioEngine.playTaskComplete();
-                
-                const todayPending = state.tasks.filter(function(t) { return isTaskToday(t) && !t.completed; });
-                if (todayPending.length === 0) {
-                    AudioEngine.playStreakCelebration();
-                    showToast('🏆 All tasks completed for today! Awesome!');
-                } else {
-                    showToast('Task completed! 🎉');
-                }
-            } else {
-                // Re-schedule reminder if task is unchecked
-                scheduleNativeLocalNotifications();
+                showToast('Task completed! 🎉');
             }
 
-            updateStreakAndHistory();
             saveState();
             renderTasks();
             checkAutoBackupSchedule();
@@ -2125,12 +1120,21 @@
             const sub = task.subtasks.find(s => s.id === subId);
             if (sub) {
                 sub.completed = isCompleted;
+
+                // Subtle haptic tick for subtasks
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(14); } catch (e) {}
+                }
+
                 const allSubDone = task.subtasks.every(s => s.completed);
                 if (allSubDone) {
                     task.completed = true;
                     task.completedAt = new Date().toISOString();
-                } else {
+                    recordCompletionActivity(true);
+                } else if (task.completed) {
                     task.completed = false;
+                    task.completedAt = null;
+                    recordCompletionActivity(false);
                 }
 
                 saveState();
@@ -2141,118 +1145,82 @@
     }
 
     function deleteTask(taskId) {
-        state.tasks = state.tasks.filter(t => t.id !== taskId);
+        const index = state.tasks.findIndex(t => t.id === taskId);
+        if (index !== -1) {
+            const deleted = state.tasks[index];
+            state.lastDeletedTask = { task: deleted, index: index };
+            state.tasks.splice(index, 1);
+            saveState();
+            renderTasks();
+            showToastWithUndo(`Deleted "${deleted.title}"`, () => {
+                if (state.lastDeletedTask) {
+                    state.tasks.splice(state.lastDeletedTask.index, 0, state.lastDeletedTask.task);
+                    state.lastDeletedTask = null;
+                    saveState();
+                    renderTasks();
+                    showToast('Task restored! ↩️');
+                }
+            });
+        }
+    }
+
+    // --- QUICK ADD HANDLER ---
+    function handleQuickAdd() {
+        const title = dom.quickTaskInput.value.trim();
+        if (!title) return;
+
+        const newTask = {
+            id: 'task-' + Date.now(),
+            title: title,
+            category: state.activeCategory === 'all' ? 'personal' : state.activeCategory,
+            priority: 'medium',
+            dueDate: getTodayStr(),
+            dueTime: '',
+            recurring: 'none',
+            completed: false,
+            completedAt: null,
+            createdAt: new Date().toISOString(),
+            subtasks: []
+        };
+
+        state.tasks.unshift(newTask);
+        dom.quickTaskInput.value = '';
         saveState();
         renderTasks();
-        showToast('Task deleted');
+        showToast(`Added "${title}" to Today! 🎯`);
     }
 
-    // --- PROGRESS RING & COUNTERS UPDATE ---
-    function updateProgressCard() {
-        const todayPending = state.tasks.filter(t => !t.completed && isTaskToday(t)).length;
-        const overduePending = state.tasks.filter(t => isTaskOverdue(t)).length;
-        const upcomingPending = state.tasks.filter(t => isTaskUpcoming(t)).length;
-        const completed = state.tasks.filter(t => t.completed).length;
+    // --- RESCHEDULE ALL OVERDUE TO TODAY ---
+    function rescheduleAllOverdueToToday() {
+        const today = getTodayStr();
+        let count = 0;
+        state.tasks.forEach(t => {
+            if (isTaskOverdue(t)) {
+                t.dueDate = today;
+                count++;
+            }
+        });
 
-        const totalWorkload = todayPending + overduePending + completed;
-        const percentage = totalWorkload === 0 ? 0 : Math.round((completed / totalWorkload) * 100);
-
-        dom.tasksTodayPendingCount.textContent = todayPending;
-        dom.tasksOverduePendingCount.textContent = overduePending;
-        dom.tasksDoneCount.textContent = completed;
-        dom.overdueTabCount.textContent = overduePending;
-        dom.upcomingTabCount.textContent = upcomingPending;
-
-        dom.progressPercentageText.textContent = `${percentage}%`;
-
-        const circumference = 226.19;
-        const offset = circumference - (percentage / 100) * circumference;
-        dom.progressCircle.style.strokeDashoffset = offset;
+        if (count > 0) {
+            saveState();
+            renderTasks();
+            showToast(`Moved ${count} overdue task(s) to Today! 🗓️`);
+        }
     }
 
-    // --- REMINDER BANNER & NOTIFICATIONS ---
+    // --- REMINDER BANNER ---
     function checkReminderNotification() {
-        var todayPending = state.tasks.filter(function(t) { return !t.completed && isTaskToday(t); });
+        const todayPending = state.tasks.filter(t => !t.completed && isTaskToday(t));
         if (todayPending.length > 0) {
             dom.reminderBanner.classList.remove('hide');
-            var firstTaskTitle = todayPending[0].title;
-            dom.reminderTitle.textContent = `🎯 Next Goal: "${firstTaskTitle}"`;
-            dom.reminderDesc.textContent = todayPending.length === 1 
-                ? '1 task pending for today' 
-                : `${todayPending.length} tasks pending for today`;
+            dom.reminderTitle.textContent = `Today's Action Items (${todayPending.length})`;
+            dom.reminderDesc.textContent = `Next task: "${todayPending[0].title}"`;
         } else {
             dom.reminderBanner.classList.add('hide');
         }
     }
 
-    // --- IN-APP UPDATE CHECKER (VIA VERCEL / GITHUB RAW / RELATIVE VERSION.JSON) ---
-    function checkForAppUpdates(isManualCheck = false) {
-        const timestamp = Date.now();
-        const endpoints = [
-            'https://todo-list-app-eight-pi.vercel.app/version.json?t=' + timestamp,
-            'https://raw.githubusercontent.com/shinchan2222/TODO_LIST-APP/main/version.json?t=' + timestamp,
-            './version.json?t=' + timestamp
-        ];
-
-        let highestData = null;
-
-        function evaluate(data) {
-            if (data && typeof data.version === 'number') {
-                if (!highestData || data.version > highestData.version) {
-                    highestData = data;
-                }
-            }
-        }
-
-        const promises = endpoints.map(function(url) {
-            return fetch(url)
-                .then(function(res) {
-                    if (res && res.ok) return res.json();
-                    return null;
-                })
-                .then(evaluate)
-                .catch(function() { return null; });
-        });
-
-        Promise.all(promises).finally(function() {
-            if (highestData && highestData.version && highestData.version > APP_VERSION) {
-                const rawApkUrl = highestData.apkUrl || (`https://todo-list-app-eight-pi.vercel.app/RoutineCraft_v${highestData.version}.apk`);
-                try {
-                    window.latestApkUrl = new URL(rawApkUrl, 'https://todo-list-app-eight-pi.vercel.app/').href;
-                } catch(e) {
-                    window.latestApkUrl = rawApkUrl;
-                }
-                if (dom.updateBanner) dom.updateBanner.classList.remove('hide');
-                if (dom.updateBannerTitle) dom.updateBannerTitle.textContent = `New update v${highestData.versionName || highestData.version} available`;
-
-                // Update Settings Modal section
-                if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = `Update v${highestData.versionName || highestData.version} Available! 🎉`;
-                if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = highestData.releaseNotes || 'Tap "Update Now" to get the latest version.';
-                if (dom.updateSettingsIcon) {
-                    dom.updateSettingsIcon.className = 'fa-solid fa-wand-magic-sparkles cloud-icon';
-                    dom.updateSettingsIcon.style.color = '#f59e0b';
-                }
-                if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.add('hide');
-                if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.remove('hide');
-                if (isManualCheck) showToast(`New update v${highestData.versionName || highestData.version} available! 🚀`);
-            } else {
-                if (dom.updateBanner) dom.updateBanner.classList.add('hide');
-
-                // Update Settings Modal section: Already in latest version
-                if (dom.updateSettingsTitle) dom.updateSettingsTitle.textContent = 'Already in latest version';
-                if (dom.updateSettingsSubtext) dom.updateSettingsSubtext.textContent = `RoutineCraft v${(highestData && highestData.versionName) ? highestData.versionName : '1.8.0'} (Build ${APP_VERSION}) — Latest`;
-                if (dom.updateSettingsIcon) {
-                    dom.updateSettingsIcon.className = 'fa-solid fa-circle-check cloud-icon';
-                    dom.updateSettingsIcon.style.color = 'var(--accent-success)';
-                }
-                if (dom.checkUpdateSettingsBtn) dom.checkUpdateSettingsBtn.classList.remove('hide');
-                if (dom.applyUpdateSettingsBtn) dom.applyUpdateSettingsBtn.classList.add('hide');
-                if (isManualCheck) showToast('Already in latest version! ✨');
-            }
-        });
-    }
-
-    // --- TASK MODAL & FORM ---
+    // --- TASK MODAL (CREATE / EDIT) ---
     function openTaskModal(taskToEdit = null) {
         state.tempSubtasks = [];
         dom.subtaskBuilderList.innerHTML = '';
@@ -2268,7 +1236,7 @@
             dom.taskRecurringSelect.value = taskToEdit.recurring || 'none';
 
             if (taskToEdit.subtasks) {
-                state.tempSubtasks = [...taskToEdit.subtasks];
+                state.tempSubtasks = JSON.parse(JSON.stringify(taskToEdit.subtasks));
                 renderTempSubtasks();
             }
         } else {
@@ -2276,9 +1244,12 @@
             dom.taskForm.reset();
             dom.taskIdInput.value = '';
             dom.taskDateInput.value = getTodayStr();
+            dom.taskCategorySelect.value = state.activeCategory === 'all' ? 'personal' : state.activeCategory;
+            dom.taskPrioritySelect.value = 'medium';
         }
 
         dom.taskModal.classList.remove('hide');
+        setTimeout(() => dom.taskTitleInput.focus(), 100);
     }
 
     function closeTaskModal() {
@@ -2302,17 +1273,7 @@
         });
     }
 
-    dom.datePresetBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const preset = btn.dataset.preset;
-            if (preset === 'today') dom.taskDateInput.value = getTodayStr();
-            else if (preset === 'tomorrow') dom.taskDateInput.value = getFutureDateStr(1);
-            else if (preset === 'in3days') dom.taskDateInput.value = getFutureDateStr(3);
-            else if (preset === 'nextweek') dom.taskDateInput.value = getFutureDateStr(7);
-        });
-    });
-
-    dom.addSubtaskBtn.addEventListener('click', () => {
+    function handleAddSubtask() {
         const val = dom.subtaskBuilderInput.value.trim();
         if (val) {
             state.tempSubtasks.push({
@@ -2323,751 +1284,162 @@
             dom.subtaskBuilderInput.value = '';
             renderTempSubtasks();
         }
-    });
-
-    dom.taskForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const id = dom.taskIdInput.value;
-        const title = dom.taskTitleInput.value.trim();
-        const category = dom.taskCategorySelect.value;
-        const priority = dom.taskPrioritySelect.value;
-        const dueDate = dom.taskDateInput.value || getTodayStr();
-        const dueTime = dom.taskTimeInput.value;
-        const recurring = dom.taskRecurringSelect.value;
-
-        if (!title) return;
-
-        if (id) {
-            const task = state.tasks.find(t => t.id === id);
-            if (task) {
-                task.title = title;
-                task.category = category;
-                task.priority = priority;
-                task.dueDate = dueDate;
-                task.dueTime = dueTime;
-                task.recurring = recurring;
-                task.subtasks = [...state.tempSubtasks];
-            }
-            showToast('Task updated!');
-        } else {
-            const newTask = {
-                id: 'task-' + Date.now(),
-                title: title,
-                category: category,
-                priority: priority,
-                dueDate: dueDate,
-                dueTime: dueTime,
-                recurring: recurring,
-                completed: false,
-                completedAt: null,
-                createdAt: new Date().toISOString(),
-                subtasks: [...state.tempSubtasks]
-            };
-            state.tasks.unshift(newTask);
-
-            if (dueDate > getTodayStr()) {
-                showToast(`Task scheduled for ${dueDate}! 🗓️`);
-            } else {
-                showToast('New task added to Today! 🎯');
-            }
-        }
-
-        saveState();
-        renderTasks();
-        checkReminderNotification();
-        checkAutoBackupSchedule();
-        closeTaskModal();
-    });
-
-    // --- NOTIFICATION PERMISSION TOGGLE ---
-    dom.notifyBtn.addEventListener('click', function() {
-        state.profile.notificationsEnabled = !state.profile.notificationsEnabled;
-        saveState();
-        renderHeaderProfile();
-
-        if (state.profile.notificationsEnabled) {
-            requestPwaPermission().then(function(granted) {
-                scheduleNativeLocalNotifications();
-                scheduleSummaryNotification();
-                if (granted) {
-                    showToast('Notifications enabled! \uD83D\uDD14');
-                } else {
-                    showToast('Notifications enabled \u2014 allow in browser for PWA alerts \uD83D\uDD14');
-                }
-            });
-        } else {
-            // Clear all PWA timers
-            Object.keys(_pwaTimerHandles).forEach(function(id) {
-                clearTimeout(_pwaTimerHandles[id]);
-                delete _pwaTimerHandles[id];
-            });
-            showToast('Notifications muted');
-        }
-    });
-
-    dom.dismissReminderBtn.addEventListener('click', () => {
-        dom.reminderBanner.classList.add('hide');
-    });
-
-    if (dom.dismissUpdateBtn) {
-        dom.dismissUpdateBtn.addEventListener('click', () => {
-            if (dom.updateBanner) dom.updateBanner.classList.add('hide');
-        });
-    }
-
-    function handleApplyUpdate() {
-        if (window.latestApkUrl && (window.Capacitor || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent))) {
-            showToast('Downloading latest APK update... 📥');
-            const link = document.createElement('a');
-            link.href = window.latestApkUrl;
-            link.download = window.latestApkUrl.split('/').pop() || 'RoutineCraft.apk';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } else {
-            showToast('Updating web app assets... 🚀');
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for (let registration of registrations) {
-                        registration.update();
-                    }
-                });
-            }
-            if ('caches' in window) {
-                caches.keys().then(function(names) {
-                    for (let name of names) caches.delete(name);
-                });
-            }
-            setTimeout(() => {
-                window.location.reload();
-            }, 350);
-        }
-    }
-
-    if (dom.updateActionBtn) {
-        dom.updateActionBtn.addEventListener('click', handleApplyUpdate);
-    }
-
-    if (dom.checkUpdateSettingsBtn) {
-        dom.checkUpdateSettingsBtn.addEventListener('click', () => {
-            showToast('Checking for updates... 🔄');
-            checkForAppUpdates(true);
-        });
-    }
-
-    if (dom.applyUpdateSettingsBtn) {
-        dom.applyUpdateSettingsBtn.addEventListener('click', handleApplyUpdate);
     }
 
     // --- PROFILE & SETTINGS MODAL ---
     function renderUsersGrid() {
         dom.usersListGrid.innerHTML = '';
-        const emails = Object.keys(usersStore);
-
-        emails.forEach(email => {
+        Object.keys(usersStore).forEach(email => {
             const userObj = usersStore[email];
             const isActive = (email === activeEmail);
-            const isDefault = (email === 'default_user@routinecraft.app');
 
             const item = document.createElement('div');
             item.className = `user-account-item ${isActive ? 'active' : ''}`;
-            item.style.display = 'flex';
-            item.style.alignItems = 'center';
-            item.style.justifyContent = 'space-between';
-            item.style.padding = '8px 12px';
-
             item.innerHTML = `
-                <div style="display:flex; align-items:center; gap:8px; cursor:pointer; flex:1;" class="account-select-area">
+                <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:1.1rem;">${userObj.profile.avatar || '👤'}</span>
                     <div style="display:flex; flex-direction:column;">
                         <strong style="font-size:0.86rem; color:var(--text-primary);">${escapeHtml(userObj.profile.name || email)}</strong>
-                        <span style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(isDefault ? 'Local Guest Profile' : email)}</span>
+                        <span style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(email)}</span>
                     </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    ${isActive ? '<span style="font-size:0.74rem; font-weight:700; color:var(--accent-primary);"><i class="fa-solid fa-check"></i> Active</span>' : '<span style="font-size:0.74rem; color:var(--text-muted); cursor:pointer;" class="account-select-area">Select</span>'}
-                    ${!isDefault ? `<button type="button" class="action-btn delete-acc-btn" data-email="${escapeHtml(email)}" title="Remove account from device" style="background:none; border:none; color:var(--accent-danger); cursor:pointer; padding:4px 6px;"><i class="fa-solid fa-trash-can"></i></button>` : ''}
-                </div>
+                ${isActive ? '<span style="font-size:0.74rem; font-weight:700; color:var(--accent-primary);"><i class="fa-solid fa-check"></i> Active</span>' : '<span style="font-size:0.74rem; color:var(--text-muted);">Switch</span>'}
             `;
 
-            item.querySelectorAll('.account-select-area').forEach(el => {
-                el.addEventListener('click', () => {
-                    if (!isActive) switchUserAccount(email);
-                });
+            item.addEventListener('click', () => {
+                if (!isActive) switchUserAccount(email);
             });
-
-            const delBtn = item.querySelector('.delete-acc-btn');
-            if (delBtn) {
-                delBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (confirm(`Remove account ${email} from this device?`)) {
-                        removeUserAccount(email);
-                    }
-                });
-            }
-
             dom.usersListGrid.appendChild(item);
         });
     }
 
-    function closeAllModals() {
-        if (dom.taskModal) dom.taskModal.classList.add('hide');
-        if (dom.profileModal) dom.profileModal.classList.add('hide');
-        if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
-        if (dom.authModal) dom.authModal.classList.add('hide');
-        if (dom.focusModal) dom.focusModal.classList.add('hide');
-        if (dom.gdrivePermissionModal) dom.gdrivePermissionModal.classList.add('hide');
-    }
-
-    function setActiveNav(navName) {
-        if (!dom.bottomNavItems) return;
-        dom.bottomNavItems.forEach(n => {
-            if (n.dataset.nav === navName) n.classList.add('active');
-            else n.classList.remove('active');
-        });
-    }
-
     function openProfileModal() {
-        closeAllModals();
-        setActiveNav('settings');
         dom.profileNameInput.value = state.profile.name;
-        dom.avatarOpts.forEach(function(opt) {
+        dom.avatarOpts.forEach(opt => {
             if (opt.dataset.avatar === state.profile.avatar) opt.classList.add('active');
             else opt.classList.remove('active');
         });
-        // Populate notification summary time
-        var summaryInput = document.getElementById('summary-notif-time-input');
-        if (summaryInput) {
-            summaryInput.value = state.profile.summaryNotificationTime || '20:00';
-        }
-        // Populate rest days
-        state.profile.restDays = state.profile.restDays || [0];
-        if (dom.restDayPills) {
-            dom.restDayPills.forEach(pill => {
-                const dayNum = parseInt(pill.dataset.day, 10);
-                pill.classList.toggle('active', state.profile.restDays.includes(dayNum));
-            });
-        }
-        // Populate streak freeze badge
-        if (dom.streakFreezeCountBadge) {
-            const count = state.profile.streakFreezes !== undefined ? state.profile.streakFreezes : 2;
-            dom.streakFreezeCountBadge.textContent = `${count} / 2 Active`;
-        }
-        // Populate sound & haptics toggle
-        if (dom.soundHapticsToggle) {
-            dom.soundHapticsToggle.checked = state.profile.soundHapticsEnabled !== false;
-        }
-
         renderAccountStatusBar();
         renderUsersGrid();
         dom.profileModal.classList.remove('hide');
     }
 
     function closeProfileModal() {
-        if (dom.profileModal) dom.profileModal.classList.add('hide');
-        setActiveNav('tasks');
+        dom.profileModal.classList.add('hide');
     }
 
-    if (dom.restDayPills) {
-        dom.restDayPills.forEach(pill => {
-            pill.addEventListener('click', () => {
-                pill.classList.toggle('active');
-            });
-        });
-    }
-
-    dom.avatarOpts.forEach(opt => {
-        opt.addEventListener('click', () => {
-            dom.avatarOpts.forEach(o => o.classList.remove('active'));
-            opt.classList.add('active');
-            state.profile.avatar = opt.dataset.avatar;
-        });
-    });
-
-    dom.themeCards.forEach(card => {
-        card.addEventListener('click', () => {
-            applyTheme(card.dataset.setTheme);
-        });
-    });
-
-    dom.saveProfileBtn.addEventListener('click', function() {
-        state.profile.name = dom.profileNameInput.value.trim() || 'Productivity Hero';
-        state.profile.backupFrequency = dom.backupFrequencySelect.value;
-        
-        // Save sound & haptic preferences
-        if (dom.soundHapticsToggle) {
-            state.profile.soundHapticsEnabled = dom.soundHapticsToggle.checked;
-        }
-
-        // Save planned rest days
-        const activeRestDays = [];
-        if (dom.restDayPills) {
-            dom.restDayPills.forEach(pill => {
-                if (pill.classList.contains('active')) {
-                    activeRestDays.push(parseInt(pill.dataset.day, 10));
-                }
-            });
-        }
-        state.profile.restDays = activeRestDays;
-
-        // Read summary notification time from UI if the input exists
-        var summaryInput = document.getElementById('summary-notif-time-input');
-        if (summaryInput && summaryInput.value) {
-            state.profile.summaryNotificationTime = summaryInput.value;
-        }
-        
-        updateStreakAndHistory();
-        saveState();
-        renderHeaderProfile();
-        scheduleSummaryNotification();
-        closeProfileModal();
-        showToast('Settings & preferences saved! 💾');
-    });
-
-    // --- CSV & PRINTABLE REPORT EXPORT ---
-    function downloadBlobFallback(content, filename, mimeType) {
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
-
-    function exportTasksToCSV() {
-        const rows = [
-            ['Task ID', 'Title', 'Category', 'Priority', 'Due Date', 'Due Time', 'Recurring', 'Status', 'Completed At', 'Subtasks Count', 'Completed Subtasks']
-        ];
-        
-        state.tasks.forEach(t => {
-            const subCount = (t.subtasks || []).length;
-            const subDone = (t.subtasks || []).filter(s => s.completed).length;
-            rows.push([
-                `"${t.id}"`,
-                `"${(t.title || '').replace(/"/g, '""')}"`,
-                `"${(CATEGORIES[t.category] && CATEGORIES[t.category].label) || t.category || 'Personal'}"`,
-                `"${(t.priority || 'medium').toUpperCase()}"`,
-                `"${t.dueDate || ''}"`,
-                `"${t.dueTime || ''}"`,
-                `"${t.recurring || 'none'}"`,
-                `"${t.completed ? 'Completed' : 'Pending'}"`,
-                `"${t.completedAt || ''}"`,
-                subCount,
-                subDone
-            ]);
-        });
-
-        const csvContent = '\uFEFF' + rows.map(e => e.join(',')).join('\r\n');
-        const fileName = `RoutineCraft_Tasks_${getTodayStr()}.csv`;
-        
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
-            try {
-                const { Filesystem, Share } = window.Capacitor.Plugins;
-                Filesystem.writeFile({
-                    path: fileName,
-                    data: csvContent,
-                    directory: 'CACHE',
-                    encoding: 'utf8'
-                }).then(result => {
-                    Share.share({
-                        title: 'RoutineCraft Tasks Export',
-                        text: 'Here is your task list export (CSV).',
-                        url: result.uri,
-                        dialogTitle: 'Export / Open CSV'
-                    }).catch(() => {});
-                }).catch(() => {
-                    downloadBlobFallback(csvContent, fileName, 'text/csv;charset=utf-8;');
-                });
-            } catch(e) {
-                downloadBlobFallback(csvContent, fileName, 'text/csv;charset=utf-8;');
-            }
-        } else {
-            downloadBlobFallback(csvContent, fileName, 'text/csv;charset=utf-8;');
-        }
-        showToast('📊 Tasks exported to CSV successfully!');
-    }
-
-    function exportTasksToNotion() {
-        const today = getTodayStr();
-        let md = `# 🎯 RoutineCraft Checklist (${today})\n\n`;
-        md += `**Productivity Summary**: ${state.profile.streak || 0} Day Streak 🔥 | Total Completed: ${state.profile.totalCompletedCount || 0} Tasks\n\n`;
-        
-        const categories = {};
-        state.tasks.forEach(t => {
-            const cat = (CATEGORIES[t.category] && CATEGORIES[t.category].label) || 'Other';
-            if (!categories[cat]) categories[cat] = [];
-            categories[cat].push(t);
-        });
-
-        Object.keys(categories).forEach(cat => {
-            md += `### ${cat}\n`;
-            categories[cat].forEach(t => {
-                const check = t.completed ? '[x]' : '[ ]';
-                const timeInfo = t.dueTime ? ` (${t.dueTime})` : '';
-                const recurInfo = (t.recurring && t.recurring !== 'none') ? ` [🔁 ${t.recurring}]` : '';
-                md += `- ${check} **${t.title}**${timeInfo}${recurInfo}\n`;
-                if (t.subtasks && t.subtasks.length > 0) {
-                    t.subtasks.forEach(sub => {
-                        md += `  - ${sub.completed ? '[x]' : '[ ]'} ${sub.title}\n`;
-                    });
-                }
-            });
-            md += `\n`;
-        });
-
-        md += `---\n*Exported from RoutineCraft • Personal Daily Checklist*`;
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(md).then(() => {
-                showToast('📋 Copied Notion/Markdown checklist to clipboard!');
-            }).catch(() => {
-                downloadBlobFallback(md, `RoutineCraft_Notion_${today}.md`, 'text/markdown;charset=utf-8;');
-                showToast('📝 Notion/Markdown file downloaded!');
-            });
-        } else {
-            downloadBlobFallback(md, `RoutineCraft_Notion_${today}.md`, 'text/markdown;charset=utf-8;');
-            showToast('📝 Notion/Markdown file downloaded!');
-        }
-
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
-            try {
-                window.Capacitor.Plugins.Share.share({
-                    title: `RoutineCraft Notion Export (${today})`,
-                    text: md,
-                    dialogTitle: 'Share Notion / Markdown Checklist'
-                }).catch(() => {});
-            } catch(e) {}
-        }
-    }
-
-    function printMonthlyReport() {
-        if (dom.analyticsModal) dom.analyticsModal.classList.remove('hide');
-        setTimeout(() => {
-            window.print();
-        }, 300);
-    }
-
-    // --- GOOGLE DRIVE BACKUP BUTTONS ---
-    dom.headerGoogleLoginBtn.addEventListener('click', () => {
-        if (state.profile.isGoogleSynced) {
-            openProfileModal();
-        } else {
-            triggerGoogleLogin();
-        }
-    });
-
-    if (dom.logoutSettingsBtn) {
-        dom.logoutSettingsBtn.addEventListener('click', () => {
-            if (confirm(`Sign out of ${state.profile.email || 'your account'}?`)) {
-                logoutUserAccount();
-            }
-        });
-    }
-
-    if (dom.switchAccountBtn) {
-        dom.switchAccountBtn.addEventListener('click', () => {
-            openProfileModal();
-        });
-    }
-
-    dom.addNewAccountBtn.addEventListener('click', () => {
-        triggerGoogleLogin();
-    });
-
-    dom.confirmGdrivePermBtn.addEventListener('click', () => {
-        confirmGoogleBackupPermission();
-    });
-
-    dom.skipGdrivePermBtn.addEventListener('click', () => {
+    function closeAllModals() {
+        dom.taskModal.classList.add('hide');
+        dom.profileModal.classList.add('hide');
+        dom.analyticsModal.classList.add('hide');
         dom.gdrivePermissionModal.classList.add('hide');
-    });
+        if (dom.updateModal) dom.updateModal.classList.add('hide');
+    }
 
-    dom.closeGdrivePermModalBtn.addEventListener('click', () => {
-        dom.gdrivePermissionModal.classList.add('hide');
-    });
-
-    dom.gdriveBackupBtn.addEventListener('click', () => {
-        performManualBackup();
-    });
-
-    dom.gdriveRestoreBtn.addEventListener('click', () => {
-        dom.importFileInput.click();
-    });
-
-    // --- LOCAL DATA IMPORT / EXPORT / RESET ---
-    dom.exportDataBtn.addEventListener('click', async () => {
-        const jsonString = JSON.stringify(state, null, 2);
-        const fileName = `routinecraft_backup_${state.profile.name}_${getTodayStr()}.json`;
-
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
-            try {
-                const { Filesystem, Share } = window.Capacitor.Plugins;
-                const result = await Filesystem.writeFile({
-                    path: fileName,
-                    data: jsonString,
-                    directory: 'CACHE',
-                    encoding: 'utf8'
-                });
-                
-                await Share.share({
-                    title: 'RoutineCraft Backup',
-                    text: 'Here is your local JSON backup.',
-                    url: result.uri,
-                    dialogTitle: 'Save or Share Backup'
-                });
-                showToast('Backup shared! 💾');
-            } catch (err) {
-                console.error('Capacitor export error:', err);
-                showToast('Failed to export on mobile.');
-            }
-        } else {
-            // Web / PWA fallback
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", fileName);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-            showToast('Backup file saved! 💾');
+    // --- GITHUB RELEASES IN-APP UPDATE ENGINE ---
+    function isNewerVersion(remoteVer, currentVer) {
+        const r = String(remoteVer).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+        const c = String(currentVer).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+        for (let i = 0; i < Math.max(r.length, c.length); i++) {
+            const rPart = r[i] || 0;
+            const cPart = c[i] || 0;
+            if (rPart > cPart) return true;
+            if (rPart < cPart) return false;
         }
-    });
+        return false;
+    }
 
-    dom.importDataBtn.addEventListener('click', () => {
-        dom.importFileInput.click();
-    });
+    async function checkForAppUpdates(isManual = false) {
+        const repo = (dom.githubRepoInput && dom.githubRepoInput.value.trim()) || DEFAULT_GITHUB_REPO;
+        if (dom.updateStatusText) {
+            dom.updateStatusText.textContent = `Checking GitHub (${repo})...`;
+        }
+        if (isManual) {
+            showToast('Checking GitHub for new APK release... 🔄');
+        }
 
-    dom.importFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const imported = JSON.parse(evt.target.result);
-                if (imported.tasks && imported.profile) {
-                    state.tasks = imported.tasks;
-                    state.profile = imported.profile;
-                    saveState();
-                    applyTheme(state.profile.theme);
-                    renderHeaderProfile();
-                    renderTasks();
-                    closeProfileModal();
-                    showToast('Backup restored successfully! 🎉');
-                    // After restoring data, refresh notifications to reflect new tasks
-                    if (state.profile.notificationsEnabled) {
-                        scheduleNativeLocalNotifications();
-                        scheduleSummaryNotification();
-                    }
+        try {
+            const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+
+            if (response.status === 200) {
+                const release = await response.json();
+                const remoteTag = release.tag_name || release.name || '';
+
+                if (isNewerVersion(remoteTag, APP_RELEASE_VERSION)) {
+                    // Look for APK download asset
+                    const apkAsset = (release.assets || []).find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
+                    const downloadUrl = apkAsset ? apkAsset.browser_download_url : (release.html_url || `https://github.com/${repo}/releases`);
+
+                    if (dom.modalCurrVer) dom.modalCurrVer.textContent = 'v' + APP_RELEASE_VERSION;
+                    if (dom.modalNewVer) dom.modalNewVer.textContent = remoteTag.startsWith('v') ? remoteTag : 'v' + remoteTag;
+                    if (dom.updateReleaseTitle) dom.updateReleaseTitle.textContent = release.name || `Release ${remoteTag}`;
+                    if (dom.updateReleaseNotes) dom.updateReleaseNotes.textContent = release.body || 'New features, bug fixes, and performance updates!';
+                    if (dom.downloadUpdateBtn) dom.downloadUpdateBtn.href = downloadUrl;
+
+                    if (dom.updateModal) dom.updateModal.classList.remove('hide');
+                    if (dom.updateStatusText) dom.updateStatusText.textContent = `New update ${remoteTag} available! 🚀`;
+                    showToast(`New update ${remoteTag} available! 🚀`);
+                    return;
                 } else {
-                    alert('Invalid backup file format.');
+                    if (dom.updateStatusText) dom.updateStatusText.textContent = `Up to date (v${APP_RELEASE_VERSION}) on GitHub`;
+                    if (isManual) {
+                        showToast(`You have the latest version (v${APP_RELEASE_VERSION})! ✨`);
+                    }
+                    return;
                 }
-            } catch (err) {
-                alert('Error parsing JSON file.');
-            }
-        };
-        reader.readAsText(file);
-    });
-
-    dom.resetDataBtn.addEventListener('click', () => {
-        if (confirm(`Reset tasks for ${state.profile.name}?`)) {
-            state.tasks = [...DEFAULT_TASKS];
-            saveState();
-            renderTasks();
-            closeProfileModal();
-            showToast('Reset to starter tasks!');
-        }
-    });
-
-    // --- OPEN STATS ANALYTICS DASHBOARD MODAL ---
-    function showHeatmapDayDetail(dateStr) {
-        if (!dom.heatmapDayDetail) return;
-        const d = new Date(dateStr + 'T00:00:00');
-        const formattedDate = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        
-        dom.heatmapDetailDate.textContent = formattedDate;
-        dom.heatmapDetailTasksList.innerHTML = '';
-
-        const matchingTasks = state.tasks.filter(t => {
-            return isTaskScheduledForDate(t, dateStr) || 
-                   (t.completed && ((t.completedAt && t.completedAt.startsWith(dateStr)) || t.dueDate === dateStr));
-        });
-
-        if (matchingTasks.length === 0) {
-            const historyCount = (state.profile.completionHistory && state.profile.completionHistory[dateStr]) || 0;
-            if (historyCount > 0) {
-                dom.heatmapDetailTasksList.innerHTML = `<div style="color:var(--text-muted); padding:4px 0;"><i class="fa-solid fa-check" style="color:var(--accent-success);"></i> ${historyCount} completed tasks recorded in history.</div>`;
-            } else {
-                dom.heatmapDetailTasksList.innerHTML = `<div style="color:var(--text-muted); padding:4px 0;">No tasks recorded for this day.</div>`;
-            }
-        } else {
-            matchingTasks.forEach(task => {
-                const item = document.createElement('div');
-                item.style.display = 'flex';
-                item.style.alignItems = 'center';
-                item.style.justifyContent = 'space-between';
-                item.style.padding = '4px 0';
-                item.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <i class="${task.completed ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}" style="color:${task.completed ? 'var(--accent-success)' : 'var(--text-muted)'};"></i>
-                        <span style="text-decoration:${task.completed ? 'line-through' : 'none'}; color:${task.completed ? 'var(--text-secondary)' : 'var(--text-primary)'};">${escapeHtml(task.title)}</span>
-                    </div>
-                    <span style="font-size:0.72rem; color:var(--text-secondary);">${task.dueTime || ''}</span>
-                `;
-                dom.heatmapDetailTasksList.appendChild(item);
-            });
-        }
-
-        dom.heatmapDayDetail.classList.remove('hide');
-    }
-
-    function renderHistoryLog() {
-        if (!dom.historyDaysList) return;
-        dom.historyDaysList.innerHTML = '';
-
-        const allRecordedDates = new Set(state.profile.completedDates || []);
-        if (state.profile.completionHistory) {
-            Object.keys(state.profile.completionHistory).forEach(d => allRecordedDates.add(d));
-        }
-        state.tasks.forEach(t => {
-            if (t.dueDate) allRecordedDates.add(t.dueDate);
-            if (t.completedAt) allRecordedDates.add(t.completedAt.split('T')[0]);
-        });
-
-        const sortedDates = Array.from(allRecordedDates)
-            .filter(d => Boolean(d) && d <= getTodayStr())
-            .sort((a, b) => b.localeCompare(a));
-
-        if (dom.historyTotalDaysCount) {
-            dom.historyTotalDaysCount.textContent = `${sortedDates.length} Days Recorded`;
-        }
-
-        if (sortedDates.length === 0) {
-            dom.historyDaysList.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:0.85rem;">No past activity recorded yet. Complete tasks to build your history!</div>`;
-            return;
-        }
-
-        sortedDates.slice(0, 30).forEach(dayStr => {
-            const d = new Date(dayStr + 'T00:00:00');
-            const dayFormatted = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
-            
-            const dayTasks = state.tasks.filter(t => {
-                return (t.dueDate === dayStr) || (t.completed && t.completedAt && t.completedAt.startsWith(dayStr));
-            });
-
-            const completedCount = dayTasks.filter(t => t.completed).length || (state.profile.completionHistory && state.profile.completionHistory[dayStr]) || 0;
-            const totalCount = Math.max(dayTasks.length, completedCount);
-
-            const card = document.createElement('div');
-            card.className = 'history-day-card';
-            card.style.cursor = 'pointer';
-
-            let tasksListPreview = '';
-            if (dayTasks.length > 0) {
-                tasksListPreview = dayTasks.slice(0, 3).map(t => `
-                    <div class="history-task-item">
-                        <i class="${t.completed ? 'fa-solid fa-check' : 'fa-regular fa-circle'}"></i>
-                        <span style="text-decoration:${t.completed ? 'line-through' : 'none'};">${escapeHtml(t.title)}</span>
-                    </div>
-                `).join('');
-                if (dayTasks.length > 3) {
-                    tasksListPreview += `<span style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">+${dayTasks.length - 3} more tasks</span>`;
+            } else if (response.status === 404) {
+                if (dom.updateStatusText) dom.updateStatusText.textContent = `No releases published on ${repo} yet.`;
+                if (isManual) {
+                    showToast(`No releases published on GitHub yet. You are on v${APP_RELEASE_VERSION}.`);
                 }
-            } else if (completedCount > 0) {
-                tasksListPreview = `<div class="history-task-item"><i class="fa-solid fa-check"></i> <span>${completedCount} tasks completed</span></div>`;
-            }
-
-            card.innerHTML = `
-                <div class="history-day-header">
-                    <span class="history-day-title">${dayStr === getTodayStr() ? "Today (" + dayFormatted + ")" : dayFormatted}</span>
-                    <span class="history-day-badge">${completedCount} / ${totalCount} Done</span>
-                </div>
-                <div>${tasksListPreview}</div>
-            `;
-
-            card.addEventListener('click', () => {
-                showHeatmapDayDetail(dayStr);
-            });
-
-            dom.historyDaysList.appendChild(card);
-        });
-    }
-
-    function openAnalyticsModal() {
-        closeAllModals();
-        setActiveNav('analytics');
-        renderStatsMilestones();
-        renderOverallProgressCard();
-        renderWeeklyPlannerGrid();
-        renderHistoryLog();
-
-        if (dom.heatmapDayDetail) dom.heatmapDayDetail.classList.add('hide');
-
-        dom.heatmapGrid.innerHTML = '';
-        for (let i = 29; i >= 0; i--) {
-            const tile = document.createElement('div');
-            const tileDate = getPastDateStr(i);
-            let count = 0;
-            if (tileDate === getTodayStr()) {
-                count = state.tasks.filter(t => t.completed && isTaskToday(t)).length;
             } else {
-                const tasksDoneOnDate = state.tasks.filter(t => t.completed && ((t.completedAt && t.completedAt.startsWith(tileDate)) || t.dueDate === tileDate)).length;
-                const historyCount = (state.profile.completionHistory && state.profile.completionHistory[tileDate]) || 0;
-                count = Math.max(tasksDoneOnDate, historyCount);
+                if (dom.updateStatusText) dom.updateStatusText.textContent = `GitHub status: ${response.statusText}`;
+                if (isManual) {
+                    showToast(`GitHub status: ${response.statusText}`);
+                }
             }
-
-            let lvlClass = 'lvl-0';
-            if (count > 0 && count <= 2) {
-                lvlClass = 'lvl-1';
-            } else if (count >= 3 && count <= 4) {
-                lvlClass = 'lvl-2';
-            } else if (count >= 5) {
-                lvlClass = 'lvl-3';
+        } catch (err) {
+            console.warn('Update check failed:', err);
+            if (dom.updateStatusText) dom.updateStatusText.textContent = 'Could not connect to GitHub. Check internet.';
+            if (isManual) {
+                showToast('Could not check updates. Check your internet connection.');
             }
-
-            tile.className = `heatmap-tile ${lvlClass}`;
-            tile.title = `${tileDate}: ${count} task${count === 1 ? '' : 's'} completed (Click to inspect)`;
-            tile.style.cursor = 'pointer';
-            tile.addEventListener('click', () => {
-                showHeatmapDayDetail(tileDate);
-            });
-            dom.heatmapGrid.appendChild(tile);
         }
-
-        dom.categoryBarsContainer.innerHTML = '';
-        Object.keys(CATEGORIES).forEach(catKey => {
-            const catInfo = CATEGORIES[catKey];
-            const catTasks = state.tasks.filter(t => t.category === catKey);
-            const catTotal = catTasks.length;
-            const catDone = catTasks.filter(t => t.completed).length;
-            const catPct = catTotal === 0 ? 0 : Math.round((catDone / catTotal) * 100);
-
-            const item = document.createElement('div');
-            item.className = 'category-bar-item';
-            item.innerHTML = `
-                <div class="cat-bar-header">
-                    <span><i class="fa-solid ${catInfo.icon}"></i> ${catInfo.label}</span>
-                    <span>${catDone}/${catTotal} (${catPct}%)</span>
-                </div>
-                <div class="cat-bar-track">
-                    <div class="cat-bar-fill" style="width: ${catPct}%;"></div>
-                </div>
-            `;
-            dom.categoryBarsContainer.appendChild(item);
-        });
-
-        dom.analyticsModal.classList.remove('hide');
     }
 
-    function closeAnalyticsModal() {
-        if (dom.analyticsModal) dom.analyticsModal.classList.add('hide');
-        setActiveNav('tasks');
-    }
-
-    // --- EVENT LISTENERS ---
+    // --- EVENT LISTENERS SETUP ---
     function setupEventListeners() {
+        // In-App Updates Listeners
+        if (dom.checkUpdatesBtn) {
+            dom.checkUpdatesBtn.addEventListener('click', () => checkForAppUpdates(true));
+        }
+        if (dom.closeUpdateModalBtn) {
+            dom.closeUpdateModalBtn.addEventListener('click', () => dom.updateModal.classList.add('hide'));
+        }
+        if (dom.dismissUpdateBtn) {
+            dom.dismissUpdateBtn.addEventListener('click', () => dom.updateModal.classList.add('hide'));
+        }
+        // Quick Add Listeners
+        if (dom.quickAddSubmitBtn) {
+            dom.quickAddSubmitBtn.addEventListener('click', handleQuickAdd);
+        }
+        if (dom.quickTaskInput) {
+            dom.quickTaskInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleQuickAdd();
+                }
+            });
+        }
+
+        // Reschedule All Overdue to Today
+        if (dom.rescheduleAllBtn) {
+            dom.rescheduleAllBtn.addEventListener('click', rescheduleAllOverdueToToday);
+        }
+
+        // Search Input
         dom.searchInput.addEventListener('input', (e) => {
             state.searchQuery = e.target.value;
             if (state.searchQuery) dom.clearSearchBtn.classList.remove('hide');
@@ -3082,6 +1454,7 @@
             renderTasks();
         });
 
+        // Category Chips
         dom.categoriesContainer.querySelectorAll('.category-chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 dom.categoriesContainer.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
@@ -3091,6 +1464,7 @@
             });
         });
 
+        // Filter Tabs
         dom.filterTabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 dom.filterTabs.forEach(t => t.classList.remove('active'));
@@ -3100,6 +1474,7 @@
             });
         });
 
+        // Sort Menu
         dom.sortTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
             dom.sortMenu.classList.toggle('hide');
@@ -3120,286 +1495,323 @@
             });
         });
 
+        // FAB and Add Buttons
         dom.fabAddBtn.addEventListener('click', () => openTaskModal());
         dom.emptyAddBtn.addEventListener('click', () => openTaskModal());
         dom.closeTaskModalBtn.addEventListener('click', closeTaskModal);
         dom.cancelTaskBtn.addEventListener('click', closeTaskModal);
 
-        // Firebase Auth Modal Listeners
-        if (dom.closeAuthModalBtn) dom.closeAuthModalBtn.addEventListener('click', closeAuthModal);
-
-        if (dom.googleLoginModalBtn) {
-            dom.googleLoginModalBtn.addEventListener('click', function() {
-                if (navigator.onLine === false) {
-                    showAuthError('⚠️ Internet connection required to sign in with Google. Please reconnect and try again.');
-                    return;
-                }
-                var fb = window.RC_FIREBASE;
-                if (fb && typeof fb.signInWithGoogle === 'function') {
-                    fb.signInWithGoogle()
-                        .then(function(user) {
-                            if (user) {
-                                handleFirebaseUserAuthenticated(user);
-                                closeAuthModal();
-                            }
-                        })
-                        .catch(function(err) {
-                            const errStr = (err && err.message) ? err.message : String(err);
-                            showAuthError(errStr || 'Google Sign-In failed');
-                        });
-                } else if (typeof firebase !== 'undefined' && firebase.auth) {
-                    var provider = new firebase.auth.GoogleAuthProvider();
-                    firebase.auth().signInWithPopup(provider)
-                        .then(function(result) {
-                            if (result && result.user) {
-                                handleFirebaseUserAuthenticated(result.user);
-                                closeAuthModal();
-                            }
-                        })
-                        .catch(function(err) {
-                            const errStr = (err && err.message) ? err.message : String(err);
-                            showAuthError(errStr || 'Google Sign-In failed');
-                        });
-                } else {
-                    showAuthError('Google Sign-In service is initializing. Please tap again in a moment.');
-                }
+        // Date Presets in Modal
+        dom.datePresetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const preset = btn.dataset.preset;
+                if (preset === 'today') dom.taskDateInput.value = getTodayStr();
+                else if (preset === 'tomorrow') dom.taskDateInput.value = getFutureDateStr(1);
+                else if (preset === 'in3days') dom.taskDateInput.value = getFutureDateStr(3);
+                else if (preset === 'nextweek') dom.taskDateInput.value = getFutureDateStr(7);
             });
-        }
+        });
 
-        // Copy SHA-1 fingerprint button
-        if (dom.copySha1Btn) {
-            dom.copySha1Btn.addEventListener('click', function() {
-                const sha1 = '5F:F3:25:F5:62:8F:C7:71:B6:12:83:56:C8:38:AB:FF:88:4D:42:43';
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(sha1).then(function() {
-                        showToast('SHA-1 copied to clipboard! 📋');
-                    }).catch(function() {
-                        showToast('SHA-1: ' + sha1);
-                    });
-                } else {
-                    showToast('SHA-1: ' + sha1);
-                }
-            });
-        }
-
-        // Quick Connect Google Email fallback button
-        if (dom.fallbackEmailLoginBtn) {
-            dom.fallbackEmailLoginBtn.addEventListener('click', function() {
-                const emailInput = dom.fallbackEmailInput;
-                const email = emailInput ? emailInput.value.trim() : '';
-                if (!email || !email.includes('@')) {
-                    showToast('Please enter a valid Google email address.');
-                    return;
-                }
-                var fb = window.RC_FIREBASE;
-                if (fb && typeof fb.connectWithGoogleEmail === 'function') {
-                    fb.connectWithGoogleEmail(email)
-                        .then(function(user) {
-                            handleFirebaseUserAuthenticated(user);
-                            closeAuthModal();
-                        })
-                        .catch(function(err) {
-                            showAuthError(err.message || 'Connection failed.');
-                        });
-                } else {
-                    handleFirebaseUserAuthenticated({ email: email, displayName: email.split('@')[0] });
-                    closeAuthModal();
-                }
-            });
-        }
-
-        dom.profileTrigger.addEventListener('click', openProfileModal);
-        dom.closeProfileModalBtn.addEventListener('click', closeProfileModal);
-        dom.quickThemeBtn.addEventListener('click', openProfileModal);
-        dom.streakBtn.addEventListener('click', openAnalyticsModal);
-
-        dom.closeAnalyticsModalBtn.addEventListener('click', closeAnalyticsModal);
-        dom.closeAnalyticsBtn.addEventListener('click', closeAnalyticsModal);
-
-        // Focus Modal Controls
-        FocusEngine.init();
-        if (dom.closeFocusModalBtn) {
-            dom.closeFocusModalBtn.addEventListener('click', () => {
-                FocusEngine.close();
-                setActiveNav('tasks');
-            });
-        }
-        if (dom.focusToggleBtn) {
-            dom.focusToggleBtn.addEventListener('click', () => {
-                FocusEngine.toggle();
-            });
-        }
-        if (dom.focusResetBtn) {
-            dom.focusResetBtn.addEventListener('click', () => {
-                FocusEngine.reset();
-            });
-        }
-        if (dom.focusModesTabs && dom.focusModesTabs.length > 0) {
-            dom.focusModesTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    FocusEngine.setMode(tab.dataset.focusMode);
-                });
-            });
-        }
-        if (dom.focusSoundChips && dom.focusSoundChips.length > 0) {
-            dom.focusSoundChips.forEach(chip => {
-                chip.addEventListener('click', () => {
-                    FocusEngine.setAmbient(chip.dataset.sound);
-                });
-            });
-        }
-        if (dom.focusTaskSelect) {
-            dom.focusTaskSelect.addEventListener('change', (e) => {
-                FocusEngine.activeTaskId = e.target.value;
-            });
-        }
-
-        // Export Actions
-        if (dom.exportCsvBtn) {
-            dom.exportCsvBtn.addEventListener('click', exportTasksToCSV);
-        }
-        if (dom.exportNotionBtn) {
-            dom.exportNotionBtn.addEventListener('click', exportTasksToNotion);
-        }
-        if (dom.printPdfReportBtn) {
-            dom.printPdfReportBtn.addEventListener('click', printMonthlyReport);
-        }
-
-        if (dom.bottomNavItems && dom.bottomNavItems.length > 0) {
-            dom.bottomNavItems.forEach(nav => {
-                nav.addEventListener('click', () => {
-                    const view = nav.dataset.nav;
-                    closeAllModals();
-                    setActiveNav(view);
-
-                    if (view === 'tasks') {
-                        renderTasks();
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    } else if (view === 'focus') {
-                        FocusEngine.open();
-                    } else if (view === 'analytics') {
-                        openAnalyticsModal();
-                    } else if (view === 'settings') {
-                        openProfileModal();
-                    }
-                });
-            });
-        }
-
-        // Enhanced Stats Time-Range Switcher
-        if (dom.statsTimeRangeTabs && dom.statsTimeRangeTabs.length > 0) {
-            dom.statsTimeRangeTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    dom.statsTimeRangeTabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    state.statsTimeRange = tab.dataset.statsRange || 'week';
-                    renderOverallProgressCard();
-                });
-            });
-        }
-
-        if (dom.closeHeatmapDetailBtn) {
-            dom.closeHeatmapDetailBtn.addEventListener('click', () => {
-                if (dom.heatmapDayDetail) dom.heatmapDayDetail.classList.add('hide');
-            });
-        }
-
-        // Native Android Notification Action Buttons Handler: [Mark Done] / [Snooze 15m]
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
-            try {
-                window.Capacitor.Plugins.LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
-                    const { actionId, notification } = notificationAction;
-                    const taskId = notification?.extra?.taskId;
-                    if (actionId === 'MARK_DONE' && taskId) {
-                        const task = state.tasks.find(t => t.id === taskId);
-                        if (task) {
-                            task.completed = true;
-                            task.completedAt = new Date().toISOString();
-                            updateStreakAndHistory();
-                            saveState();
-                            renderTasks();
-                            AudioEngine.playTaskComplete();
-                            showToast(`✅ "${task.title}" marked as complete!`);
-                        }
-                    } else if (actionId === 'SNOOZE_15' && taskId) {
-                        const task = state.tasks.find(t => t.id === taskId);
-                        if (task) {
-                            const snoozeDate = new Date(Date.now() + 15 * 60 * 1000);
-                            window.Capacitor.Plugins.LocalNotifications.schedule({
-                                notifications: [
-                                    {
-                                        id: Math.abs(hashCode(taskId + '_snooze')),
-                                        title: '⏰ Snoozed: ' + task.title,
-                                        body: 'Snoozed task reminder',
-                                        schedule: { at: snoozeDate },
-                                        channelId: 'task_reminder',
-                                        actionTypeId: 'TASK_REMINDER_ACTIONS',
-                                        extra: { taskId: task.id }
-                                    }
-                                ]
-                            }).catch(() => {});
-                            showToast(`⏰ "${task.title}" snoozed for 15 minutes.`);
-                        }
-                    }
-                });
-            } catch(err) {
-                console.warn('Action listener error:', err);
-            }
-        }
-
-        // Online / Offline real-time network connection monitoring
-        window.addEventListener('online', function() { updateNetworkStatus(true); });
-        window.addEventListener('offline', function() { updateNetworkStatus(true); });
-
-        // Auto-refresh notifications, midnight reset, and network status on app resume / screen unlock
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'visible') {
-                updateNetworkStatus(false);
-                checkDailyReset();
-                updateStreakAndHistory();
-                renderHeaderProfile();
-                renderTasks();
-                scheduleNativeLocalNotifications();
-                scheduleSummaryNotification();
+        // Subtask Input Keyboard & Button
+        dom.addSubtaskBtn.addEventListener('click', handleAddSubtask);
+        dom.subtaskBuilderInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddSubtask();
             }
         });
 
-        // Handle notification clicks routed from the Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.addEventListener('message', function(event) {
-                if (event.data && event.data.type === 'NOTIF_CLICK') {
-                    var channelId = event.data.channelId;
-                    if (channelId === 'summary') {
-                        openAnalyticsModal();
-                    } else if (channelId === 'backup_completed') {
-                        openProfileModal();
-                    } else {
-                        // task_reminder — ensure today view is active
-                        state.activeFilter = 'today';
-                        dom.filterTabs.forEach(function(t) {
-                            if (t.dataset.filter === 'today') t.classList.add('active');
-                            else t.classList.remove('active');
-                        });
+        // Task Form Submit
+        dom.taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = dom.taskIdInput.value;
+            const title = dom.taskTitleInput.value.trim();
+            const category = dom.taskCategorySelect.value;
+            const priority = dom.taskPrioritySelect.value;
+            const dueDate = dom.taskDateInput.value || getTodayStr();
+            const dueTime = dom.taskTimeInput.value;
+            const recurring = dom.taskRecurringSelect.value;
+
+            if (!title) return;
+
+            if (id) {
+                const task = state.tasks.find(t => t.id === id);
+                if (task) {
+                    task.title = title;
+                    task.category = category;
+                    task.priority = priority;
+                    task.dueDate = dueDate;
+                    task.dueTime = dueTime;
+                    task.recurring = recurring;
+                    task.subtasks = [...state.tempSubtasks];
+                }
+                showToast('Task updated!');
+            } else {
+                const newTask = {
+                    id: 'task-' + Date.now(),
+                    title: title,
+                    category: category,
+                    priority: priority,
+                    dueDate: dueDate,
+                    dueTime: dueTime,
+                    recurring: recurring,
+                    completed: false,
+                    completedAt: null,
+                    createdAt: new Date().toISOString(),
+                    subtasks: [...state.tempSubtasks]
+                };
+                state.tasks.unshift(newTask);
+
+                if (dueDate > getTodayStr()) {
+                    showToast(`Scheduled for ${dueDate}! 🗓️`);
+                } else {
+                    showToast('Task added to Today! 🎯');
+                }
+            }
+
+            saveState();
+            renderTasks();
+            checkReminderNotification();
+            checkAutoBackupSchedule();
+            closeTaskModal();
+        });
+
+        // Notification Permission Toggle
+        dom.notifyBtn.addEventListener('click', () => {
+            if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                    state.profile.notificationsEnabled = !state.profile.notificationsEnabled;
+                    saveState();
+                    renderHeaderProfile();
+                    showToast(state.profile.notificationsEnabled ? 'Reminders enabled! 🔔' : 'Reminders muted');
+                } else {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            state.profile.notificationsEnabled = true;
+                            saveState();
+                            renderHeaderProfile();
+                            showToast('Desktop notifications enabled! 🔔');
+                        } else {
+                            showToast('Notification permission denied.');
+                        }
+                    });
+                }
+            } else {
+                showToast('Notifications not supported in this browser.');
+            }
+        });
+
+        dom.dismissReminderBtn.addEventListener('click', () => {
+            dom.reminderBanner.classList.add('hide');
+        });
+
+        // Profile, Theme & Account Controls
+        dom.profileTrigger.addEventListener('click', openProfileModal);
+        dom.closeProfileModalBtn.addEventListener('click', closeProfileModal);
+        dom.quickThemeBtn.addEventListener('click', toggleThemeMode);
+        dom.streakBtn.addEventListener('click', openAnalyticsModal);
+        dom.closeAnalyticsModalBtn.addEventListener('click', closeAnalyticsModal);
+        dom.closeAnalyticsBtn.addEventListener('click', closeAnalyticsModal);
+
+        dom.avatarOpts.forEach(opt => {
+            opt.addEventListener('click', () => {
+                dom.avatarOpts.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                state.profile.avatar = opt.dataset.avatar;
+            });
+        });
+
+        dom.themeModeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyTheme(btn.dataset.themeMode);
+                saveState();
+            });
+        });
+
+        dom.saveProfileBtn.addEventListener('click', () => {
+            state.profile.name = dom.profileNameInput.value.trim() || 'Productivity Hero';
+            state.profile.backupFrequency = dom.backupFrequencySelect.value;
+            saveState();
+            renderHeaderProfile();
+            closeProfileModal();
+            showToast('Profile & Settings saved! ✅');
+        });
+
+        // Google Account Modal Controls (No browser prompt)
+        dom.headerGoogleLoginBtn.addEventListener('click', openGoogleLoginModal);
+        dom.switchAccountBtn.addEventListener('click', openProfileModal);
+        dom.addNewAccountBtn.addEventListener('click', openGoogleLoginModal);
+        dom.confirmGdrivePermBtn.addEventListener('click', confirmGoogleBackupPermission);
+        dom.skipGdrivePermBtn.addEventListener('click', () => dom.gdrivePermissionModal.classList.add('hide'));
+        dom.closeGdrivePermModalBtn.addEventListener('click', () => dom.gdrivePermissionModal.classList.add('hide'));
+
+        // Preset account buttons in Google modal
+        dom.btnChipAccounts.forEach(chip => {
+            chip.addEventListener('click', () => {
+                const em = chip.dataset.email;
+                if (dom.gdriveEmailInput) dom.gdriveEmailInput.value = em;
+            });
+        });
+
+        // Backup & Restore
+        dom.gdriveBackupBtn.addEventListener('click', performManualBackup);
+        dom.gdriveRestoreBtn.addEventListener('click', () => dom.importFileInput.click());
+        dom.exportDataBtn.addEventListener('click', performManualBackup);
+        dom.importDataBtn.addEventListener('click', () => dom.importFileInput.click());
+
+        dom.importFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const imported = JSON.parse(evt.target.result);
+                    if (imported.tasks && imported.profile) {
+                        state.tasks = imported.tasks;
+                        state.profile = imported.profile;
+                        if (imported.history) state.history = imported.history;
+                        saveState();
+                        applyTheme(state.profile.theme);
+                        renderHeaderProfile();
                         renderTasks();
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        closeProfileModal();
+                        showToast('Backup restored successfully! 🎉');
+                    } else {
+                        alert('Invalid backup file format.');
+                    }
+                } catch (err) {
+                    alert('Error parsing JSON file.');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        dom.resetDataBtn.addEventListener('click', () => {
+            if (confirm(`Reset all tasks for ${state.profile.name} to defaults?`)) {
+                state.tasks = [...DEFAULT_TASKS];
+                saveState();
+                renderTasks();
+                closeProfileModal();
+                showToast('Reset to starter tasks!');
+            }
+        });
+
+        // Bottom Navigation Bar with Clean Modal Switch
+        dom.bottomNavItems.forEach(nav => {
+            nav.addEventListener('click', () => {
+                dom.bottomNavItems.forEach(n => n.classList.remove('active'));
+                nav.classList.add('active');
+                const view = nav.dataset.nav;
+
+                closeAllModals();
+
+                if (view === 'tasks') {
+                    renderTasks();
+                } else if (view === 'analytics') {
+                    openAnalyticsModal();
+                } else if (view === 'settings') {
+                    openProfileModal();
+                }
+            });
+        });
+
+        // Dismiss modals when tapping backdrop outside the sheet/card (Native Android touch habit)
+        [dom.taskModal, dom.profileModal, dom.analyticsModal, dom.updateModal, dom.gdrivePermissionModal].forEach(overlay => {
+            if (!overlay) return;
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.add('hide');
+                }
+            });
+        });
+
+        // Android Hardware & Gesture Back Button Support
+        function handleAndroidBack() {
+            const modals = [
+                dom.taskModal,
+                dom.profileModal,
+                dom.analyticsModal,
+                dom.updateModal,
+                dom.gdrivePermissionModal
+            ];
+            const openModal = modals.filter(m => m && !m.classList.contains('hide')).pop();
+            if (openModal) {
+                openModal.classList.add('hide');
+                return true;
+            }
+
+            if (dom.sortMenu && !dom.sortMenu.classList.contains('hide')) {
+                dom.sortMenu.classList.add('hide');
+                return true;
+            }
+
+            // If not on tasks tab, return to Tasks tab first
+            const activeNav = Array.from(dom.bottomNavItems).find(n => n.classList.contains('active'));
+            if (activeNav && activeNav.dataset.nav !== 'tasks') {
+                const tasksNavBtn = Array.from(dom.bottomNavItems).find(n => n.dataset.nav === 'tasks');
+                if (tasksNavBtn) tasksNavBtn.click();
+                return true;
+            }
+
+            return false;
+        }
+
+        // Capacitor App back button event
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+            window.Capacitor.Plugins.App.addListener('backButton', ({ canGoBack }) => {
+                const handled = handleAndroidBack();
+                if (!handled) {
+                    if (canGoBack) {
+                        window.history.back();
+                    } else {
+                        window.Capacitor.Plugins.App.exitApp();
                     }
                 }
             });
         }
+
+        // Cordova / Standard Android Back Button
+        document.addEventListener('backbutton', (e) => {
+            if (handleAndroidBack()) {
+                e.preventDefault();
+            }
+        });
+
+        // Browser history popstate (handles edge swipe back on mobile Chrome / WebViews)
+        window.addEventListener('popstate', () => {
+            handleAndroidBack();
+        });
     }
 
+    // --- TOAST NOTIFICATIONS & FEEDBACK ---
     function showToast(msg) {
         const toast = document.createElement('div');
         toast.className = 'toast';
-        toast.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--accent-success);"></i> ${msg}`;
+        toast.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--accent-success);"></i> <span>${msg}</span>`;
         dom.toastContainer.appendChild(toast);
-        setTimeout(() => {
+        setTimeout(() => toast.remove(), 3200);
+    }
+
+    function showToastWithUndo(msg, undoCallback) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = `
+            <i class="fa-solid fa-trash-can" style="color:var(--accent-danger);"></i>
+            <span>${msg}</span>
+            <button class="toast-undo-btn">Undo</button>
+        `;
+        const undoBtn = toast.querySelector('.toast-undo-btn');
+        undoBtn.addEventListener('click', () => {
+            undoCallback();
             toast.remove();
-        }, 3000);
+        });
+        dom.toastContainer.appendChild(toast);
+        setTimeout(() => toast.remove(), 4500);
     }
 
     function escapeHtml(str) {
-        return str.replace(/[&<>"']/g, function (m) {
+        if (!str) return '';
+        return String(str).replace(/[&<>"']/g, function (m) {
             return {
                 '&': '&amp;',
                 '<': '&lt;',
@@ -3410,6 +1822,7 @@
         });
     }
 
+    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
