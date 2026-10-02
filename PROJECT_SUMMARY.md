@@ -1,5 +1,5 @@
 # RoutineCraft - Complete Project Status & Session Summary
-**Current Version**: `v2.1.0` (Build 21)  
+**Current Version**: `v2.2.0` (Build 22)  
 **Generated**: October 2, 2026  
 **Repository**: [shinchan2222/TODO_LIST-APP](https://github.com/shinchan2222/TODO_LIST-APP)  
 **Local Project Directory**: `c:\Users\Naveen\OneDrive\Desktop\daily todo checklist`
@@ -8,11 +8,14 @@
 
 ## 📌 Executive Summary
 
-RoutineCraft has been updated to **v2.1.0 (Build 21)**. In this release:
-- **Interface Customization Toggles in Settings**: Added dedicated options in Settings to show or hide the Category Filters (`All`, `Morning`, `Work`, `Health`, `Personal`, `Evening`) and the Quick-Add Task Bar.
-- **Native Full Page Views**: Stats & Activity and Settings & Preferences have been converted from floating modal sheets into full native page views that transition in-place with the bottom navigation bar.
-- **Apple Reminders & Things 3 Minimal Design**: Clean typography, linear progress bar, subtle card styling, and decluttered header.
-- **Accurate Timezone & Recurrence Core**: Robust daily checklist logic, persistent completed tasks, and offline-first data synchronization.
+RoutineCraft has been updated to **v2.2.0 (Build 22)**. In this release:
+- **Minimalist Focus / Pomodoro Mode**: Built-in 25-minute focus session timer with animated circular progress ring, audio chime, and session completion celebration.
+- **Mobile Swipe Gestures**: Swipe right to complete tasks instantly with haptic feedback; swipe left to reveal quick reschedule (to tomorrow) and delete actions.
+- **Drag-and-Drop Task Reordering**: Intuitive drag handle on each task card allowing users to order today's tasks by priority.
+- **Custom Category Tags**: Full category manager in Settings with icon and color pickers, dynamic filtering, and custom tag support.
+- **Daily Morning Digest Notification**: Automated daily briefing reminder at user-configured morning time summarizing scheduled tasks.
+- **Interface Customization Toggles**: Ability in Settings to show or hide Category Filters and the Quick-Add Task Bar.
+- **Native Full Page Views**: Stats & Activity and Settings & Preferences open directly as full native page views that transition in-place with the bottom navigation bar.
 
 ---
 

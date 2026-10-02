@@ -1623,3 +1623,308 @@ body {
     from { transform: translateY(-10px) scale(0.95); opacity: 0; }
     to { transform: translateY(0) scale(1); opacity: 1; }
 }
+
+/* --- 8. SWIPE ACTIONS & DRAG AND DROP --- */
+.task-card {
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+}
+
+.task-card-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    position: relative;
+    z-index: 2;
+    background: var(--card-bg);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.task-card.completed .task-card-inner {
+    background: var(--bg-primary);
+}
+
+.task-card.is-swiping .task-card-inner {
+    transition: none;
+}
+
+.task-card.drag-over {
+    border-top: 2px solid var(--accent-primary);
+    transform: translateY(2px);
+}
+
+.task-card.is-dragging {
+    opacity: 0.4;
+    border: 2px dashed var(--accent-primary);
+}
+
+.drag-handle {
+    cursor: grab;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 3px 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.35;
+    transition: opacity var(--transition-fast);
+    flex-shrink: 0;
+    touch-action: none;
+    margin-top: 2px;
+}
+
+.task-card:hover .drag-handle,
+.drag-handle:active {
+    opacity: 0.9;
+}
+
+.swipe-reveal-left,
+.swipe-reveal-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    z-index: 1;
+}
+
+.swipe-reveal-left {
+    left: 0;
+    background: var(--accent-success);
+    color: #ffffff;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    gap: 6px;
+}
+
+.swipe-reveal-right {
+    right: 0;
+    background: var(--bg-secondary);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.swipe-action-btn {
+    border: none;
+    border-radius: var(--radius-full);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    cursor: pointer;
+    color: #fff;
+    transition: transform var(--transition-fast);
+}
+
+.swipe-action-btn:active {
+    transform: scale(0.9);
+}
+
+.swipe-action-reschedule {
+    background: var(--accent-warning);
+}
+
+.swipe-action-delete {
+    background: var(--accent-danger);
+}
+
+/* --- 9. FOCUS / POMODORO MODAL --- */
+.focus-modal-card {
+    max-width: 380px;
+    text-align: center;
+    padding: 24px;
+}
+
+.focus-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--accent-primary);
+    background: var(--accent-light);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+}
+
+.focus-task-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 14px 0 20px 0;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.focus-timer-ring-container {
+    position: relative;
+    width: 190px;
+    height: 190px;
+    margin: 0 auto 20px auto;
+}
+
+.focus-ring-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.focus-ring-bg {
+    fill: none;
+    stroke: var(--input-bg);
+    stroke-width: 8;
+}
+
+.focus-ring-fill {
+    fill: none;
+    stroke: var(--accent-primary);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+.focus-timer-display {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.focus-time-text {
+    font-family: var(--font-family-heading);
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: var(--text-primary);
+}
+
+.focus-status-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.focus-presets {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.btn-focus-preset {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-focus-preset.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #ffffff;
+}
+
+.focus-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.btn-focus-toggle {
+    padding: 10px 28px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- 10. CATEGORIES MANAGEMENT IN SETTINGS --- */
+.categories-list-manage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.cat-manage-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.cat-manage-item .cat-delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    margin-left: 2px;
+    font-size: 0.72rem;
+}
+
+.cat-manage-item .cat-delete-btn:hover {
+    color: var(--accent-danger);
+}
+
+.category-icon-picker,
+.category-color-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cat-icon-opt {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.cat-icon-opt.active {
+    background: var(--accent-light);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.cat-color-opt {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.cat-color-opt.active {
+    transform: scale(1.15);
+    border-color: var(--text-primary);
+}

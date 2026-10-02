@@ -7,8 +7,8 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 21;
-    const APP_RELEASE_VERSION = '2.1.0';
+    const APP_VERSION = 22;
+    const APP_RELEASE_VERSION = '2.2.0';
     const DEFAULT_GITHUB_REPO = 'shinchan2222/TODO_LIST-APP';
 
     // --- ACCURATE LOCAL DATE HELPERS (TIMEZONE AWARE) ---
@@ -201,6 +201,7 @@
         profile: usersStore[activeEmail].profile,
         tasks: usersStore[activeEmail].tasks,
         history: usersStore[activeEmail].history || {},
+        customCategories: usersStore[activeEmail].customCategories || {},
         activeCategory: 'all',
         activeFilter: 'today',
         searchQuery: '',
@@ -218,6 +219,9 @@
     // Migrate: ensure new interface prefs exist for existing users
     if (state.profile.showCategoryFilters === undefined) state.profile.showCategoryFilters = true;
     if (state.profile.showQuickAddBar === undefined) state.profile.showQuickAddBar = true;
+    if (state.profile.dailyDigestEnabled === undefined) state.profile.dailyDigestEnabled = false;
+    if (!state.profile.dailyDigestTime) state.profile.dailyDigestTime = '08:00';
+    if (!state.customCategories) state.customCategories = {};
 
     // Ensure all tasks have proper dueDates
     state.tasks.forEach(t => {
@@ -225,13 +229,23 @@
     });
 
     // --- CATEGORY CONFIGURATION ---
-    const CATEGORIES = {
-        morning: { label: 'Morning Routine', icon: 'fa-sun', color: '#fbbf24' },
-        work: { label: 'Work & Study', icon: 'fa-briefcase', color: '#60a5fa' },
-        health: { label: 'Health & Fitness', icon: 'fa-heart-pulse', color: '#34d399' },
-        personal: { label: 'Personal Growth', icon: 'fa-user', color: '#a78bfa' },
-        evening: { label: 'Evening Routine', icon: 'fa-moon', color: '#f472b6' }
+    const DEFAULT_CATEGORIES = {
+        morning: { label: 'Morning', icon: 'fa-sun', color: '#fbbf24' },
+        work: { label: 'Work', icon: 'fa-briefcase', color: '#60a5fa' },
+        health: { label: 'Health', icon: 'fa-heart-pulse', color: '#34d399' },
+        personal: { label: 'Personal', icon: 'fa-user', color: '#a78bfa' },
+        evening: { label: 'Evening', icon: 'fa-moon', color: '#f472b6' }
     };
+
+    function getAllCategories() {
+        return { ...DEFAULT_CATEGORIES, ...(state.customCategories || {}) };
+    }
+
+    const CATEGORIES = new Proxy({}, {
+        get: (target, prop) => getAllCategories()[prop]
+    });
+
+    let draggedTaskId = null;
 
     // --- DOM REFERENCES ---
     const dom = {
@@ -380,11 +394,14 @@
         applyTheme(state.profile.theme);
         updateGreeting();
         renderHeaderProfile();
+        renderCategoryFilters();
+        renderCategorySelectOptions();
         renderTasks();
         applyInterfacePrefs();
         renderAccountStatusBar();
         checkAutoBackupSchedule();
         checkReminderNotification();
+        checkDailyDigestNotification();
 
         if (dom.currentVersionDisplay) {
             dom.currentVersionDisplay.textContent = 'v' + APP_RELEASE_VERSION;
@@ -403,7 +420,8 @@
         usersStore[activeEmail] = {
             profile: state.profile,
             tasks: state.tasks,
-            history: state.history || {}
+            history: state.history || {},
+            customCategories: state.customCategories || {}
         };
         try {
             localStorage.setItem('routinecraft_users', JSON.stringify(usersStore));
@@ -861,7 +879,7 @@
 
         // Category Breakdown
         dom.categoryBarsContainer.innerHTML = '';
-        Object.keys(CATEGORIES).forEach(catKey => {
+        Object.keys(getAllCategories()).forEach(catKey => {
             const catInfo = CATEGORIES[catKey];
             const catTasks = state.tasks.filter(t => t.category === catKey);
             const catTotal = catTasks.length;
@@ -1060,12 +1078,276 @@
         updateProgressCard();
     }
 
+    // --- CATEGORY RENDERING & MANAGEMENT ---
+    function renderCategoryFilters() {
+        if (!dom.categoriesContainer) return;
+        const allCats = getAllCategories();
+        dom.categoriesContainer.innerHTML = '';
+
+        const allChip = document.createElement('button');
+        allChip.className = `category-chip ${state.activeCategory === 'all' ? 'active' : ''}`;
+        allChip.dataset.category = 'all';
+        allChip.textContent = 'All';
+        allChip.addEventListener('click', () => {
+            dom.categoriesContainer.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+            allChip.classList.add('active');
+            state.activeCategory = 'all';
+            renderTasks();
+        });
+        dom.categoriesContainer.appendChild(allChip);
+
+        Object.entries(allCats).forEach(([key, cat]) => {
+            const chip = document.createElement('button');
+            chip.className = `category-chip ${state.activeCategory === key ? 'active' : ''}`;
+            chip.dataset.category = key;
+            chip.innerHTML = `<i class="fa-solid ${cat.icon}"></i> ${cat.label}`;
+            chip.addEventListener('click', () => {
+                dom.categoriesContainer.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                state.activeCategory = key;
+                renderTasks();
+            });
+            dom.categoriesContainer.appendChild(chip);
+        });
+    }
+
+    function renderCategorySelectOptions() {
+        if (!dom.taskCategorySelect) return;
+        const currentVal = dom.taskCategorySelect.value;
+        const allCats = getAllCategories();
+        dom.taskCategorySelect.innerHTML = '';
+        Object.entries(allCats).forEach(([key, cat]) => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = `${cat.label}`;
+            dom.taskCategorySelect.appendChild(opt);
+        });
+        if (allCats[currentVal]) {
+            dom.taskCategorySelect.value = currentVal;
+        }
+    }
+
+    function renderCategoriesManageList() {
+        const container = document.getElementById('categories-manage-list');
+        if (!container) return;
+        container.innerHTML = '';
+        const allCats = getAllCategories();
+
+        Object.entries(allCats).forEach(([key, cat]) => {
+            const isPreset = Boolean(DEFAULT_CATEGORIES[key]);
+            const item = document.createElement('div');
+            item.className = 'cat-manage-item';
+            item.innerHTML = `
+                <i class="fa-solid ${cat.icon}" style="color:${cat.color || 'var(--accent-primary)'};"></i>
+                <span>${escapeHtml(cat.label)}</span>
+                ${!isPreset ? `<button type="button" class="cat-delete-btn" data-key="${key}" title="Delete Category"><i class="fa-solid fa-xmark"></i></button>` : ''}
+            `;
+            if (!isPreset) {
+                item.querySelector('.cat-delete-btn').addEventListener('click', () => {
+                    deleteCustomCategory(key);
+                });
+            }
+            container.appendChild(item);
+        });
+    }
+
+    function deleteCustomCategory(key) {
+        if (!state.customCategories || !state.customCategories[key]) return;
+        const name = state.customCategories[key].label;
+        delete state.customCategories[key];
+        if (state.activeCategory === key) state.activeCategory = 'all';
+        saveState();
+        renderCategoryFilters();
+        renderCategorySelectOptions();
+        renderCategoriesManageList();
+        renderTasks();
+        showToast(`Category "${name}" removed`);
+    }
+
+    // --- DRAG & DROP REORDERING ---
+    function reorderTasks(draggedId, targetId) {
+        const fromIndex = state.tasks.findIndex(t => t.id === draggedId);
+        const toIndex = state.tasks.findIndex(t => t.id === targetId);
+        if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+
+        const [movedTask] = state.tasks.splice(fromIndex, 1);
+        state.tasks.splice(toIndex, 0, movedTask);
+        saveState();
+        renderTasks();
+        if (navigator.vibrate) navigator.vibrate(25);
+        showToast('Task order updated! 📌');
+    }
+
+    // --- FOCUS / POMODORO TIMER ENGINE ---
+    let focusState = {
+        taskId: null,
+        taskTitle: '',
+        totalSeconds: 25 * 60,
+        remainingSeconds: 25 * 60,
+        isRunning: false,
+        intervalId: null
+    };
+
+    function playFocusChime() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, now); // D5
+            osc.frequency.exponentialRampToValueAtTime(880, now + 0.3); // A5
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 1.2);
+        } catch (e) {
+            // Audio context not available
+        }
+    }
+
+    function openFocusModal(task) {
+        focusState.taskId = task.id;
+        focusState.taskTitle = task.title;
+        focusState.totalSeconds = 25 * 60;
+        focusState.remainingSeconds = 25 * 60;
+        focusState.isRunning = false;
+        clearInterval(focusState.intervalId);
+
+        const modal = document.getElementById('focus-modal');
+        const titleEl = document.getElementById('focus-task-title');
+        const toggleIcon = document.getElementById('focus-toggle-icon');
+        const toggleLabel = document.getElementById('focus-toggle-label');
+        const statusLabel = document.getElementById('focus-status-label');
+
+        if (titleEl) titleEl.textContent = task.title;
+        if (toggleIcon) toggleIcon.className = 'fa-solid fa-play';
+        if (toggleLabel) toggleLabel.textContent = 'Start Focus';
+        if (statusLabel) statusLabel.textContent = 'Ready to Focus';
+
+        document.querySelectorAll('.btn-focus-preset').forEach(b => {
+            b.classList.toggle('active', b.dataset.minutes === '25');
+        });
+
+        updateFocusTimerDisplay();
+        if (modal) modal.classList.remove('hide');
+    }
+
+    function closeFocusModal() {
+        const modal = document.getElementById('focus-modal');
+        if (modal) modal.classList.add('hide');
+        if (focusState.isRunning) {
+            clearInterval(focusState.intervalId);
+            focusState.isRunning = false;
+        }
+    }
+
+    function updateFocusTimerDisplay() {
+        const timeText = document.getElementById('focus-time-text');
+        const ringFill = document.getElementById('focus-ring-fill');
+        const mins = Math.floor(focusState.remainingSeconds / 60);
+        const secs = focusState.remainingSeconds % 60;
+        const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+        if (timeText) timeText.textContent = timeStr;
+
+        if (ringFill) {
+            const circumference = 2 * Math.PI * 88; // ~553
+            const progress = (focusState.totalSeconds - focusState.remainingSeconds) / focusState.totalSeconds;
+            const offset = circumference * (1 - progress);
+            ringFill.style.strokeDashoffset = offset;
+        }
+    }
+
+    function toggleFocusTimer() {
+        const toggleIcon = document.getElementById('focus-toggle-icon');
+        const toggleLabel = document.getElementById('focus-toggle-label');
+        const statusLabel = document.getElementById('focus-status-label');
+
+        if (focusState.isRunning) {
+            clearInterval(focusState.intervalId);
+            focusState.isRunning = false;
+            if (toggleIcon) toggleIcon.className = 'fa-solid fa-play';
+            if (toggleLabel) toggleLabel.textContent = 'Resume';
+            if (statusLabel) statusLabel.textContent = 'Paused';
+        } else {
+            focusState.isRunning = true;
+            if (toggleIcon) toggleIcon.className = 'fa-solid fa-pause';
+            if (toggleLabel) toggleLabel.textContent = 'Pause';
+            if (statusLabel) statusLabel.textContent = 'Session Active';
+
+            focusState.intervalId = setInterval(() => {
+                if (focusState.remainingSeconds > 0) {
+                    focusState.remainingSeconds--;
+                    updateFocusTimerDisplay();
+                } else {
+                    clearInterval(focusState.intervalId);
+                    focusState.isRunning = false;
+                    playFocusChime();
+                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                    if (statusLabel) statusLabel.textContent = 'Session Complete! 🎉';
+                    if (toggleIcon) toggleIcon.className = 'fa-solid fa-play';
+                    if (toggleLabel) toggleLabel.textContent = 'Start Focus';
+
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('Focus Session Complete! 🏆', {
+                            body: `Awesome job! You completed a focus session for "${focusState.taskTitle}".`,
+                            icon: 'assets/icon/favicon.png'
+                        });
+                    }
+                    showToast('Focus session complete! 🎉 Great job!');
+                }
+            }, 1000);
+        }
+    }
+
+    function resetFocusTimer() {
+        clearInterval(focusState.intervalId);
+        focusState.isRunning = false;
+        focusState.remainingSeconds = focusState.totalSeconds;
+        const toggleIcon = document.getElementById('focus-toggle-icon');
+        const toggleLabel = document.getElementById('focus-toggle-label');
+        const statusLabel = document.getElementById('focus-status-label');
+        if (toggleIcon) toggleIcon.className = 'fa-solid fa-play';
+        if (toggleLabel) toggleLabel.textContent = 'Start Focus';
+        if (statusLabel) statusLabel.textContent = 'Ready to Focus';
+        updateFocusTimerDisplay();
+    }
+
+    // --- DAILY MORNING DIGEST NOTIFICATION ---
+    function checkDailyDigestNotification() {
+        if (!state.profile.dailyDigestEnabled) return;
+        const today = getTodayStr();
+        if (state.profile.lastDigestDate === today) return;
+
+        const now = new Date();
+        const currentHH = String(now.getHours()).padStart(2, '0');
+        const currentMM = String(now.getMinutes()).padStart(2, '0');
+        const currentTime = `${currentHH}:${currentMM}`;
+        const targetTime = state.profile.dailyDigestTime || '08:00';
+
+        if (currentTime >= targetTime) {
+            const todayCount = state.tasks.filter(t => isTaskToday(t) && !t.completed).length;
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('☀️ RoutineCraft Daily Briefing', {
+                    body: `Good morning! You have ${todayCount} task${todayCount === 1 ? '' : 's'} scheduled for today.`,
+                    icon: 'assets/icon/favicon.png'
+                });
+            }
+            state.profile.lastDigestDate = today;
+            saveState();
+        }
+    }
+
     function createTaskCardElement(task) {
         const card = document.createElement('div');
         const overdue = isTaskOverdue(task);
         const upcoming = isTaskUpcoming(task);
         card.className = `task-card ${task.completed ? 'completed' : ''} ${overdue ? 'is-overdue' : ''}`;
         card.dataset.id = task.id;
+        card.setAttribute('draggable', 'true');
 
         const catInfo = CATEGORIES[task.category] || { label: task.category, icon: 'fa-tag' };
         const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
@@ -1097,7 +1379,13 @@
         }
 
         card.innerHTML = `
-            <div class="task-card-main">
+            <div class="swipe-reveal-left"><i class="fa-solid fa-check"></i> <span>Complete</span></div>
+            <div class="swipe-reveal-right">
+                <button type="button" class="swipe-action-btn swipe-action-reschedule" data-action="reschedule" title="Postpone to Tomorrow"><i class="fa-solid fa-calendar-plus"></i></button>
+                <button type="button" class="swipe-action-btn swipe-action-delete" data-action="delete" title="Delete Task"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+            <div class="task-card-inner">
+                <div class="drag-handle" title="Hold & drag to reorder"><i class="fa-solid fa-grip-vertical"></i></div>
                 <input type="checkbox" class="custom-checkbox task-main-checkbox" ${task.completed ? 'checked' : ''}>
                 <div class="task-content">
                     <div class="task-title">${escapeHtml(task.title)}</div>
@@ -1114,8 +1402,9 @@
                 </div>
                 <div class="task-actions">
                     ${quickDateActionBtn}
-                    <button class="action-btn edit-btn" title="Edit Task"><i class="fa-solid fa-pen"></i></button>
-                    <button class="action-btn delete-btn" title="Delete Task"><i class="fa-solid fa-trash-can"></i></button>
+                    <button type="button" class="action-btn focus-btn" title="Focus Timer (Pomodoro)"><i class="fa-solid fa-stopwatch"></i></button>
+                    <button type="button" class="action-btn edit-btn" title="Edit Task"><i class="fa-solid fa-pen"></i></button>
+                    <button type="button" class="action-btn delete-btn" title="Delete Task"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             </div>
         `;
@@ -1153,6 +1442,14 @@
             });
         }
 
+        // Focus button listener
+        const focusBtn = card.querySelector('.focus-btn');
+        if (focusBtn) {
+            focusBtn.addEventListener('click', () => {
+                openFocusModal(task);
+            });
+        }
+
         // Edit button
         card.querySelector('.edit-btn').addEventListener('click', () => {
             openTaskModal(task);
@@ -1161,6 +1458,99 @@
         // Delete button with undo option
         card.querySelector('.delete-btn').addEventListener('click', () => {
             deleteTask(task.id);
+        });
+
+        // --- SWIPE GESTURE INTERACTIONS ---
+        const inner = card.querySelector('.task-card-inner');
+        let startX = 0;
+        let startY = 0;
+        let currentDiffX = 0;
+
+        inner.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.drag-handle') || e.target.closest('.custom-checkbox') || e.target.closest('.action-btn')) return;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            currentDiffX = 0;
+        }, { passive: true });
+
+        inner.addEventListener('touchmove', (e) => {
+            if (!startX) return;
+            const diffX = e.touches[0].clientX - startX;
+            const diffY = e.touches[0].clientY - startY;
+
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+                card.classList.add('is-swiping');
+                currentDiffX = Math.max(-100, Math.min(110, diffX));
+                inner.style.transform = `translateX(${currentDiffX}px)`;
+            }
+        }, { passive: true });
+
+        inner.addEventListener('touchend', () => {
+            card.classList.remove('is-swiping');
+            if (currentDiffX > 75) {
+                inner.style.transform = 'translateX(100%)';
+                if (navigator.vibrate) navigator.vibrate(35);
+                setTimeout(() => {
+                    toggleTaskComplete(task.id, !task.completed);
+                }, 180);
+            } else if (currentDiffX < -60) {
+                inner.style.transform = 'translateX(-85px)';
+            } else {
+                inner.style.transform = '';
+            }
+            startX = 0;
+            currentDiffX = 0;
+        });
+
+        inner.addEventListener('click', () => {
+            if (inner.style.transform && inner.style.transform !== 'translateX(0px)') {
+                inner.style.transform = '';
+            }
+        });
+
+        // Swipe Action Buttons (Reschedule / Delete)
+        card.querySelector('.swipe-action-reschedule').addEventListener('click', () => {
+            task.dueDate = getFutureDateStr(1);
+            saveState();
+            renderTasks();
+            showToast(`Postponed "${task.title}" to Tomorrow! 🗓️`);
+        });
+
+        card.querySelector('.swipe-action-delete').addEventListener('click', () => {
+            deleteTask(task.id);
+        });
+
+        // --- DRAG AND DROP REORDERING LISTENERS ---
+        card.addEventListener('dragstart', (e) => {
+            draggedTaskId = task.id;
+            card.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', task.id);
+        });
+
+        card.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            card.classList.add('drag-over');
+        });
+
+        card.addEventListener('dragleave', () => {
+            card.classList.remove('drag-over');
+        });
+
+        card.addEventListener('drop', (e) => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            const targetId = card.dataset.id;
+            if (draggedTaskId && targetId && draggedTaskId !== targetId) {
+                reorderTasks(draggedTaskId, targetId);
+            }
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('is-dragging');
+            document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drag-over'));
+            draggedTaskId = null;
         });
 
         return card;
@@ -1303,6 +1693,7 @@
     function openTaskModal(taskToEdit = null) {
         state.tempSubtasks = [];
         dom.subtaskBuilderList.innerHTML = '';
+        renderCategorySelectOptions();
 
         if (taskToEdit) {
             dom.modalHeading.textContent = 'Edit Task';
@@ -1406,6 +1797,17 @@
         const qaToggle = document.getElementById('toggle-quick-add-bar');
         if (catToggle) catToggle.checked = state.profile.showCategoryFilters !== false;
         if (qaToggle) qaToggle.checked = state.profile.showQuickAddBar !== false;
+
+        // Render categories management list in Settings
+        renderCategoriesManageList();
+
+        // Sync Daily Digest Notification settings
+        const digestToggle = document.getElementById('toggle-daily-digest');
+        const digestTimeContainer = document.getElementById('digest-time-container');
+        const digestTimeInput = document.getElementById('digest-time-input');
+        if (digestToggle) digestToggle.checked = Boolean(state.profile.dailyDigestEnabled);
+        if (digestTimeContainer) digestTimeContainer.classList.toggle('hide', !state.profile.dailyDigestEnabled);
+        if (digestTimeInput) digestTimeInput.value = state.profile.dailyDigestTime || '08:00';
     }
 
     // Apply interface preferences to the Tasks page elements
@@ -1433,6 +1835,10 @@
         dom.taskModal.classList.add('hide');
         if (dom.gdrivePermissionModal) dom.gdrivePermissionModal.classList.add('hide');
         if (dom.updateModal) dom.updateModal.classList.add('hide');
+        const focusModal = document.getElementById('focus-modal');
+        if (focusModal) focusModal.classList.add('hide');
+        const catModal = document.getElementById('add-category-modal');
+        if (catModal) catModal.classList.add('hide');
     }
 
     // --- GITHUB RELEASES IN-APP UPDATE ENGINE ---
@@ -1770,6 +2176,120 @@
                 saveState();
                 applyInterfacePrefs();
             }
+            if (e.target.id === 'toggle-daily-digest') {
+                state.profile.dailyDigestEnabled = e.target.checked;
+                const timeBox = document.getElementById('digest-time-container');
+                if (timeBox) timeBox.classList.toggle('hide', !e.target.checked);
+                if (e.target.checked && 'Notification' in window && Notification.permission !== 'granted') {
+                    Notification.requestPermission();
+                }
+                saveState();
+            }
+            if (e.target.id === 'digest-time-input') {
+                state.profile.dailyDigestTime = e.target.value || '08:00';
+                saveState();
+            }
+        });
+
+        // --- Custom Category Modal Listeners ---
+        let selectedCatIcon = 'fa-tag';
+        let selectedCatColor = '#2563eb';
+
+        const openAddCategoryBtn = document.getElementById('open-add-category-btn');
+        const addCategoryModal = document.getElementById('add-category-modal');
+        const closeCategoryModalBtn = document.getElementById('close-category-modal');
+        const cancelCategoryBtn = document.getElementById('cancel-category-btn');
+        const addCategoryForm = document.getElementById('add-category-form');
+        const newCategoryNameInput = document.getElementById('new-category-name');
+
+        if (openAddCategoryBtn) {
+            openAddCategoryBtn.addEventListener('click', () => {
+                selectedCatIcon = 'fa-tag';
+                selectedCatColor = '#2563eb';
+                if (newCategoryNameInput) newCategoryNameInput.value = '';
+                document.querySelectorAll('.cat-icon-opt').forEach(b => b.classList.toggle('active', b.dataset.icon === 'fa-tag'));
+                document.querySelectorAll('.cat-color-opt').forEach(b => b.classList.toggle('active', b.dataset.color === '#2563eb'));
+                if (addCategoryModal) addCategoryModal.classList.remove('hide');
+            });
+        }
+
+        if (closeCategoryModalBtn) {
+            closeCategoryModalBtn.addEventListener('click', () => addCategoryModal.classList.add('hide'));
+        }
+        if (cancelCategoryBtn) {
+            cancelCategoryBtn.addEventListener('click', () => addCategoryModal.classList.add('hide'));
+        }
+
+        document.querySelectorAll('.cat-icon-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.cat-icon-opt').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedCatIcon = btn.dataset.icon || 'fa-tag';
+            });
+        });
+
+        document.querySelectorAll('.cat-color-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.cat-color-opt').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedCatColor = btn.dataset.color || '#2563eb';
+            });
+        });
+
+        if (addCategoryForm) {
+            addCategoryForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = (newCategoryNameInput.value || '').trim();
+                if (!name) return;
+
+                const catKey = 'custom_' + Date.now();
+                if (!state.customCategories) state.customCategories = {};
+                state.customCategories[catKey] = {
+                    label: name,
+                    icon: selectedCatIcon,
+                    color: selectedCatColor
+                };
+
+                saveState();
+                renderCategoryFilters();
+                renderCategorySelectOptions();
+                renderCategoriesManageList();
+                renderTasks();
+                addCategoryModal.classList.add('hide');
+                showToast(`Category "${name}" added! 🏷️`);
+            });
+        }
+
+        // --- Focus Modal Listeners ---
+        const focusModal = document.getElementById('focus-modal');
+        const closeFocusModalBtn = document.getElementById('close-focus-modal');
+        const focusToggleBtn = document.getElementById('focus-toggle-btn');
+        const focusResetBtn = document.getElementById('focus-reset-btn');
+        const focusCompleteBtn = document.getElementById('focus-complete-btn');
+
+        if (closeFocusModalBtn) closeFocusModalBtn.addEventListener('click', closeFocusModal);
+        if (focusToggleBtn) focusToggleBtn.addEventListener('click', toggleFocusTimer);
+        if (focusResetBtn) focusResetBtn.addEventListener('click', resetFocusTimer);
+
+        if (focusCompleteBtn) {
+            focusCompleteBtn.addEventListener('click', () => {
+                if (focusState.taskId) {
+                    toggleTaskComplete(focusState.taskId, true);
+                    playFocusChime();
+                    showToast('Task completed! 🏆 Session saved.');
+                }
+                closeFocusModal();
+            });
+        }
+
+        document.querySelectorAll('.btn-focus-preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.btn-focus-preset').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const mins = parseInt(btn.dataset.minutes, 10) || 25;
+                focusState.totalSeconds = mins * 60;
+                resetFocusTimer();
+            });
         });
 
         // Google Account Modal Controls (No browser prompt)
@@ -1839,7 +2359,7 @@
         });
 
         // Dismiss floating modals when tapping backdrop outside the sheet/card
-        [dom.taskModal, dom.updateModal, dom.gdrivePermissionModal].forEach(overlay => {
+        [dom.taskModal, dom.updateModal, dom.gdrivePermissionModal, document.getElementById('focus-modal'), document.getElementById('add-category-modal')].forEach(overlay => {
             if (!overlay) return;
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) {
@@ -1853,7 +2373,9 @@
             const modals = [
                 dom.taskModal,
                 dom.updateModal,
-                dom.gdrivePermissionModal
+                dom.gdrivePermissionModal,
+                document.getElementById('focus-modal'),
+                document.getElementById('add-category-modal')
             ];
             const openModal = modals.filter(m => m && !m.classList.contains('hide')).pop();
             if (openModal) {

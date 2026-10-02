@@ -231,6 +231,35 @@
                 </div>
             </div>
 
+            <!-- Categories Management -->
+            <div class="settings-group">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h4>Categories</h4>
+                    <button type="button" class="btn btn-secondary btn-sm" id="open-add-category-btn"><i class="fa-solid fa-plus"></i> Add Tag</button>
+                </div>
+                <p class="settings-group-desc">Manage preset and custom tags for your tasks.</p>
+                <div class="categories-list-manage" id="categories-manage-list"></div>
+            </div>
+
+            <!-- Daily Notifications -->
+            <div class="settings-group">
+                <h4>Daily Notifications</h4>
+                <div class="pref-toggle-row">
+                    <div class="pref-toggle-info">
+                        <span class="pref-toggle-label">Morning Task Briefing</span>
+                        <span class="pref-toggle-desc">Daily notification summarizing your tasks</span>
+                    </div>
+                    <label class="toggle-switch" for="toggle-daily-digest">
+                        <input type="checkbox" id="toggle-daily-digest">
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+                <div class="form-group hide" id="digest-time-container" style="margin-top:8px;">
+                    <label for="digest-time-input" style="font-size:0.75rem; color:var(--text-secondary); font-weight:600;">Briefing Time</label>
+                    <input type="time" id="digest-time-input" class="clean-input" value="08:00" style="padding:8px 12px; margin-top:4px;">
+                </div>
+            </div>
+
             <!-- Appearance -->
             <div class="settings-group">
                 <h4>Appearance</h4>
@@ -275,7 +304,7 @@
                 <div class="version-info-card">
                     <div class="version-details">
                         <span class="version-label">RoutineCraft Version</span>
-                        <strong class="version-value" id="current-version-display">v2.1.0</strong>
+                        <strong class="version-value" id="current-version-display">v2.2.0</strong>
                     </div>
                     <button type="button" class="btn btn-secondary check-update-btn" id="check-updates-btn"><i class="fa-solid fa-arrows-rotate"></i> Check Update</button>
                 </div>
@@ -431,12 +460,12 @@
             <div class="modal-body">
                 <div class="update-banner">
                     <div class="version-comparison">
-                        <span class="ver-old" id="modal-curr-ver">v2.1.0</span>
+                        <span class="ver-old" id="modal-curr-ver">v2.2.0</span>
                         <i class="fa-solid fa-arrow-right ver-arrow"></i>
-                        <span class="ver-new" id="modal-new-ver">v2.1.1</span>
+                        <span class="ver-new" id="modal-new-ver">v2.2.1</span>
                     </div>
                 </div>
-                <h4 class="update-release-title" id="update-release-title">Version 2.1.0</h4>
+                <h4 class="update-release-title" id="update-release-title">Version 2.2.0</h4>
                 <div class="release-notes-wrapper">
                     <div class="release-notes-box" id="update-release-notes"></div>
                 </div>
@@ -445,6 +474,86 @@
                 <button type="button" class="btn btn-secondary" id="dismiss-update-btn">Later</button>
                 <a href="#" class="btn btn-primary" id="download-update-btn" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-download"></i> Download APK</a>
             </div>
+        </div>
+    </div>
+
+    <!-- Focus / Pomodoro Modal -->
+    <div class="modal-overlay hide" id="focus-modal">
+        <div class="modal-content glass-card focus-modal-card">
+            <div class="modal-header">
+                <span class="focus-badge"><i class="fa-solid fa-fire"></i> FOCUS SESSION</span>
+                <button class="close-modal-btn" id="close-focus-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="focus-body">
+                <h3 class="focus-task-title" id="focus-task-title">Working on Task</h3>
+                <div class="focus-timer-ring-container">
+                    <svg class="focus-ring-svg" viewBox="0 0 200 200">
+                        <circle class="focus-ring-bg" cx="100" cy="100" r="88" />
+                        <circle class="focus-ring-fill" id="focus-ring-fill" cx="100" cy="100" r="88" stroke-dasharray="553" stroke-dashoffset="0" />
+                    </svg>
+                    <div class="focus-timer-display">
+                        <span class="focus-time-text" id="focus-time-text">25:00</span>
+                        <span class="focus-status-label" id="focus-status-label">Ready to Focus</span>
+                    </div>
+                </div>
+                <div class="focus-presets">
+                    <button type="button" class="btn-focus-preset" data-minutes="15">15m</button>
+                    <button type="button" class="btn-focus-preset active" data-minutes="25">25m</button>
+                    <button type="button" class="btn-focus-preset" data-minutes="45">45m</button>
+                    <button type="button" class="btn-focus-preset" data-minutes="60">60m</button>
+                </div>
+                <div class="focus-actions">
+                    <button type="button" class="btn btn-secondary" id="focus-reset-btn" title="Reset Session"><i class="fa-solid fa-arrow-rotate-left"></i></button>
+                    <button type="button" class="btn btn-primary btn-focus-toggle" id="focus-toggle-btn"><i class="fa-solid fa-play" id="focus-toggle-icon"></i> <span id="focus-toggle-label">Start Focus</span></button>
+                    <button type="button" class="btn btn-secondary" id="focus-complete-btn" title="Mark Task Complete"><i class="fa-solid fa-check"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Custom Category Modal -->
+    <div class="modal-overlay hide" id="add-category-modal">
+        <div class="modal-content glass-card add-category-card" style="max-width:380px;">
+            <div class="modal-header">
+                <h3 class="modal-title">New Category</h3>
+                <button class="close-modal-btn" id="close-category-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="add-category-form" class="modal-form">
+                <div class="form-group">
+                    <label for="new-category-name">Tag Name</label>
+                    <input type="text" id="new-category-name" class="clean-input" placeholder="e.g. Study, Fitness, Coding" required maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label>Choose Icon</label>
+                    <div class="category-icon-picker" id="category-icon-picker">
+                        <button type="button" class="cat-icon-opt active" data-icon="fa-tag"><i class="fa-solid fa-tag"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-book"><i class="fa-solid fa-book"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-code"><i class="fa-solid fa-code"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-dumbbell"><i class="fa-solid fa-dumbbell"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-cart-shopping"><i class="fa-solid fa-cart-shopping"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-graduation-cap"><i class="fa-solid fa-graduation-cap"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-laptop-code"><i class="fa-solid fa-laptop-code"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-wallet"><i class="fa-solid fa-wallet"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-music"><i class="fa-solid fa-music"></i></button>
+                        <button type="button" class="cat-icon-opt" data-icon="fa-plane"><i class="fa-solid fa-plane"></i></button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Choose Color</label>
+                    <div class="category-color-picker" id="category-color-picker">
+                        <button type="button" class="cat-color-opt active" data-color="#2563eb" style="background:#2563eb;"></button>
+                        <button type="button" class="cat-color-opt" data-color="#10b981" style="background:#10b981;"></button>
+                        <button type="button" class="cat-color-opt" data-color="#f59e0b" style="background:#f59e0b;"></button>
+                        <button type="button" class="cat-color-opt" data-color="#8b5cf6" style="background:#8b5cf6;"></button>
+                        <button type="button" class="cat-color-opt" data-color="#ec4899" style="background:#ec4899;"></button>
+                        <button type="button" class="cat-color-opt" data-color="#06b6d4" style="background:#06b6d4;"></button>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-category-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="save-category-btn">Add Category</button>
+                </div>
+            </form>
         </div>
     </div>
 
