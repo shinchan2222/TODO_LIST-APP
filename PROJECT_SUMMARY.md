@@ -1,17 +1,22 @@
 # RoutineCraft - Complete Project Status & Session Summary
-**Current Version**: `v2.2.0` (Build 22)  
-**Last Updated**: October 2, 2026 (Evening Session)  
+**Current Version**: `v2.2.1` (Build 23)  
+**Last Updated**: October 3, 2026 (Morning Session)  
 **Repository**: [shinchan2222/TODO_LIST-APP](https://github.com/shinchan2222/TODO_LIST-APP)  
-**Live Release**: [RoutineCraft v2.2.0 (Build 22)](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.2.0)  
+**Live Release**: [RoutineCraft v2.2.1 (Build 23)](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.2.1)  
 **Local Project Directory**: `c:\Users\Naveen\OneDrive\Desktop\daily todo checklist`
 
 ---
 
 ## 📌 Executive Summary
 
-Today's session completely overhauled and modernized **RoutineCraft** from a bloated legacy to-do app into a sleek, ultra-clean **Apple Reminders & Things 3 minimal productivity engine**, followed by two major feature and architecture releases (`v2.1.0` and `v2.2.0`).
+Today's session resolved all mobile layout conflicts and visual anomalies identified on real mobile devices:
+- Eliminated the green swipe backdrop leak and box cutouts on task cards by fixing wrapper padding and directional opacity reveals.
+- Added Android edge-to-edge status bar and bottom navigation gesture bar safe area insets.
+- Fixed segmented filter tab collisions and hid the red [0] badge when 0 overdue tasks are pending.
+- Synchronized the Action Items reminder banner dynamically with real-time task completion.
+- Resolved mobile touch drag conflicts with vertical scrolling.
 
-All changes have been developed, styled with responsive CSS, thoroughly verified via browser automation, synced to Capacitor Android assets, committed, tagged, and built into production APKs via GitHub Actions CI/CD.
+All changes have been developed, styled, verified via browser automation, synced to Capacitor Android assets, committed, and tagged as `v2.2.1` (Build 23).
 
 ---
 
@@ -19,6 +24,7 @@ All changes have been developed, styled with responsive CSS, thoroughly verified
 
 | Version | Build | Release Date | Key Highlights | GitHub Release |
 | :--- | :---: | :---: | :--- | :---: |
+| **v2.2.1** | **23** | **Oct 3, 2026** | **Mobile Layout & Conflict Resolution**: Fixed green swipe backdrop leak on task cards, added Android status bar & navigation safe area insets, prevented filter tab collisions, added real-time reminder banner syncing, and improved touch scrolling. | [View v2.2.1](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.2.1) |
 | **v2.2.0** | **22** | **Oct 2, 2026** | **Minimalist Focus Pomodoro Timer**, **Mobile Swipe Actions** (swipe-to-complete & swipe-to-reschedule/delete), **Drag-and-Drop Task Reordering**, **Custom Category Manager** (with 10 icons & 6 color pickers), and **Daily Morning Briefing Notification**. | [View v2.2.0](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.2.0) |
 | **v2.1.0** | **21** | **Oct 2, 2026** | **Settings Interface Toggles** (show/hide Category Filters & Quick-Add Bar) and **Native Full Page Navigation** (Stats & Settings as full native page views instead of popup sheets). | [View v2.1.0](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.1.0) |
 | **v2.0.0** | **20** | **Oct 2, 2026** | **Apple Reminders / Things 3 Minimal Redesign**, timezone-safe date engine, persistent completed tasks under "Completed Today", linear progress bar, high-contrast Light/Dark modes, mobile safe-area insets, and Android back button handling. | [View v2.0.0](https://github.com/shinchan2222/TODO_LIST-APP/releases/tag/v2.0.0) |
