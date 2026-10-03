@@ -7,8 +7,8 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 22;
-    const APP_RELEASE_VERSION = '2.2.0';
+    const APP_VERSION = 23;
+    const APP_RELEASE_VERSION = '2.2.1';
     const DEFAULT_GITHUB_REPO = 'shinchan2222/TODO_LIST-APP';
 
     // --- ACCURATE LOCAL DATE HELPERS (TIMEZONE AWARE) ---
@@ -390,6 +390,14 @@
 
     // --- APP INITIALIZATION ---
     function init() {
+        const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        const isCapacitor = window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform();
+
+        if (isCapacitor || isStandalone || isMobileDevice) {
+            document.documentElement.classList.add('is-mobile-app');
+        }
+
         checkDailyReset();
         applyTheme(state.profile.theme);
         updateGreeting();
@@ -686,8 +694,22 @@
         if (dom.tasksTodayPendingCount) dom.tasksTodayPendingCount.textContent = todayPending;
         if (dom.tasksOverduePendingCount) dom.tasksOverduePendingCount.textContent = overduePending;
         if (dom.tasksDoneCount) dom.tasksDoneCount.textContent = completedToday;
-        if (dom.overdueTabCount) dom.overdueTabCount.textContent = overduePending;
-        if (dom.upcomingTabCount) dom.upcomingTabCount.textContent = upcomingPending;
+        if (dom.overdueTabCount) {
+            dom.overdueTabCount.textContent = overduePending;
+            if (overduePending > 0) {
+                dom.overdueTabCount.classList.remove('hide');
+            } else {
+                dom.overdueTabCount.classList.add('hide');
+            }
+        }
+        if (dom.upcomingTabCount) {
+            dom.upcomingTabCount.textContent = upcomingPending;
+            if (upcomingPending > 0) {
+                dom.upcomingTabCount.classList.remove('hide');
+            } else {
+                dom.upcomingTabCount.classList.add('hide');
+            }
+        }
 
         if (dom.overdueActionBanner && dom.overdueBannerCount) {
             dom.overdueBannerCount.textContent = overduePending;
@@ -722,6 +744,7 @@
             dom.progressCircle.style.strokeDashoffset = offset;
         }
         if (dom.streakCount) dom.streakCount.textContent = state.profile.streak || 0;
+        checkReminderNotification();
     }
 
     // --- REAL ANALYTICS DASHBOARD ENGINE ---
@@ -1347,7 +1370,10 @@
         const upcoming = isTaskUpcoming(task);
         card.className = `task-card ${task.completed ? 'completed' : ''} ${overdue ? 'is-overdue' : ''}`;
         card.dataset.id = task.id;
-        card.setAttribute('draggable', 'true');
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (!isTouch) {
+            card.setAttribute('draggable', 'true');
+        }
 
         const catInfo = CATEGORIES[task.category] || { label: task.category, icon: 'fa-tag' };
         const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
@@ -1479,6 +1505,13 @@
             const diffY = e.touches[0].clientY - startY;
 
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+                if (diffX > 0) {
+                    card.classList.add('is-swiping-right');
+                    card.classList.remove('is-swiping-left');
+                } else {
+                    card.classList.add('is-swiping-left');
+                    card.classList.remove('is-swiping-right');
+                }
                 card.classList.add('is-swiping');
                 currentDiffX = Math.max(-100, Math.min(110, diffX));
                 inner.style.transform = `translateX(${currentDiffX}px)`;
@@ -1486,25 +1519,29 @@
         }, { passive: true });
 
         inner.addEventListener('touchend', () => {
-            card.classList.remove('is-swiping');
+            card.classList.remove('is-swiping', 'is-swiping-left', 'is-swiping-right');
             if (currentDiffX > 75) {
                 inner.style.transform = 'translateX(100%)';
-                if (navigator.vibrate) navigator.vibrate(35);
+                card.classList.remove('swipe-revealed');
+                if (navigator.vibrate) try { navigator.vibrate(35); } catch(e) {}
                 setTimeout(() => {
                     toggleTaskComplete(task.id, !task.completed);
                 }, 180);
             } else if (currentDiffX < -60) {
                 inner.style.transform = 'translateX(-85px)';
+                card.classList.add('swipe-revealed');
             } else {
                 inner.style.transform = '';
+                card.classList.remove('swipe-revealed');
             }
             startX = 0;
             currentDiffX = 0;
         });
 
         inner.addEventListener('click', () => {
-            if (inner.style.transform && inner.style.transform !== 'translateX(0px)') {
+            if (card.classList.contains('swipe-revealed') || (inner.style.transform && inner.style.transform !== 'translateX(0px)')) {
                 inner.style.transform = '';
+                card.classList.remove('swipe-revealed');
             }
         });
 
@@ -1679,11 +1716,16 @@
 
     // --- REMINDER BANNER ---
     function checkReminderNotification() {
+        if (!dom.reminderBanner) return;
+        if (state.reminderDismissedToday) {
+            dom.reminderBanner.classList.add('hide');
+            return;
+        }
         const todayPending = state.tasks.filter(t => !t.completed && isTaskToday(t));
         if (todayPending.length > 0) {
             dom.reminderBanner.classList.remove('hide');
-            dom.reminderTitle.textContent = `Today's Action Items (${todayPending.length})`;
-            dom.reminderDesc.textContent = `Next task: "${todayPending[0].title}"`;
+            if (dom.reminderTitle) dom.reminderTitle.textContent = `Today's Action Items (${todayPending.length})`;
+            if (dom.reminderDesc) dom.reminderDesc.textContent = `Next task: "${todayPending[0].title}"`;
         } else {
             dom.reminderBanner.classList.add('hide');
         }
@@ -2124,6 +2166,7 @@
         });
 
         dom.dismissReminderBtn.addEventListener('click', () => {
+            state.reminderDismissedToday = true;
             dom.reminderBanner.classList.add('hide');
         });
 

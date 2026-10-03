@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2.2.1">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body data-theme="light">
@@ -85,8 +85,8 @@
             </div>
             <div class="filter-tabs segmented-tabs">
                 <button class="tab-btn active" data-filter="today">Today</button>
-                <button class="tab-btn tab-btn-overdue" data-filter="overdue">Overdue <span class="badge-count" id="overdue-tab-count">0</span></button>
-                <button class="tab-btn" data-filter="upcoming">Upcoming <span class="badge-count upcoming-count-badge" id="upcoming-tab-count">0</span></button>
+                <button class="tab-btn tab-btn-overdue" data-filter="overdue">Overdue <span class="badge-count hide" id="overdue-tab-count">0</span></button>
+                <button class="tab-btn" data-filter="upcoming">Upcoming <span class="badge-count upcoming-count-badge hide" id="upcoming-tab-count">0</span></button>
                 <button class="tab-btn" data-filter="all">All</button>
                 <button class="tab-btn" data-filter="completed">Done</button>
             </div>
@@ -116,7 +116,7 @@
             </div>
 
             <div class="section-header">
-                <h3 class="section-title" id="current-view-title">Today''s Checklist</h3>
+                <h3 class="section-title" id="current-view-title">Today's Checklist</h3>
                 <div class="sort-dropdown">
                     <button class="sort-btn" id="sort-trigger" title="Sort options"><i class="fa-solid fa-arrow-down-short-wide"></i></button>
                     <div class="sort-menu hide" id="sort-menu">
@@ -571,6 +571,6 @@
         });
     }
 </script>
-<script src="app.js"></script>
+<script src="app.js?v=2.2.1"></script>
 </body>
 </html>

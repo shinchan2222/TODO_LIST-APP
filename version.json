@@ -1,6 +1,6 @@
 {
-  "version": 22,
-  "versionName": "2.2.0",
-  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/releases/download/v2.2.0/RoutineCraft_v2.2.0.apk",
-  "releaseNotes": "RoutineCraft v2.2.0 (Build 22): Added minimalist Focus Pomodoro mode with calm audio chime, touch swipe gestures (swipe-to-complete & quick actions), drag-and-drop task reordering, custom categories with icon/color pickers, and smart daily morning briefing notifications."
+  "version": 23,
+  "versionName": "2.2.1",
+  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/releases/download/v2.2.1/RoutineCraft_v2.2.1.apk",
+  "releaseNotes": "RoutineCraft v2.2.1 (Build 23): Mobile UI layout and conflict fixes — eliminated green swipe backdrop leaks on task cards, added Android status bar and navigation gesture safe areas, fixed segmented tab badge collisions, resolved mobile touch drag-and-drop conflicts, and ensured real-time Action Items banner updates."
 }
