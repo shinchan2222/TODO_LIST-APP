@@ -1667,34 +1667,55 @@ body {
     transition: none;
 }
 
+.task-card.drag-over-top {
+    border-top: 3px solid var(--accent-primary) !important;
+    transform: translateY(3px);
+    transition: transform 0.15s ease;
+}
+
+.task-card.drag-over-bottom {
+    border-bottom: 3px solid var(--accent-primary) !important;
+    transform: translateY(-3px);
+    transition: transform 0.15s ease;
+}
+
 .task-card.drag-over {
-    border-top: 2px solid var(--accent-primary);
+    border-top: 3px solid var(--accent-primary) !important;
     transform: translateY(2px);
 }
 
 .task-card.is-dragging {
-    opacity: 0.4;
-    border: 2px dashed var(--accent-primary);
+    opacity: 0.55 !important;
+    background: var(--bg-hover) !important;
+    border: 2px dashed var(--accent-primary) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    transform: scale(0.99);
+    z-index: 25;
 }
 
 .drag-handle {
     cursor: grab;
     color: var(--text-muted);
-    font-size: 0.85rem;
-    padding: 3px 2px;
+    font-size: 0.95rem;
+    padding: 8px 10px;
+    margin: -6px 2px -6px -8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.35;
-    transition: opacity var(--transition-fast);
+    opacity: 0.5;
+    transition: opacity var(--transition-fast), color var(--transition-fast), transform 0.15s ease;
     flex-shrink: 0;
     touch-action: none;
-    margin-top: 2px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .task-card:hover .drag-handle,
-.drag-handle:active {
-    opacity: 0.9;
+.drag-handle:active,
+.is-dragging .drag-handle {
+    opacity: 1;
+    color: var(--accent-primary);
+    cursor: grabbing;
 }
 
 .swipe-reveal-left,

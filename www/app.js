@@ -7,8 +7,8 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 23;
-    const APP_RELEASE_VERSION = '2.2.1';
+    const APP_VERSION = 24;
+    const APP_RELEASE_VERSION = '2.3.0';
     const DEFAULT_GITHUB_REPO = 'shinchan2222/TODO_LIST-APP';
 
     // --- ACCURATE LOCAL DATE HELPERS (TIMEZONE AWARE) ---
@@ -42,6 +42,8 @@
         const isWeekend = (day === 0 || day === 6);
         if (recurring === 'weekdays') return !isWeekend;
         if (recurring === 'weekends') return isWeekend;
+        // Weekly: repeat on the same weekday as the task's dueDate
+        if (recurring === 'weekly') return true; // handled via dueDate weekday in isTaskToday
         return false;
     }
 
@@ -49,6 +51,12 @@
         const today = getTodayStr();
         if (task.recurring && task.recurring !== 'none') {
             if (task.dueDate && task.dueDate > today) return false; // future recurring
+            if (task.recurring === 'weekly') {
+                // Same day of week as original dueDate
+                if (!task.dueDate) return false;
+                const origDay = new Date(task.dueDate + 'T00:00:00').getDay();
+                return new Date().getDay() === origDay;
+            }
             return isDayApplicableForRecurrence(task.recurring, new Date());
         }
         return task.dueDate === today;
@@ -388,6 +396,172 @@
         downloadUpdateBtn: document.getElementById('download-update-btn')
     };
 
+    // --- ONBOARDING (first-time users) ---
+    const ONBOARDING_KEY = 'routinecraft_onboarded_v2';
+
+    function showOnboarding() {
+        if (localStorage.getItem(ONBOARDING_KEY)) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'onboarding-overlay';
+        overlay.innerHTML = `
+            <div class="onboarding-card">
+                <div class="onboarding-slides" id="onboarding-slides">
+                    <div class="onboarding-slide active" data-slide="0">
+                        <div class="onboarding-emoji">📋</div>
+                        <h2 class="onboarding-title">Welcome to RoutineCraft</h2>
+                        <p class="onboarding-desc">Your personal daily task manager and habit tracker. Stay on top of your routines with ease.</p>
+                    </div>
+                    <div class="onboarding-slide" data-slide="1">
+                        <div class="onboarding-emoji">👆</div>
+                        <h2 class="onboarding-title">Swipe & Focus</h2>
+                        <p class="onboarding-desc">Swipe right to complete tasks instantly. Swipe left for quick reschedule or delete. Tap ⏱ to start a Pomodoro focus timer.</p>
+                    </div>
+                    <div class="onboarding-slide" data-slide="2">
+                        <div class="onboarding-emoji">🚀</div>
+                        <h2 class="onboarding-title">Build Your Routine</h2>
+                        <p class="onboarding-desc">Use Templates to instantly add a Morning, Work, or Evening routine. Track streaks and celebrate every win!</p>
+                    </div>
+                </div>
+                <div class="onboarding-dots">
+                    <span class="onboarding-dot active" data-dot="0"></span>
+                    <span class="onboarding-dot" data-dot="1"></span>
+                    <span class="onboarding-dot" data-dot="2"></span>
+                </div>
+                <div class="onboarding-actions">
+                    <button class="btn btn-secondary" id="onboarding-skip-btn">Skip</button>
+                    <button class="btn btn-primary" id="onboarding-next-btn">Next <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        let currentSlide = 0;
+        const slides = overlay.querySelectorAll('.onboarding-slide');
+        const dots = overlay.querySelectorAll('.onboarding-dot');
+        const nextBtn = overlay.querySelector('#onboarding-next-btn');
+        const skipBtn = overlay.querySelector('#onboarding-skip-btn');
+
+        function goToSlide(idx) {
+            slides.forEach(s => s.classList.remove('active'));
+            dots.forEach(d => d.classList.remove('active'));
+            slides[idx].classList.add('active');
+            dots[idx].classList.add('active');
+            currentSlide = idx;
+            if (idx === slides.length - 1) {
+                nextBtn.innerHTML = 'Get Started <i class="fa-solid fa-check"></i>';
+            } else {
+                nextBtn.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>';
+            }
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentSlide < slides.length - 1) {
+                goToSlide(currentSlide + 1);
+            } else {
+                dismissOnboarding(overlay);
+            }
+        });
+
+        skipBtn.addEventListener('click', () => dismissOnboarding(overlay));
+        dots.forEach(d => d.addEventListener('click', () => goToSlide(parseInt(d.dataset.dot))));
+    }
+
+    function dismissOnboarding(overlay) {
+        localStorage.setItem(ONBOARDING_KEY, '1');
+        overlay.classList.add('onboarding-exit');
+        setTimeout(() => overlay.remove(), 400);
+    }
+
+    // --- TASK TEMPLATES ---
+    const TASK_TEMPLATES = {
+        morning: [
+            { title: 'Morning meditation (10 min)', category: 'morning', priority: 'medium', dueTime: '06:30', recurring: 'daily' },
+            { title: 'Gym workout & stretch', category: 'health', priority: 'high', dueTime: '07:00', recurring: 'daily' },
+            { title: 'Healthy breakfast', category: 'morning', priority: 'medium', dueTime: '07:45', recurring: 'daily' },
+            { title: 'Review daily goals', category: 'morning', priority: 'high', dueTime: '08:15', recurring: 'daily' },
+            { title: 'Drink 2.5L water', category: 'health', priority: 'medium', dueTime: '09:00', recurring: 'daily' }
+        ],
+        work: [
+            { title: 'Check & respond to emails', category: 'work', priority: 'high', dueTime: '09:00', recurring: 'weekdays' },
+            { title: 'Daily standup / team sync', category: 'work', priority: 'high', dueTime: '10:00', recurring: 'weekdays' },
+            { title: 'Deep work focus block (2h)', category: 'work', priority: 'high', dueTime: '10:30', recurring: 'weekdays' },
+            { title: 'Review & prioritize tasks', category: 'work', priority: 'medium', dueTime: '14:00', recurring: 'weekdays' },
+            { title: 'End-of-day wrap-up & notes', category: 'work', priority: 'medium', dueTime: '17:30', recurring: 'weekdays' }
+        ],
+        evening: [
+            { title: 'Evening walk or light exercise', category: 'health', priority: 'medium', dueTime: '18:30', recurring: 'daily' },
+            { title: 'Cook or prep dinner', category: 'personal', priority: 'medium', dueTime: '19:00', recurring: 'daily' },
+            { title: 'Read 15 pages', category: 'personal', priority: 'medium', dueTime: '20:30', recurring: 'daily' },
+            { title: 'Plan tomorrow\'s tasks', category: 'evening', priority: 'high', dueTime: '21:00', recurring: 'daily' },
+            { title: 'Wind-down: no screens (30 min)', category: 'evening', priority: 'medium', dueTime: '21:30', recurring: 'daily' }
+        ]
+    };
+
+    function applyTemplate(templateKey) {
+        const template = TASK_TEMPLATES[templateKey];
+        if (!template) return;
+        const today = getTodayStr();
+        template.forEach(t => {
+            const newTask = {
+                id: 'task-tmpl-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+                title: t.title,
+                category: t.category,
+                priority: t.priority,
+                dueDate: today,
+                dueTime: t.dueTime || '',
+                recurring: t.recurring || 'none',
+                completed: false,
+                completedAt: null,
+                createdAt: new Date().toISOString(),
+                subtasks: []
+            };
+            state.tasks.push(newTask);
+        });
+        saveState();
+        renderTasks();
+        renderCategoryFilters();
+        showToast(`${templateKey.charAt(0).toUpperCase() + templateKey.slice(1)} routine added! 🎉`);
+    }
+
+    // --- CONFETTI ON 100% COMPLETION ---
+    function launchConfetti() {
+        const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#a855f7'];
+        const container = document.createElement('div');
+        container.className = 'confetti-container';
+        document.body.appendChild(container);
+
+        for (let i = 0; i < 60; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.cssText = [
+                `left: ${Math.random() * 100}%`,
+                `background: ${colors[Math.floor(Math.random() * colors.length)]}`,
+                `width: ${6 + Math.random() * 8}px`,
+                `height: ${8 + Math.random() * 10}px`,
+                `animation-delay: ${Math.random() * 0.8}s`,
+                `animation-duration: ${1.8 + Math.random() * 1.4}s`,
+                `border-radius: ${Math.random() > 0.5 ? '50%' : '2px'}`
+            ].join('; ');
+            container.appendChild(piece);
+        }
+
+        setTimeout(() => container.remove(), 3500);
+        showToast('🎉 All tasks completed! Amazing work today!');
+    }
+
+    let lastCompletionPercent = 0;
+    function checkConfetti() {
+        const today = getTodayStr();
+        const todayTasks = state.tasks.filter(t => isTaskToday(t) || (t.completed && t.completedAt && formatLocalDate(new Date(t.completedAt)) === today));
+        if (todayTasks.length === 0) return;
+        const completedCount = todayTasks.filter(t => t.completed).length;
+        const pct = Math.round((completedCount / todayTasks.length) * 100);
+        if (pct === 100 && lastCompletionPercent < 100) {
+            launchConfetti();
+        }
+        lastCompletionPercent = pct;
+    }
+
     // --- APP INITIALIZATION ---
     function init() {
         const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -410,6 +584,7 @@
         checkAutoBackupSchedule();
         checkReminderNotification();
         checkDailyDigestNotification();
+        setupTemplateButtons();
 
         if (dom.currentVersionDisplay) {
             dom.currentVersionDisplay.textContent = 'v' + APP_RELEASE_VERSION;
@@ -417,10 +592,19 @@
 
         setupEventListeners();
 
+        // Show onboarding for new users
+        setTimeout(() => showOnboarding(), 600);
+
         // Check for updates in the background on startup (silent check)
         setTimeout(() => {
             checkForAppUpdates(false);
         }, 2500);
+    }
+
+    function setupTemplateButtons() {
+        document.querySelectorAll('[data-template]').forEach(btn => {
+            btn.addEventListener('click', () => applyTemplate(btn.dataset.template));
+        });
     }
 
     // --- PERSISTENCE ---
@@ -1188,17 +1372,171 @@
     }
 
     // --- DRAG & DROP REORDERING ---
-    function reorderTasks(draggedId, targetId) {
+    function reorderTasks(draggedId, targetId, insertAfter = false) {
+        if (!draggedId || !targetId || draggedId === targetId) return;
+
         const fromIndex = state.tasks.findIndex(t => t.id === draggedId);
-        const toIndex = state.tasks.findIndex(t => t.id === targetId);
-        if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+        if (fromIndex === -1) return;
+
+        const originalTargetIndex = state.tasks.findIndex(t => t.id === targetId);
+        if (originalTargetIndex === -1) return;
+
+        let destinationIndex = insertAfter ? originalTargetIndex + 1 : originalTargetIndex;
+        if (fromIndex < destinationIndex) {
+            destinationIndex--;
+        }
+
+        if (fromIndex === destinationIndex) return;
 
         const [movedTask] = state.tasks.splice(fromIndex, 1);
-        state.tasks.splice(toIndex, 0, movedTask);
+        state.tasks.splice(destinationIndex, 0, movedTask);
+
+        // Reset sort mode to default so custom drag order takes effect
+        if (state.sortBy !== 'default') {
+            state.sortBy = 'default';
+            if (dom.sortMenu) {
+                dom.sortMenu.querySelectorAll('button').forEach(b => {
+                    b.classList.toggle('active', b.dataset.sort === 'default');
+                });
+            }
+        }
+
         saveState();
         renderTasks();
-        if (navigator.vibrate) navigator.vibrate(25);
+        if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) {}
         showToast('Task order updated! 📌');
+    }
+
+    function attachDragHandleListeners(handle, card, task) {
+        if (!handle || !card || !task) return;
+
+        function startDragging(e) {
+            if (e.type === 'mousedown' && e.button !== 0) return;
+
+            const isTouch = e.type.startsWith('touch');
+            const getPointerCoord = (evt) => {
+                if (evt.touches && evt.touches.length > 0) {
+                    return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
+                }
+                return { x: evt.clientX, y: evt.clientY };
+            };
+
+            const startPos = getPointerCoord(e);
+            let isActivelyDragging = false;
+            let currentTargetCard = null;
+            let currentInsertAfter = false;
+
+            // Close any swipe actions currently revealed
+            document.querySelectorAll('.task-card.swipe-revealed').forEach(c => {
+                c.classList.remove('swipe-revealed');
+                const inEl = c.querySelector('.task-card-inner');
+                if (inEl) inEl.style.transform = '';
+            });
+
+            const scrollContainer = card.closest('.page-view') || document.documentElement;
+
+            function onPointerMove(moveEvt) {
+                const pos = getPointerCoord(moveEvt);
+
+                if (!isActivelyDragging) {
+                    const diffY = Math.abs(pos.y - startPos.y);
+                    const diffX = Math.abs(pos.x - startPos.x);
+                    if (diffY < 6 && diffX < 6) return;
+
+                    isActivelyDragging = true;
+                    card.classList.add('is-dragging');
+                    if (navigator.vibrate) try { navigator.vibrate(25); } catch (err) {}
+                }
+
+                if (moveEvt.cancelable) {
+                    moveEvt.preventDefault();
+                }
+
+                // Smooth auto-scroll when reaching list bounds
+                const containerRect = scrollContainer.getBoundingClientRect();
+                const edgeThreshold = 65;
+                if (pos.y < containerRect.top + edgeThreshold) {
+                    scrollContainer.scrollTop -= 7;
+                } else if (pos.y > containerRect.bottom - edgeThreshold) {
+                    scrollContainer.scrollTop += 7;
+                }
+
+                // Locate target card under pointer
+                const cards = Array.from(dom.taskList.querySelectorAll('.task-card:not(.is-dragging)'));
+                let targetCard = null;
+                let insertAfter = false;
+
+                for (const otherCard of cards) {
+                    const rect = otherCard.getBoundingClientRect();
+                    if (pos.y >= rect.top && pos.y <= rect.bottom) {
+                        targetCard = otherCard;
+                        insertAfter = pos.y > (rect.top + rect.height / 2);
+                        break;
+                    }
+                }
+
+                // Edge cases: dragged above all or below all cards
+                if (!targetCard && cards.length > 0) {
+                    const firstRect = cards[0].getBoundingClientRect();
+                    const lastRect = cards[cards.length - 1].getBoundingClientRect();
+                    if (pos.y < firstRect.top) {
+                        targetCard = cards[0];
+                        insertAfter = false;
+                    } else if (pos.y > lastRect.bottom) {
+                        targetCard = cards[cards.length - 1];
+                        insertAfter = true;
+                    }
+                }
+
+                // Update visual target indicators
+                cards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over'));
+                if (targetCard) {
+                    targetCard.classList.add(insertAfter ? 'drag-over-bottom' : 'drag-over-top');
+                    currentTargetCard = targetCard;
+                    currentInsertAfter = insertAfter;
+                } else {
+                    currentTargetCard = null;
+                }
+            }
+
+            function onPointerUp() {
+                cleanup();
+
+                if (isActivelyDragging) {
+                    card.classList.remove('is-dragging');
+                    document.querySelectorAll('.task-card').forEach(c => {
+                        c.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over');
+                    });
+
+                    if (currentTargetCard && currentTargetCard.dataset.id && currentTargetCard.dataset.id !== task.id) {
+                        reorderTasks(task.id, currentTargetCard.dataset.id, currentInsertAfter);
+                    }
+                }
+            }
+
+            function cleanup() {
+                if (isTouch) {
+                    window.removeEventListener('touchmove', onPointerMove, { passive: false });
+                    window.removeEventListener('touchend', onPointerUp);
+                    window.removeEventListener('touchcancel', onPointerUp);
+                } else {
+                    window.removeEventListener('mousemove', onPointerMove);
+                    window.removeEventListener('mouseup', onPointerUp);
+                }
+            }
+
+            if (isTouch) {
+                window.addEventListener('touchmove', onPointerMove, { passive: false });
+                window.addEventListener('touchend', onPointerUp);
+                window.addEventListener('touchcancel', onPointerUp);
+            } else {
+                window.addEventListener('mousemove', onPointerMove);
+                window.addEventListener('mouseup', onPointerUp);
+            }
+        }
+
+        handle.addEventListener('touchstart', startDragging, { passive: false });
+        handle.addEventListener('mousedown', startDragging);
     }
 
     // --- FOCUS / POMODORO TIMER ENGINE ---
@@ -1370,10 +1708,6 @@
         const upcoming = isTaskUpcoming(task);
         card.className = `task-card ${task.completed ? 'completed' : ''} ${overdue ? 'is-overdue' : ''}`;
         card.dataset.id = task.id;
-        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (!isTouch) {
-            card.setAttribute('draggable', 'true');
-        }
 
         const catInfo = CATEGORIES[task.category] || { label: task.category, icon: 'fa-tag' };
         const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
@@ -1557,36 +1891,38 @@
             deleteTask(task.id);
         });
 
-        // --- DRAG AND DROP REORDERING LISTENERS ---
-        card.addEventListener('dragstart', (e) => {
-            draggedTaskId = task.id;
-            card.classList.add('is-dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', task.id);
-        });
+        // --- DRAG AND DROP REORDERING HANDLERS ---
+        const dragHandle = card.querySelector('.drag-handle');
+        attachDragHandleListeners(dragHandle, card, task);
 
+        // Native HTML5 fallback drag-over and drop support
         card.addEventListener('dragover', (e) => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            card.classList.add('drag-over');
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            const rect = card.getBoundingClientRect();
+            const insertAfter = e.clientY > (rect.top + rect.height / 2);
+            card.classList.toggle('drag-over-bottom', insertAfter);
+            card.classList.toggle('drag-over-top', !insertAfter);
         });
 
         card.addEventListener('dragleave', () => {
-            card.classList.remove('drag-over');
+            card.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
         });
 
         card.addEventListener('drop', (e) => {
             e.preventDefault();
-            card.classList.remove('drag-over');
+            card.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
             const targetId = card.dataset.id;
+            const rect = card.getBoundingClientRect();
+            const insertAfter = e.clientY > (rect.top + rect.height / 2);
             if (draggedTaskId && targetId && draggedTaskId !== targetId) {
-                reorderTasks(draggedTaskId, targetId);
+                reorderTasks(draggedTaskId, targetId, insertAfter);
             }
         });
 
         card.addEventListener('dragend', () => {
             card.classList.remove('is-dragging');
-            document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drag-over'));
+            document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
             draggedTaskId = null;
         });
 
@@ -1617,6 +1953,11 @@
             saveState();
             renderTasks();
             checkAutoBackupSchedule();
+
+            // Confetti on 100% completion
+            if (isCompleted) {
+                setTimeout(() => checkConfetti(), 400);
+            }
         }
     }
 

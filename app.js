@@ -7,8 +7,8 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 23;
-    const APP_RELEASE_VERSION = '2.2.1';
+    const APP_VERSION = 24;
+    const APP_RELEASE_VERSION = '2.3.0';
     const DEFAULT_GITHUB_REPO = 'shinchan2222/TODO_LIST-APP';
 
     // --- ACCURATE LOCAL DATE HELPERS (TIMEZONE AWARE) ---
@@ -1372,17 +1372,171 @@
     }
 
     // --- DRAG & DROP REORDERING ---
-    function reorderTasks(draggedId, targetId) {
+    function reorderTasks(draggedId, targetId, insertAfter = false) {
+        if (!draggedId || !targetId || draggedId === targetId) return;
+
         const fromIndex = state.tasks.findIndex(t => t.id === draggedId);
-        const toIndex = state.tasks.findIndex(t => t.id === targetId);
-        if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+        if (fromIndex === -1) return;
+
+        const originalTargetIndex = state.tasks.findIndex(t => t.id === targetId);
+        if (originalTargetIndex === -1) return;
+
+        let destinationIndex = insertAfter ? originalTargetIndex + 1 : originalTargetIndex;
+        if (fromIndex < destinationIndex) {
+            destinationIndex--;
+        }
+
+        if (fromIndex === destinationIndex) return;
 
         const [movedTask] = state.tasks.splice(fromIndex, 1);
-        state.tasks.splice(toIndex, 0, movedTask);
+        state.tasks.splice(destinationIndex, 0, movedTask);
+
+        // Reset sort mode to default so custom drag order takes effect
+        if (state.sortBy !== 'default') {
+            state.sortBy = 'default';
+            if (dom.sortMenu) {
+                dom.sortMenu.querySelectorAll('button').forEach(b => {
+                    b.classList.toggle('active', b.dataset.sort === 'default');
+                });
+            }
+        }
+
         saveState();
         renderTasks();
-        if (navigator.vibrate) navigator.vibrate(25);
+        if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) {}
         showToast('Task order updated! 📌');
+    }
+
+    function attachDragHandleListeners(handle, card, task) {
+        if (!handle || !card || !task) return;
+
+        function startDragging(e) {
+            if (e.type === 'mousedown' && e.button !== 0) return;
+
+            const isTouch = e.type.startsWith('touch');
+            const getPointerCoord = (evt) => {
+                if (evt.touches && evt.touches.length > 0) {
+                    return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
+                }
+                return { x: evt.clientX, y: evt.clientY };
+            };
+
+            const startPos = getPointerCoord(e);
+            let isActivelyDragging = false;
+            let currentTargetCard = null;
+            let currentInsertAfter = false;
+
+            // Close any swipe actions currently revealed
+            document.querySelectorAll('.task-card.swipe-revealed').forEach(c => {
+                c.classList.remove('swipe-revealed');
+                const inEl = c.querySelector('.task-card-inner');
+                if (inEl) inEl.style.transform = '';
+            });
+
+            const scrollContainer = card.closest('.page-view') || document.documentElement;
+
+            function onPointerMove(moveEvt) {
+                const pos = getPointerCoord(moveEvt);
+
+                if (!isActivelyDragging) {
+                    const diffY = Math.abs(pos.y - startPos.y);
+                    const diffX = Math.abs(pos.x - startPos.x);
+                    if (diffY < 6 && diffX < 6) return;
+
+                    isActivelyDragging = true;
+                    card.classList.add('is-dragging');
+                    if (navigator.vibrate) try { navigator.vibrate(25); } catch (err) {}
+                }
+
+                if (moveEvt.cancelable) {
+                    moveEvt.preventDefault();
+                }
+
+                // Smooth auto-scroll when reaching list bounds
+                const containerRect = scrollContainer.getBoundingClientRect();
+                const edgeThreshold = 65;
+                if (pos.y < containerRect.top + edgeThreshold) {
+                    scrollContainer.scrollTop -= 7;
+                } else if (pos.y > containerRect.bottom - edgeThreshold) {
+                    scrollContainer.scrollTop += 7;
+                }
+
+                // Locate target card under pointer
+                const cards = Array.from(dom.taskList.querySelectorAll('.task-card:not(.is-dragging)'));
+                let targetCard = null;
+                let insertAfter = false;
+
+                for (const otherCard of cards) {
+                    const rect = otherCard.getBoundingClientRect();
+                    if (pos.y >= rect.top && pos.y <= rect.bottom) {
+                        targetCard = otherCard;
+                        insertAfter = pos.y > (rect.top + rect.height / 2);
+                        break;
+                    }
+                }
+
+                // Edge cases: dragged above all or below all cards
+                if (!targetCard && cards.length > 0) {
+                    const firstRect = cards[0].getBoundingClientRect();
+                    const lastRect = cards[cards.length - 1].getBoundingClientRect();
+                    if (pos.y < firstRect.top) {
+                        targetCard = cards[0];
+                        insertAfter = false;
+                    } else if (pos.y > lastRect.bottom) {
+                        targetCard = cards[cards.length - 1];
+                        insertAfter = true;
+                    }
+                }
+
+                // Update visual target indicators
+                cards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over'));
+                if (targetCard) {
+                    targetCard.classList.add(insertAfter ? 'drag-over-bottom' : 'drag-over-top');
+                    currentTargetCard = targetCard;
+                    currentInsertAfter = insertAfter;
+                } else {
+                    currentTargetCard = null;
+                }
+            }
+
+            function onPointerUp() {
+                cleanup();
+
+                if (isActivelyDragging) {
+                    card.classList.remove('is-dragging');
+                    document.querySelectorAll('.task-card').forEach(c => {
+                        c.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over');
+                    });
+
+                    if (currentTargetCard && currentTargetCard.dataset.id && currentTargetCard.dataset.id !== task.id) {
+                        reorderTasks(task.id, currentTargetCard.dataset.id, currentInsertAfter);
+                    }
+                }
+            }
+
+            function cleanup() {
+                if (isTouch) {
+                    window.removeEventListener('touchmove', onPointerMove, { passive: false });
+                    window.removeEventListener('touchend', onPointerUp);
+                    window.removeEventListener('touchcancel', onPointerUp);
+                } else {
+                    window.removeEventListener('mousemove', onPointerMove);
+                    window.removeEventListener('mouseup', onPointerUp);
+                }
+            }
+
+            if (isTouch) {
+                window.addEventListener('touchmove', onPointerMove, { passive: false });
+                window.addEventListener('touchend', onPointerUp);
+                window.addEventListener('touchcancel', onPointerUp);
+            } else {
+                window.addEventListener('mousemove', onPointerMove);
+                window.addEventListener('mouseup', onPointerUp);
+            }
+        }
+
+        handle.addEventListener('touchstart', startDragging, { passive: false });
+        handle.addEventListener('mousedown', startDragging);
     }
 
     // --- FOCUS / POMODORO TIMER ENGINE ---
@@ -1554,10 +1708,6 @@
         const upcoming = isTaskUpcoming(task);
         card.className = `task-card ${task.completed ? 'completed' : ''} ${overdue ? 'is-overdue' : ''}`;
         card.dataset.id = task.id;
-        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (!isTouch) {
-            card.setAttribute('draggable', 'true');
-        }
 
         const catInfo = CATEGORIES[task.category] || { label: task.category, icon: 'fa-tag' };
         const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
@@ -1741,36 +1891,38 @@
             deleteTask(task.id);
         });
 
-        // --- DRAG AND DROP REORDERING LISTENERS ---
-        card.addEventListener('dragstart', (e) => {
-            draggedTaskId = task.id;
-            card.classList.add('is-dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', task.id);
-        });
+        // --- DRAG AND DROP REORDERING HANDLERS ---
+        const dragHandle = card.querySelector('.drag-handle');
+        attachDragHandleListeners(dragHandle, card, task);
 
+        // Native HTML5 fallback drag-over and drop support
         card.addEventListener('dragover', (e) => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            card.classList.add('drag-over');
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            const rect = card.getBoundingClientRect();
+            const insertAfter = e.clientY > (rect.top + rect.height / 2);
+            card.classList.toggle('drag-over-bottom', insertAfter);
+            card.classList.toggle('drag-over-top', !insertAfter);
         });
 
         card.addEventListener('dragleave', () => {
-            card.classList.remove('drag-over');
+            card.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
         });
 
         card.addEventListener('drop', (e) => {
             e.preventDefault();
-            card.classList.remove('drag-over');
+            card.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
             const targetId = card.dataset.id;
+            const rect = card.getBoundingClientRect();
+            const insertAfter = e.clientY > (rect.top + rect.height / 2);
             if (draggedTaskId && targetId && draggedTaskId !== targetId) {
-                reorderTasks(draggedTaskId, targetId);
+                reorderTasks(draggedTaskId, targetId, insertAfter);
             }
         });
 
         card.addEventListener('dragend', () => {
             card.classList.remove('is-dragging');
-            document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drag-over'));
+            document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom'));
             draggedTaskId = null;
         });
 
