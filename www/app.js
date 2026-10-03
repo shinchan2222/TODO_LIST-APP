@@ -7,8 +7,8 @@
 (function () {
     'use strict';
 
-    const APP_VERSION = 24;
-    const APP_RELEASE_VERSION = '2.3.0';
+    const APP_VERSION = 25;
+    const APP_RELEASE_VERSION = '2.4.0';
     const DEFAULT_GITHUB_REPO = 'shinchan2222/TODO_LIST-APP';
 
     // --- ACCURATE LOCAL DATE HELPERS (TIMEZONE AWARE) ---

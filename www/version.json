@@ -1,6 +1,6 @@
 {
-  "version": 24,
-  "versionName": "2.3.0",
-  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/releases/download/v2.3.0/RoutineCraft_v2.3.0.apk",
-  "releaseNotes": "RoutineCraft v2.3.0 (Build 24): Touch & desktop drag-and-drop task reordering engine with tactile haptic feedback, auto-scrolling, visual drop indicator lines, weekly recurrence, and onboarding routines."
+  "version": 25,
+  "versionName": "2.4.0",
+  "apkUrl": "https://github.com/shinchan2222/TODO_LIST-APP/releases/download/v2.4.0/RoutineCraft_v2.4.0.apk",
+  "releaseNotes": "RoutineCraft v2.4.0 (Build 25): Native Android Scheduled Alarms & Notifications engine. Real-time audible & vibrating heads-up alarms at exact task due times (even when device is locked/app closed), morning task briefing, and in-app test alarm."
 }
