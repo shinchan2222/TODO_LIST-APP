@@ -1,0 +1,68 @@
+﻿name: RoutineCraft Play Store Deploy
+
+# SETUP REQUIRED before this workflow runs:
+# 1. Create a release signing keystore:
+#      keytool -genkey -v -keystore routinecraft.keystore -alias routinecraft -keyalg RSA -keysize 2048 -validity 10000
+# 2. Encode to base64 (PowerShell):
+#      [Convert]::ToBase64String([IO.File]::ReadAllBytes("routinecraft.keystore"))
+# 3. Add GitHub Secrets (Settings > Secrets > Actions):
+#      KEYSTORE_BASE64, KEY_ALIAS, KEY_PASSWORD, STORE_PASSWORD, SERVICE_ACCOUNT_JSON
+# 4. Create a Google Play Developer account and enable the Play Android Developer API.
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Play Store track'
+        required: true
+        default: 'internal'
+        type: choice
+        options: [internal, alpha, beta, production]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Sign & Deploy to Play Store
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm install --legacy-peer-deps
+      - name: Copy Web Assets & Sync Capacitor
+        run: |
+          mkdir -p www/src/plugins
+          cp index.html app.js style.css sw.js version.json package.json manifest.json capacitor.config.json www/
+          cp -r src/* www/src/
+          npx cap sync android
+      - run: chmod +x android/gradlew
+      - name: Decode Keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/routinecraft.keystore
+      - name: Build Signed Release APK
+        working-directory: ./android
+        run: |
+          sed -i '/org.gradle.java.home/d' gradle.properties
+          ./gradlew assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file=$(pwd)/routinecraft.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.STORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+      - run: |
+          mkdir -p build_output
+          cp android/app/build/outputs/apk/release/app-release.apk build_output/RoutineCraft_signed.apk
+      - name: Upload to Play Store
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          packageName: com.routinecraft.app
+          releaseFiles: build_output/RoutineCraft_signed.apk
+          track: ${{ github.event.inputs.track }}
+          status: completed

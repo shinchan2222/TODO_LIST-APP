@@ -42,6 +42,8 @@
         const isWeekend = (day === 0 || day === 6);
         if (recurring === 'weekdays') return !isWeekend;
         if (recurring === 'weekends') return isWeekend;
+        // Weekly: repeat on the same weekday as the task's dueDate
+        if (recurring === 'weekly') return true; // handled via dueDate weekday in isTaskToday
         return false;
     }
 
@@ -49,6 +51,12 @@
         const today = getTodayStr();
         if (task.recurring && task.recurring !== 'none') {
             if (task.dueDate && task.dueDate > today) return false; // future recurring
+            if (task.recurring === 'weekly') {
+                // Same day of week as original dueDate
+                if (!task.dueDate) return false;
+                const origDay = new Date(task.dueDate + 'T00:00:00').getDay();
+                return new Date().getDay() === origDay;
+            }
             return isDayApplicableForRecurrence(task.recurring, new Date());
         }
         return task.dueDate === today;
@@ -388,6 +396,172 @@
         downloadUpdateBtn: document.getElementById('download-update-btn')
     };
 
+    // --- ONBOARDING (first-time users) ---
+    const ONBOARDING_KEY = 'routinecraft_onboarded_v2';
+
+    function showOnboarding() {
+        if (localStorage.getItem(ONBOARDING_KEY)) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'onboarding-overlay';
+        overlay.innerHTML = `
+            <div class="onboarding-card">
+                <div class="onboarding-slides" id="onboarding-slides">
+                    <div class="onboarding-slide active" data-slide="0">
+                        <div class="onboarding-emoji">📋</div>
+                        <h2 class="onboarding-title">Welcome to RoutineCraft</h2>
+                        <p class="onboarding-desc">Your personal daily task manager and habit tracker. Stay on top of your routines with ease.</p>
+                    </div>
+                    <div class="onboarding-slide" data-slide="1">
+                        <div class="onboarding-emoji">👆</div>
+                        <h2 class="onboarding-title">Swipe & Focus</h2>
+                        <p class="onboarding-desc">Swipe right to complete tasks instantly. Swipe left for quick reschedule or delete. Tap ⏱ to start a Pomodoro focus timer.</p>
+                    </div>
+                    <div class="onboarding-slide" data-slide="2">
+                        <div class="onboarding-emoji">🚀</div>
+                        <h2 class="onboarding-title">Build Your Routine</h2>
+                        <p class="onboarding-desc">Use Templates to instantly add a Morning, Work, or Evening routine. Track streaks and celebrate every win!</p>
+                    </div>
+                </div>
+                <div class="onboarding-dots">
+                    <span class="onboarding-dot active" data-dot="0"></span>
+                    <span class="onboarding-dot" data-dot="1"></span>
+                    <span class="onboarding-dot" data-dot="2"></span>
+                </div>
+                <div class="onboarding-actions">
+                    <button class="btn btn-secondary" id="onboarding-skip-btn">Skip</button>
+                    <button class="btn btn-primary" id="onboarding-next-btn">Next <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        let currentSlide = 0;
+        const slides = overlay.querySelectorAll('.onboarding-slide');
+        const dots = overlay.querySelectorAll('.onboarding-dot');
+        const nextBtn = overlay.querySelector('#onboarding-next-btn');
+        const skipBtn = overlay.querySelector('#onboarding-skip-btn');
+
+        function goToSlide(idx) {
+            slides.forEach(s => s.classList.remove('active'));
+            dots.forEach(d => d.classList.remove('active'));
+            slides[idx].classList.add('active');
+            dots[idx].classList.add('active');
+            currentSlide = idx;
+            if (idx === slides.length - 1) {
+                nextBtn.innerHTML = 'Get Started <i class="fa-solid fa-check"></i>';
+            } else {
+                nextBtn.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>';
+            }
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentSlide < slides.length - 1) {
+                goToSlide(currentSlide + 1);
+            } else {
+                dismissOnboarding(overlay);
+            }
+        });
+
+        skipBtn.addEventListener('click', () => dismissOnboarding(overlay));
+        dots.forEach(d => d.addEventListener('click', () => goToSlide(parseInt(d.dataset.dot))));
+    }
+
+    function dismissOnboarding(overlay) {
+        localStorage.setItem(ONBOARDING_KEY, '1');
+        overlay.classList.add('onboarding-exit');
+        setTimeout(() => overlay.remove(), 400);
+    }
+
+    // --- TASK TEMPLATES ---
+    const TASK_TEMPLATES = {
+        morning: [
+            { title: 'Morning meditation (10 min)', category: 'morning', priority: 'medium', dueTime: '06:30', recurring: 'daily' },
+            { title: 'Gym workout & stretch', category: 'health', priority: 'high', dueTime: '07:00', recurring: 'daily' },
+            { title: 'Healthy breakfast', category: 'morning', priority: 'medium', dueTime: '07:45', recurring: 'daily' },
+            { title: 'Review daily goals', category: 'morning', priority: 'high', dueTime: '08:15', recurring: 'daily' },
+            { title: 'Drink 2.5L water', category: 'health', priority: 'medium', dueTime: '09:00', recurring: 'daily' }
+        ],
+        work: [
+            { title: 'Check & respond to emails', category: 'work', priority: 'high', dueTime: '09:00', recurring: 'weekdays' },
+            { title: 'Daily standup / team sync', category: 'work', priority: 'high', dueTime: '10:00', recurring: 'weekdays' },
+            { title: 'Deep work focus block (2h)', category: 'work', priority: 'high', dueTime: '10:30', recurring: 'weekdays' },
+            { title: 'Review & prioritize tasks', category: 'work', priority: 'medium', dueTime: '14:00', recurring: 'weekdays' },
+            { title: 'End-of-day wrap-up & notes', category: 'work', priority: 'medium', dueTime: '17:30', recurring: 'weekdays' }
+        ],
+        evening: [
+            { title: 'Evening walk or light exercise', category: 'health', priority: 'medium', dueTime: '18:30', recurring: 'daily' },
+            { title: 'Cook or prep dinner', category: 'personal', priority: 'medium', dueTime: '19:00', recurring: 'daily' },
+            { title: 'Read 15 pages', category: 'personal', priority: 'medium', dueTime: '20:30', recurring: 'daily' },
+            { title: 'Plan tomorrow\'s tasks', category: 'evening', priority: 'high', dueTime: '21:00', recurring: 'daily' },
+            { title: 'Wind-down: no screens (30 min)', category: 'evening', priority: 'medium', dueTime: '21:30', recurring: 'daily' }
+        ]
+    };
+
+    function applyTemplate(templateKey) {
+        const template = TASK_TEMPLATES[templateKey];
+        if (!template) return;
+        const today = getTodayStr();
+        template.forEach(t => {
+            const newTask = {
+                id: 'task-tmpl-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+                title: t.title,
+                category: t.category,
+                priority: t.priority,
+                dueDate: today,
+                dueTime: t.dueTime || '',
+                recurring: t.recurring || 'none',
+                completed: false,
+                completedAt: null,
+                createdAt: new Date().toISOString(),
+                subtasks: []
+            };
+            state.tasks.push(newTask);
+        });
+        saveState();
+        renderTasks();
+        renderCategoryFilters();
+        showToast(`${templateKey.charAt(0).toUpperCase() + templateKey.slice(1)} routine added! 🎉`);
+    }
+
+    // --- CONFETTI ON 100% COMPLETION ---
+    function launchConfetti() {
+        const colors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#a855f7'];
+        const container = document.createElement('div');
+        container.className = 'confetti-container';
+        document.body.appendChild(container);
+
+        for (let i = 0; i < 60; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.cssText = [
+                `left: ${Math.random() * 100}%`,
+                `background: ${colors[Math.floor(Math.random() * colors.length)]}`,
+                `width: ${6 + Math.random() * 8}px`,
+                `height: ${8 + Math.random() * 10}px`,
+                `animation-delay: ${Math.random() * 0.8}s`,
+                `animation-duration: ${1.8 + Math.random() * 1.4}s`,
+                `border-radius: ${Math.random() > 0.5 ? '50%' : '2px'}`
+            ].join('; ');
+            container.appendChild(piece);
+        }
+
+        setTimeout(() => container.remove(), 3500);
+        showToast('🎉 All tasks completed! Amazing work today!');
+    }
+
+    let lastCompletionPercent = 0;
+    function checkConfetti() {
+        const today = getTodayStr();
+        const todayTasks = state.tasks.filter(t => isTaskToday(t) || (t.completed && t.completedAt && formatLocalDate(new Date(t.completedAt)) === today));
+        if (todayTasks.length === 0) return;
+        const completedCount = todayTasks.filter(t => t.completed).length;
+        const pct = Math.round((completedCount / todayTasks.length) * 100);
+        if (pct === 100 && lastCompletionPercent < 100) {
+            launchConfetti();
+        }
+        lastCompletionPercent = pct;
+    }
+
     // --- APP INITIALIZATION ---
     function init() {
         const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -410,6 +584,7 @@
         checkAutoBackupSchedule();
         checkReminderNotification();
         checkDailyDigestNotification();
+        setupTemplateButtons();
 
         if (dom.currentVersionDisplay) {
             dom.currentVersionDisplay.textContent = 'v' + APP_RELEASE_VERSION;
@@ -417,10 +592,19 @@
 
         setupEventListeners();
 
+        // Show onboarding for new users
+        setTimeout(() => showOnboarding(), 600);
+
         // Check for updates in the background on startup (silent check)
         setTimeout(() => {
             checkForAppUpdates(false);
         }, 2500);
+    }
+
+    function setupTemplateButtons() {
+        document.querySelectorAll('[data-template]').forEach(btn => {
+            btn.addEventListener('click', () => applyTemplate(btn.dataset.template));
+        });
     }
 
     // --- PERSISTENCE ---
@@ -1617,6 +1801,11 @@
             saveState();
             renderTasks();
             checkAutoBackupSchedule();
+
+            // Confetti on 100% completion
+            if (isCompleted) {
+                setTimeout(() => checkConfetti(), 400);
+            }
         }
     }
 

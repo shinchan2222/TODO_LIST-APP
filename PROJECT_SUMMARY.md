@@ -89,8 +89,9 @@ All changes have been developed, styled, verified via browser automation, synced
 * **PWA & Offline Capability**: Service Worker (`sw.js`) with cache storage (`routinecraft-v2.2.0`), offline cache-first strategy.
 * **Mobile Runtime**: Capacitor 8.5.0 (`@capacitor/android`, `@capacitor/core`, `@capacitor/cli`).
 * **CI/CD Pipeline**: GitHub Actions (`.github/workflows/build-apk.yml`) running on Ubuntu with Java 21 Temurin and Gradle 8+.
+* **Play Store Workflow**: `.github/workflows/play-store-deploy.yml` — manually triggered signed APK deploy to Internal/Alpha/Beta/Production tracks.
 * **Release Artifacts**:
-  - `RoutineCraft_v2.2.0.apk`
+  - `RoutineCraft_v2.2.1.apk`
   - `RoutineCraft.apk`
 
 ---
@@ -127,15 +128,16 @@ cd android
 
 ---
 
-## 📋 Ideas & Roadmap for Tomorrow
+## 📋 Ideas & Roadmap
 
-If you want to continue expanding RoutineCraft tomorrow, here are great potential features to explore:
+Here are great potential features to explore next:
 
 1. **Android Home Screen AppWidget**: Display today's checklist on the Android launcher screen.
 2. **Cloud Sync Enhancements**: Real Google Drive REST API integration using OAuth 2.0 PKCE tokens.
 3. **Task Search & Filter Tags**: Combine multiple category filters or filter by priority badges.
 4. **Data Analytics Export**: Export completion history as CSV or PDF report.
 5. **Sound Effects Selector**: Choose custom completion sounds (Bell, Drop, Soft Chime, Digital Tick).
+6. **Play Store Listing**: Submit to Google Play Internal Testing (workflow ready in `.github/workflows/play-store-deploy.yml`).
 
 ---
 

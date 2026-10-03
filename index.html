@@ -299,12 +299,35 @@
                 </div>
                 <button class="btn btn-danger-outline" id="reset-data-btn" style="margin-top:8px;"><i class="fa-solid fa-arrow-rotate-left"></i> Reset Tasks</button>
             </div>
+            <!-- Task Templates -->
+            <div class="settings-group">
+                <h4>Quick Templates</h4>
+                <p class="settings-group-desc">Instantly populate your day with a pre-built routine.</p>
+                <div class="template-grid">
+                    <button type="button" class="template-card-btn" data-template="morning">
+                        <span class="template-icon">&#x2600;&#xFE0F;</span>
+                        <strong>Morning Routine</strong>
+                        <span>5 daily tasks</span>
+                    </button>
+                    <button type="button" class="template-card-btn" data-template="work">
+                        <span class="template-icon">&#x1F4BC;</span>
+                        <strong>Work Day</strong>
+                        <span>5 weekday tasks</span>
+                    </button>
+                    <button type="button" class="template-card-btn" data-template="evening">
+                        <span class="template-icon">&#x1F319;</span>
+                        <strong>Evening Routine</strong>
+                        <span>5 daily tasks</span>
+                    </button>
+                </div>
+            </div>
+
             <div class="settings-group app-update-group">
                 <h4>App Version &amp; Updates</h4>
                 <div class="version-info-card">
                     <div class="version-details">
                         <span class="version-label">RoutineCraft Version</span>
-                        <strong class="version-value" id="current-version-display">v2.2.0</strong>
+                        <strong class="version-value" id="current-version-display">v2.2.1</strong>
                     </div>
                     <button type="button" class="btn btn-secondary check-update-btn" id="check-updates-btn"><i class="fa-solid fa-arrows-rotate"></i> Check Update</button>
                 </div>
@@ -382,6 +405,7 @@
                         <option value="daily">Every Day</option>
                         <option value="weekdays">Weekdays (Mon-Fri)</option>
                         <option value="weekends">Weekends (Sat-Sun)</option>
+                        <option value="weekly">Weekly (same day)</option>
                     </select>
                 </div>
                 <div class="form-group subtasks-group">

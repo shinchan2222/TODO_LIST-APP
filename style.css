@@ -2013,3 +2013,207 @@ body {
     }
 }
 
+/* ==========================================================================
+   CONFETTI ANIMATION
+   ========================================================================== */
+.confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+@keyframes confetti-fall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    80%  { opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+.confetti-piece {
+    position: absolute;
+    top: -20px;
+    animation: confetti-fall linear forwards;
+}
+
+/* ==========================================================================
+   ONBOARDING OVERLAY
+   ========================================================================== */
+#onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: fadeIn 0.35s ease;
+}
+
+#onboarding-overlay.onboarding-exit {
+    animation: fadeOut 0.4s ease forwards;
+}
+
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+.onboarding-card {
+    background: var(--surface-primary);
+    border-radius: var(--radius-xl);
+    padding: 40px 32px 32px;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+    box-shadow: var(--shadow-modal);
+    animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+.onboarding-slides {
+    position: relative;
+    min-height: 200px;
+}
+
+.onboarding-slide {
+    display: none;
+    animation: slideIn 0.3s ease;
+}
+
+.onboarding-slide.active {
+    display: block;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.onboarding-emoji {
+    font-size: 4rem;
+    line-height: 1;
+    margin-bottom: 20px;
+}
+
+.onboarding-title {
+    font-family: var(--font-family-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 12px;
+}
+
+.onboarding-desc {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.onboarding-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 28px 0 24px;
+}
+
+.onboarding-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.onboarding-dot.active {
+    background: var(--accent-primary);
+    width: 24px;
+    border-radius: 4px;
+}
+
+.onboarding-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.onboarding-actions .btn {
+    flex: 1;
+    max-width: 160px;
+}
+
+/* ==========================================================================
+   TASK TEMPLATE CARDS
+   ========================================================================== */
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.template-card-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 8px;
+    background: var(--surface-secondary);
+    border: 1.5px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.template-card-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+}
+
+.template-card-btn:active {
+    transform: translateY(0);
+}
+
+.template-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.template-card-btn strong {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.template-card-btn span {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 360px) {
+    .template-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+    }
+    .template-card-btn {
+        padding: 12px 4px;
+    }
+    .template-icon {
+        font-size: 1.3rem;
+    }
+}
+
