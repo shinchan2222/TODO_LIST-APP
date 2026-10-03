@@ -56,7 +56,10 @@ jobs:
           mkdir -p build_output
           APK_PATH=$(find android/app/build/outputs/apk -type f -name "*.apk" | head -n 1)
           echo "Found APK at: $APK_PATH"
-          cp "$APK_PATH" build_output/RoutineCraft_v2.3.0.apk
+          TAG_NAME="${GITHUB_REF_NAME:-v2.4.0}"
+          if [[ "$TAG_NAME" == "main" ]]; then TAG_NAME="v2.4.0"; fi
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          cp "$APK_PATH" "build_output/RoutineCraft_${TAG_NAME}.apk"
           cp "$APK_PATH" build_output/RoutineCraft.apk
 
       - name: Upload Build Artifacts
@@ -70,23 +73,23 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.3.0
-          name: RoutineCraft v2.3.0 (Build 24)
+          tag_name: ${{ env.TAG_NAME }}
+          name: RoutineCraft ${{ env.TAG_NAME }} (Build 25)
           body: |
-            ## 🚀 RoutineCraft v2.3.0 (Build 24) — Touch & Desktop Task Dragging, Templates, Onboarding & Enhancements
+            ## 🔔 RoutineCraft ${{ env.TAG_NAME }} (Build 25) — Native Android Scheduled Alarms & Notifications
 
-            ### ✅ What's New & Fixed:
-            - **Touch & Desktop Drag-and-Drop Task Reordering** — dedicated grip handle with tactile haptic feedback, auto-scrolling near edges, drop indicator guidelines, and custom order persistence.
-            - **Task Templates** — 1-tap pre-built routines (Morning Routine, Work Day, Evening Routine) in Settings.
-            - **Weekly Recurrence** — scheduled tasks recur on the exact same weekday.
-            - **Onboarding Experience** — interactive intro guide for new users.
-            - **Play Store Deployment Automation** — automated AAB build and publishing pipeline.
+            ### ✅ What's New:
+            - **Native Android Scheduled Alarms Engine** — exact alarms ring with sound & vibration at task due times, even when screen is locked or app is closed (`@capacitor/local-notifications`, `SCHEDULE_EXACT_ALARM`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED`).
+            - **High-Importance Notification Channel** (`routinecraft_alarms`) with heads-up alerts and vibration.
+            - **Morning Task Briefing** — scheduled daily notification summarizing your day's tasks with customizable briefing time.
+            - **Test Alarm (5s)** — 1-tap quick in-app test alarm to verify sound, vibration, and lock-screen alerting.
+            - **Permission Status & Management** — real-time permissions indicator and request action.
+            - **Interactive Task History Calendar** in Stats page with day-by-day inspector.
 
             ### 📲 Download:
-            Download `RoutineCraft_v2.3.0.apk` or `RoutineCraft.apk` below and install directly on your Android phone.
+            Download `RoutineCraft_${{ env.TAG_NAME }}.apk` or `RoutineCraft.apk` below and install directly on your Android phone.
           files: |
-            build_output/RoutineCraft_v2.3.0.apk
-            build_output/RoutineCraft.apk
+            build_output/*.apk
           draft: false
           prerelease: false
         env:
