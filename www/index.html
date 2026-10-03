@@ -279,13 +279,31 @@
                 <div class="categories-list-manage" id="categories-manage-list"></div>
             </div>
 
-            <!-- Daily Notifications -->
-            <div class="settings-group">
-                <h4>Daily Notifications</h4>
+            <!-- Native Android Scheduled Alarms & Notifications -->
+            <div class="settings-group" id="native-alarms-settings-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <h4 style="margin:0;"><i class="fa-solid fa-bell" style="color:var(--accent-warning); margin-right:6px;"></i> Native Alarms &amp; Notifications</h4>
+                    <span class="badge-status-pill" id="alarm-perm-status"><i class="fa-solid fa-spinner fa-spin"></i> Checking</span>
+                </div>
+                <p class="settings-group-desc">Real-time alerts with sound and vibration at exact task due times, even when screen is locked or app is closed.</p>
+
+                <!-- Toggle: Exact Task Due-Time Alarms -->
+                <div class="pref-toggle-row">
+                    <div class="pref-toggle-info">
+                        <span class="pref-toggle-label">Scheduled Task Alarms</span>
+                        <span class="pref-toggle-desc">Ring exact alarms with sound &amp; vibration when tasks are due</span>
+                    </div>
+                    <label class="toggle-switch" for="toggle-task-alarms">
+                        <input type="checkbox" id="toggle-task-alarms" checked>
+                        <span class="toggle-knob"></span>
+                    </label>
+                </div>
+
+                <!-- Toggle: Morning Task Briefing -->
                 <div class="pref-toggle-row">
                     <div class="pref-toggle-info">
                         <span class="pref-toggle-label">Morning Task Briefing</span>
-                        <span class="pref-toggle-desc">Daily notification summarizing your tasks</span>
+                        <span class="pref-toggle-desc">Daily morning notification summarizing your tasks</span>
                     </div>
                     <label class="toggle-switch" for="toggle-daily-digest">
                         <input type="checkbox" id="toggle-daily-digest">
@@ -295,6 +313,12 @@
                 <div class="form-group hide" id="digest-time-container" style="margin-top:8px;">
                     <label for="digest-time-input" style="font-size:0.75rem; color:var(--text-secondary); font-weight:600;">Briefing Time</label>
                     <input type="time" id="digest-time-input" class="clean-input" value="08:00" style="padding:8px 12px; margin-top:4px;">
+                </div>
+
+                <!-- Alarm Actions: Request Permission & Test Alarm -->
+                <div class="alarm-actions-row" style="display:flex; gap:8px; margin-top:12px;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="test-alarm-btn" style="flex:1;"><i class="fa-solid fa-stopwatch"></i> Test Alarm (5s)</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="req-alarm-perm-btn" style="flex:1;"><i class="fa-solid fa-shield-halved"></i> Permissions</button>
                 </div>
             </div>
 

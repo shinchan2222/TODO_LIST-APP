@@ -86,6 +86,9 @@
         lastCompletedDate: getTodayStr(),
         totalCompletedCount: 3,
         notificationsEnabled: false,
+        taskAlarmsEnabled: true,
+        dailyDigestEnabled: false,
+        dailyDigestTime: '08:00',
         lastBackupTime: null,
         backupFrequency: 'daily',
         isGoogleSynced: false,
@@ -219,6 +222,10 @@
         lastDeletedTask: null,
         pendingGoogleUser: null
     };
+
+    if (state.profile.taskAlarmsEnabled === undefined) {
+        state.profile.taskAlarmsEnabled = true;
+    }
 
     // Ensure taskHistoryArchive is populated with existing completions
     if (!state.taskHistoryArchive) state.taskHistoryArchive = {};
@@ -817,6 +824,12 @@
         checkAutoBackupSchedule();
         checkReminderNotification();
         checkDailyDigestNotification();
+
+        // Native Android Scheduled Alarms & Channel Init
+        initAlarmNotificationChannel();
+        setupLocalNotificationListeners();
+        checkAlarmPermissions();
+        syncAllTaskAlarms();
 
         if (dom.currentVersionDisplay) {
             dom.currentVersionDisplay.textContent = 'v' + APP_RELEASE_VERSION;
@@ -1908,7 +1921,397 @@
         updateFocusTimerDisplay();
     }
 
-    // --- DAILY MORNING DIGEST NOTIFICATION ---
+    // --- NATIVE ANDROID SCHEDULED ALARMS & NOTIFICATIONS ENGINE ---
+    const ALARM_CHANNEL_ID = 'routinecraft_alarms';
+    const TEST_ALARM_ID = 88888;
+    const DIGEST_ALARM_ID = 99999;
+    const webAlarmTimeouts = {};
+
+    function clearWebTimeout(taskId) {
+        if (webAlarmTimeouts[taskId]) {
+            clearTimeout(webAlarmTimeouts[taskId]);
+            delete webAlarmTimeouts[taskId];
+        }
+    }
+
+    function getNotificationIdForTask(taskId) {
+        if (!taskId) return 1001;
+        let hash = 0;
+        const str = String(taskId);
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash |= 0;
+        }
+        return Math.abs(hash % 1999999000) + 1000;
+    }
+
+    async function initAlarmNotificationChannel() {
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        if (!LocalNotifications) return;
+        try {
+            await LocalNotifications.createChannel({
+                id: ALARM_CHANNEL_ID,
+                name: 'Task Alarms & Reminders',
+                description: 'Heads-up audible alarms and reminders for scheduled tasks at their exact due time.',
+                importance: 5, // High importance (heads-up, sound & vibration)
+                visibility: 1, // Public visibility on lockscreen
+                sound: 'default',
+                vibration: true,
+                lights: true,
+                lightColor: '#2563eb'
+            });
+            console.log('RoutineCraft: Native alarm notification channel configured.');
+        } catch (e) {
+            console.warn('Could not create notification channel:', e);
+        }
+    }
+
+    function getNextOccurrenceDate(task) {
+        if (!task.dueTime) return null;
+        const [hours, minutes] = task.dueTime.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) return null;
+
+        const now = new Date();
+        for (let dayOffset = 0; dayOffset <= 14; dayOffset++) {
+            const d = new Date();
+            d.setDate(d.getDate() + dayOffset);
+            d.setHours(hours, minutes, 0, 0);
+
+            if (d.getTime() > now.getTime()) {
+                if (task.recurring && task.recurring !== 'none') {
+                    if (task.recurring === 'weekly') {
+                        if (task.dueDate) {
+                            const origDay = new Date(task.dueDate + 'T00:00:00').getDay();
+                            if (d.getDay() === origDay) return d;
+                        }
+                    } else if (isDayApplicableForRecurrence(task.recurring, d)) {
+                        return d;
+                    }
+                } else if (task.dueDate) {
+                    const targetDayStr = formatLocalDate(d);
+                    if (task.dueDate === targetDayStr) return d;
+                }
+            }
+        }
+        return null;
+    }
+
+    async function scheduleTaskAlarm(task) {
+        if (!task || task.completed) {
+            if (task && task.id) cancelTaskAlarm(task.id);
+            return;
+        }
+        if (state.profile.taskAlarmsEnabled === false) return;
+        if (!task.dueTime) return;
+
+        let alarmDate = null;
+        if (task.dueDate) {
+            const [y, m, d] = task.dueDate.split('-').map(Number);
+            const [hh, mm] = task.dueTime.split(':').map(Number);
+            if (y && m && d && !isNaN(hh) && !isNaN(mm)) {
+                alarmDate = new Date(y, m - 1, d, hh, mm, 0, 0);
+            }
+        }
+
+        if (!alarmDate || alarmDate.getTime() <= Date.now()) {
+            if (task.recurring && task.recurring !== 'none') {
+                alarmDate = getNextOccurrenceDate(task);
+            } else {
+                return; // Past one-time task
+            }
+        }
+
+        if (!alarmDate || alarmDate.getTime() <= Date.now()) return;
+
+        const notifId = getNotificationIdForTask(task.id);
+        const catLabel = (CATEGORIES[task.category]?.label || task.category || 'Task').toUpperCase();
+        const priorityText = task.priority === 'high' ? '🔥 High' : (task.priority === 'low' ? '🟢 Low' : '⚡ Med');
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+
+        if (LocalNotifications) {
+            try {
+                await LocalNotifications.cancel({ notifications: [{ id: notifId }] });
+                await LocalNotifications.schedule({
+                    notifications: [
+                        {
+                            id: notifId,
+                            title: `⏰ Due: ${task.title}`,
+                            body: `[${catLabel}] ${priorityText} priority · RoutineCraft scheduled alarm`,
+                            schedule: { at: alarmDate, allowWhileIdle: true },
+                            channelId: ALARM_CHANNEL_ID,
+                            sound: 'default',
+                            extra: { taskId: task.id }
+                        }
+                    ]
+                });
+                console.log(`RoutineCraft: Native alarm scheduled for "${task.title}" at ${alarmDate.toLocaleString()}`);
+            } catch (err) {
+                console.warn('Native LocalNotifications.schedule error:', err);
+            }
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+            const msUntil = alarmDate.getTime() - Date.now();
+            if (msUntil > 0 && msUntil < 24 * 3600 * 1000) {
+                clearWebTimeout(task.id);
+                webAlarmTimeouts[task.id] = setTimeout(() => {
+                    new Notification(`⏰ Due: ${task.title}`, {
+                        body: `[${catLabel}] ${priorityText} priority · RoutineCraft scheduled alarm`,
+                        icon: 'assets/icon/favicon.png'
+                    });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([300, 150, 300]); } catch (e) {}
+                    }
+                }, msUntil);
+            }
+        }
+    }
+
+    async function cancelTaskAlarm(taskId) {
+        if (!taskId) return;
+        clearWebTimeout(taskId);
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        if (LocalNotifications) {
+            try {
+                const notifId = getNotificationIdForTask(taskId);
+                await LocalNotifications.cancel({ notifications: [{ id: notifId }] });
+            } catch (e) {
+                console.warn('Native LocalNotifications.cancel error:', e);
+            }
+        }
+    }
+
+    async function syncAllTaskAlarms() {
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+
+        if (state.profile.taskAlarmsEnabled === false) {
+            if (LocalNotifications) {
+                try {
+                    const pending = await LocalNotifications.getPending();
+                    if (pending && pending.notifications) {
+                        const taskNotifs = pending.notifications.filter(n => n.id !== DIGEST_ALARM_ID && n.id !== TEST_ALARM_ID);
+                        if (taskNotifs.length > 0) {
+                            await LocalNotifications.cancel({ notifications: taskNotifs });
+                        }
+                    }
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+            return;
+        }
+
+        // Schedule all pending uncompleted tasks that have a dueTime
+        for (const task of state.tasks) {
+            if (!task.completed && task.dueTime) {
+                await scheduleTaskAlarm(task);
+            }
+        }
+
+        await syncDailyDigestAlarm();
+    }
+
+    async function syncDailyDigestAlarm() {
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        if (!LocalNotifications) return;
+
+        try {
+            await LocalNotifications.cancel({ notifications: [{ id: DIGEST_ALARM_ID }] });
+
+            if (!state.profile.dailyDigestEnabled) return;
+
+            const timeStr = state.profile.dailyDigestTime || '08:00';
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            const now = new Date();
+            const targetDate = new Date();
+            targetDate.setHours(hours, minutes, 0, 0);
+
+            if (targetDate.getTime() <= now.getTime()) {
+                targetDate.setDate(targetDate.getDate() + 1);
+            }
+
+            await LocalNotifications.schedule({
+                notifications: [
+                    {
+                        id: DIGEST_ALARM_ID,
+                        title: '☀️ RoutineCraft Daily Briefing',
+                        body: 'Good morning! Check your daily routine and scheduled tasks for today.',
+                        schedule: {
+                            at: targetDate,
+                            repeats: true,
+                            every: 'day',
+                            allowWhileIdle: true
+                        },
+                        channelId: ALARM_CHANNEL_ID,
+                        sound: 'default'
+                    }
+                ]
+            });
+            console.log(`RoutineCraft: Daily digest scheduled for ${targetDate.toLocaleString()}`);
+        } catch (e) {
+            console.warn('Failed to schedule daily digest alarm:', e);
+        }
+    }
+
+    async function testAlarm(seconds = 5) {
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        const fireDate = new Date(Date.now() + seconds * 1000);
+
+        if (LocalNotifications) {
+            try {
+                const perm = await LocalNotifications.checkPermissions();
+                if (perm.display !== 'granted') {
+                    const req = await LocalNotifications.requestPermissions();
+                    if (req.display !== 'granted') {
+                        showToast('Notification permission denied by Android.');
+                        updateAlarmPermissionBadge('denied');
+                        return;
+                    }
+                }
+
+                await LocalNotifications.cancel({ notifications: [{ id: TEST_ALARM_ID }] });
+                await LocalNotifications.schedule({
+                    notifications: [
+                        {
+                            id: TEST_ALARM_ID,
+                            title: '🔔 RoutineCraft Alarm Test',
+                            body: 'Exact native Android alarm sound & vibration working perfectly!',
+                            schedule: { at: fireDate, allowWhileIdle: true },
+                            channelId: ALARM_CHANNEL_ID,
+                            sound: 'default'
+                        }
+                    ]
+                });
+                showToast(`Test alarm set! Lock screen or wait ${seconds} seconds... ⏳🔔`);
+                updateAlarmPermissionBadge('granted');
+            } catch (e) {
+                console.error('Test alarm error:', e);
+                showToast('Error scheduling test alarm: ' + e.message);
+            }
+        } else {
+            if ('Notification' in window) {
+                if (Notification.permission !== 'granted') {
+                    const res = await Notification.requestPermission();
+                    if (res !== 'granted') {
+                        showToast('Notification permission denied.');
+                        updateAlarmPermissionBadge('denied');
+                        return;
+                    }
+                }
+                showToast(`Test alarm set! Ringing in ${seconds} seconds... ⏳🔔`);
+                setTimeout(() => {
+                    new Notification('🔔 RoutineCraft Alarm Test', {
+                        body: 'Success! Alarms and notifications are active.',
+                        icon: 'assets/icon/favicon.png'
+                    });
+                    if (navigator.vibrate) {
+                        try { navigator.vibrate([300, 150, 300]); } catch (err) {}
+                    }
+                }, seconds * 1000);
+                updateAlarmPermissionBadge('granted');
+            } else {
+                showToast('Notifications not supported in this browser.');
+            }
+        }
+    }
+
+    async function checkAlarmPermissions() {
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        if (LocalNotifications) {
+            try {
+                const perm = await LocalNotifications.checkPermissions();
+                updateAlarmPermissionBadge(perm.display);
+                return perm.display;
+            } catch (e) {
+                console.warn(e);
+                updateAlarmPermissionBadge('unavailable');
+            }
+        } else if ('Notification' in window) {
+            updateAlarmPermissionBadge(Notification.permission);
+            return Notification.permission;
+        } else {
+            updateAlarmPermissionBadge('unavailable');
+        }
+    }
+
+    async function requestAlarmPermissions(userInitiated = false) {
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        if (LocalNotifications) {
+            try {
+                const res = await LocalNotifications.requestPermissions();
+                updateAlarmPermissionBadge(res.display);
+                if (userInitiated) {
+                    if (res.display === 'granted') {
+                        showToast('Notification permissions granted! 🔔');
+                    } else {
+                        showToast('Notification permissions not granted.');
+                    }
+                }
+                return res.display;
+            } catch (e) {
+                console.warn(e);
+            }
+        } else if ('Notification' in window) {
+            try {
+                const perm = await Notification.requestPermission();
+                updateAlarmPermissionBadge(perm);
+                if (userInitiated) {
+                    if (perm === 'granted') {
+                        showToast('Desktop notification permissions granted! 🔔');
+                    } else {
+                        showToast('Notification permissions denied.');
+                    }
+                }
+                return perm;
+            } catch (e) {
+                console.warn(e);
+            }
+        }
+        return 'unavailable';
+    }
+
+    function updateAlarmPermissionBadge(status) {
+        const badge = document.getElementById('alarm-perm-status');
+        if (!badge) return;
+        badge.className = 'badge-status-pill';
+        if (status === 'granted') {
+            badge.classList.add('status-granted');
+            badge.innerHTML = '<i class="fa-solid fa-check"></i> Enabled';
+        } else if (status === 'denied') {
+            badge.classList.add('status-denied');
+            badge.innerHTML = '<i class="fa-solid fa-ban"></i> Denied';
+        } else if (status === 'prompt' || status === 'default') {
+            badge.classList.add('status-prompt');
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Action Required';
+        } else {
+            badge.classList.add('status-disabled');
+            badge.innerHTML = '<i class="fa-solid fa-circle-info"></i> Standard';
+        }
+    }
+
+    function setupLocalNotificationListeners() {
+        const LocalNotifications = window.Capacitor?.Plugins?.LocalNotifications;
+        if (!LocalNotifications) return;
+
+        try {
+            LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
+                console.log('RoutineCraft: Notification tapped', notificationAction);
+                const extra = notificationAction.notification.extra;
+                if (extra && extra.taskId) {
+                    const task = state.tasks.find(t => t.id === extra.taskId);
+                    if (task) {
+                        switchPageView('tasks');
+                        openTaskModal(task);
+                    }
+                } else {
+                    switchPageView('tasks');
+                }
+            });
+        } catch (e) {
+            console.warn('Could not register local notification action listener:', e);
+        }
+    }
+
+    // Daily Morning Digest Fallback check for web/desktop mode
     function checkDailyDigestNotification() {
         if (!state.profile.dailyDigestEnabled) return;
         const today = getTodayStr();
@@ -2113,6 +2516,7 @@
         // Swipe Action Buttons (Reschedule / Delete)
         card.querySelector('.swipe-action-reschedule').addEventListener('click', () => {
             task.dueDate = getFutureDateStr(1);
+            scheduleTaskAlarm(task);
             saveState();
             renderTasks();
             showToast(`Postponed "${task.title}" to Tomorrow! 🗓️`);
@@ -2170,6 +2574,13 @@
                 task.subtasks.forEach(s => s.completed = isCompleted);
             }
 
+            // Sync native alarms: cancel when done, reschedule when unchecked
+            if (isCompleted) {
+                cancelTaskAlarm(task.id);
+            } else {
+                scheduleTaskAlarm(task);
+            }
+
             // Haptic feedback for tactile satisfaction on Android
             if (navigator.vibrate) {
                 try { navigator.vibrate(isCompleted ? 24 : 12); } catch (e) {}
@@ -2209,10 +2620,12 @@
                 if (allSubDone) {
                     task.completed = true;
                     task.completedAt = new Date().toISOString();
+                    cancelTaskAlarm(task.id);
                     recordCompletionActivity(true);
                 } else if (task.completed) {
                     task.completed = false;
                     task.completedAt = null;
+                    scheduleTaskAlarm(task);
                     recordCompletionActivity(false);
                 }
 
@@ -2224,6 +2637,7 @@
     }
 
     function deleteTask(taskId) {
+        cancelTaskAlarm(taskId);
         const index = state.tasks.findIndex(t => t.id === taskId);
         if (index !== -1) {
             const deleted = state.tasks[index];
@@ -2233,8 +2647,10 @@
             renderTasks();
             showToastWithUndo(`Deleted "${deleted.title}"`, () => {
                 if (state.lastDeletedTask) {
-                    state.tasks.splice(state.lastDeletedTask.index, 0, state.lastDeletedTask.task);
+                    const restored = state.lastDeletedTask.task;
+                    state.tasks.splice(state.lastDeletedTask.index, 0, restored);
                     state.lastDeletedTask = null;
+                    scheduleTaskAlarm(restored);
                     saveState();
                     renderTasks();
                     showToast('Task restored! ↩️');
@@ -2283,6 +2699,7 @@
         if (count > 0) {
             saveState();
             renderTasks();
+            syncAllTaskAlarms();
             showToast(`Moved ${count} overdue task(s) to Today! 🗓️`);
         }
     }
@@ -2423,6 +2840,11 @@
         if (digestToggle) digestToggle.checked = Boolean(state.profile.dailyDigestEnabled);
         if (digestTimeContainer) digestTimeContainer.classList.toggle('hide', !state.profile.dailyDigestEnabled);
         if (digestTimeInput) digestTimeInput.value = state.profile.dailyDigestTime || '08:00';
+
+        // Sync Scheduled Task Alarms toggle & permissions status
+        const alarmToggle = document.getElementById('toggle-task-alarms');
+        if (alarmToggle) alarmToggle.checked = state.profile.taskAlarmsEnabled !== false;
+        checkAlarmPermissions();
     }
 
     // Apply interface preferences to the Tasks page elements
@@ -2674,6 +3096,7 @@
             if (id) {
                 const task = state.tasks.find(t => t.id === id);
                 if (task) {
+                    cancelTaskAlarm(task.id);
                     task.title = title;
                     task.category = category;
                     task.priority = priority;
@@ -2681,6 +3104,7 @@
                     task.dueTime = dueTime;
                     task.recurring = recurring;
                     task.subtasks = [...state.tempSubtasks];
+                    scheduleTaskAlarm(task);
                 }
                 showToast('Task updated!');
             } else {
@@ -2698,6 +3122,7 @@
                     subtasks: [...state.tempSubtasks]
                 };
                 state.tasks.unshift(newTask);
+                scheduleTaskAlarm(newTask);
 
                 if (dueDate > getTodayStr()) {
                     showToast(`Scheduled for ${dueDate}! 🗓️`);
@@ -2796,16 +3221,49 @@
                 state.profile.dailyDigestEnabled = e.target.checked;
                 const timeBox = document.getElementById('digest-time-container');
                 if (timeBox) timeBox.classList.toggle('hide', !e.target.checked);
-                if (e.target.checked && 'Notification' in window && Notification.permission !== 'granted') {
-                    Notification.requestPermission();
+                if (e.target.checked) {
+                    requestAlarmPermissions();
                 }
+                syncDailyDigestAlarm();
                 saveState();
+                showToast(e.target.checked ? 'Morning briefing scheduled! ☀️' : 'Morning briefing turned off');
             }
             if (e.target.id === 'digest-time-input') {
                 state.profile.dailyDigestTime = e.target.value || '08:00';
+                syncDailyDigestAlarm();
                 saveState();
             }
+            if (e.target.id === 'toggle-task-alarms') {
+                state.profile.taskAlarmsEnabled = e.target.checked;
+                saveState();
+                if (e.target.checked) {
+                    requestAlarmPermissions();
+                }
+                syncAllTaskAlarms();
+                showToast(e.target.checked ? 'Task alarms enabled! 🔔' : 'Task alarms muted');
+            }
         });
+
+        // Test Alarm Button (5s countdown)
+        const testAlarmBtn = document.getElementById('test-alarm-btn');
+        if (testAlarmBtn) {
+            testAlarmBtn.addEventListener('click', () => {
+                testAlarm(5);
+            });
+        }
+
+        // Request Permissions Button
+        const reqAlarmPermBtn = document.getElementById('req-alarm-perm-btn');
+        if (reqAlarmPermBtn) {
+            reqAlarmPermBtn.addEventListener('click', async () => {
+                const res = await requestAlarmPermissions(true);
+                if (res === 'granted') {
+                    showToast('Notification & Alarm permissions granted! ✅');
+                } else if (res === 'denied') {
+                    showToast('Permissions denied. Please allow notifications in Android Settings.');
+                }
+            });
+        }
 
         // --- Custom Category Modal Listeners ---
         let selectedCatIcon = 'fa-tag';
