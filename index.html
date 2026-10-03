@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2.2.1">
+    <link rel="stylesheet" href="style.css?v=2.3.0">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body data-theme="light">
@@ -169,6 +169,44 @@
                 </div>
                 <svg width="1" height="1" class="hide"><circle id="overall-ring-fill" r="1" cx="1" cy="1"/></svg>
             </section>
+
+            <!-- Task History Calendar & Detail Inspector -->
+            <section class="calendar-history-section">
+                <div class="calendar-history-header">
+                    <div class="cal-title-block">
+                        <h4 class="stats-subheading"><i class="fa-regular fa-calendar-days"></i> Task History Calendar</h4>
+                        <span class="cal-subtitle">Tap any date to view detailed tasks taken and completed</span>
+                    </div>
+                    <div class="calendar-nav-controls">
+                        <button type="button" class="calendar-nav-btn" id="cal-prev-month" title="Previous Month"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span class="calendar-month-label" id="cal-month-label">October 2026</span>
+                        <button type="button" class="calendar-nav-btn" id="cal-next-month" title="Next Month"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button type="button" class="calendar-today-btn" id="cal-today-btn">Today</button>
+                    </div>
+                </div>
+
+                <div class="history-calendar-wrapper">
+                    <div class="calendar-weekdays-row">
+                        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                    </div>
+                    <div class="calendar-days-grid" id="history-calendar-days"></div>
+                </div>
+
+                <!-- Selected Day Details Breakdown -->
+                <div class="day-details-panel" id="day-details-panel">
+                    <div class="day-details-header">
+                        <div class="day-details-title-row">
+                            <h5 id="day-details-date">Saturday, October 3, 2026</h5>
+                            <span class="badge badge-date" id="day-details-count-badge">0 Tasks</span>
+                        </div>
+                        <div class="day-details-stats-chips">
+                            <span class="day-stat-chip chip-done" id="day-stat-done"><i class="fa-solid fa-check"></i> 0 Done</span>
+                            <span class="day-stat-chip chip-pending" id="day-stat-pending"><i class="fa-regular fa-clock"></i> 0 Pending</span>
+                        </div>
+                    </div>
+                    <div class="day-details-task-list" id="day-details-task-list"></div>
+                </div>
+            </section>
             <div class="planner-grid-section">
                 <h4 class="stats-subheading">This Week</h4>
                 <div class="weekly-planner-grid" id="weekly-planner-grid"></div>
@@ -299,28 +337,7 @@
                 </div>
                 <button class="btn btn-danger-outline" id="reset-data-btn" style="margin-top:8px;"><i class="fa-solid fa-arrow-rotate-left"></i> Reset Tasks</button>
             </div>
-            <!-- Task Templates -->
-            <div class="settings-group">
-                <h4>Quick Templates</h4>
-                <p class="settings-group-desc">Instantly populate your day with a pre-built routine.</p>
-                <div class="template-grid">
-                    <button type="button" class="template-card-btn" data-template="morning">
-                        <span class="template-icon">&#x2600;&#xFE0F;</span>
-                        <strong>Morning Routine</strong>
-                        <span>5 daily tasks</span>
-                    </button>
-                    <button type="button" class="template-card-btn" data-template="work">
-                        <span class="template-icon">&#x1F4BC;</span>
-                        <strong>Work Day</strong>
-                        <span>5 weekday tasks</span>
-                    </button>
-                    <button type="button" class="template-card-btn" data-template="evening">
-                        <span class="template-icon">&#x1F319;</span>
-                        <strong>Evening Routine</strong>
-                        <span>5 daily tasks</span>
-                    </button>
-                </div>
-            </div>
+
 
             <div class="settings-group app-update-group">
                 <h4>App Version &amp; Updates</h4>
@@ -595,6 +612,6 @@
         });
     }
 </script>
-<script src="app.js?v=2.2.1"></script>
+<script src="app.js?v=2.3.0"></script>
 </body>
 </html>

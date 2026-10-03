@@ -9,9 +9,10 @@
 
 ## 📌 Executive Summary
 
-Today's session delivered complete touch and desktop task drag-and-drop reordering, task templates, onboarding routines, weekly recurrence, and full Play Store deployment automation:
+Today's session delivered complete touch and desktop task drag-and-drop reordering, interactive Task History Calendar & Detail Inspector in Stats, onboarding routines, weekly recurrence, and full Play Store deployment automation:
+- **Interactive Task History Calendar & Detail Inspector**: Added a full monthly calendar in Stats with previous/next month navigation, "Today" jump button, completion ratio badges per day (`X/Y`), and an interactive Day Details Breakdown showing all tasks scheduled, completed (with exact completion timestamps), pending, and checklist progress for any date.
+- **Removed Quick Templates**: Cleaned up the Settings interface per user request by removing the Quick Templates section.
 - **Touch & Desktop Drag-and-Drop Task Reordering**: Implemented a dedicated grip handle (`.drag-handle`) with large touch target (32x38px), tactile haptic feedback (`navigator.vibrate`), edge auto-scrolling, clear visual drop indicator guidelines (`.drag-over-top` / `.drag-over-bottom`), and automatic fallback to default sort mode so custom drag ordering persists properly across sessions.
-- **Task Templates**: Added 1-tap pre-built routines (Morning Routine, Work Day, Evening Routine) in Settings.
 - **Weekly Recurrence**: Added weekly task recurrence matching the same weekday.
 - **Onboarding Experience**: Multi-step interactive intro guide for new users.
 - **Play Store Deployment**: Complete GitHub Actions workflow for automated AAB compilation and release track deployment.

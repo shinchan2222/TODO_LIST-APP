@@ -209,6 +209,7 @@
         profile: usersStore[activeEmail].profile,
         tasks: usersStore[activeEmail].tasks,
         history: usersStore[activeEmail].history || {},
+        taskHistoryArchive: usersStore[activeEmail].taskHistoryArchive || {},
         customCategories: usersStore[activeEmail].customCategories || {},
         activeCategory: 'all',
         activeFilter: 'today',
@@ -218,6 +219,28 @@
         lastDeletedTask: null,
         pendingGoogleUser: null
     };
+
+    // Ensure taskHistoryArchive is populated with existing completions
+    if (!state.taskHistoryArchive) state.taskHistoryArchive = {};
+    state.tasks.forEach(t => {
+        if (t.completed && t.completedAt) {
+            const dStr = formatLocalDate(new Date(t.completedAt));
+            if (!state.taskHistoryArchive[dStr]) state.taskHistoryArchive[dStr] = [];
+            if (!state.taskHistoryArchive[dStr].some(x => x.id === t.id)) {
+                state.taskHistoryArchive[dStr].push({
+                    id: t.id,
+                    title: t.title,
+                    category: t.category,
+                    priority: t.priority,
+                    dueDate: t.dueDate,
+                    dueTime: t.dueTime || '',
+                    completed: true,
+                    completedAt: t.completedAt,
+                    subtasks: t.subtasks || []
+                });
+            }
+        }
+    });
 
     // Ensure theme is only light or dark
     if (state.profile.theme !== 'light' && state.profile.theme !== 'dark') {
@@ -381,6 +404,19 @@
         closeAnalyticsBtn: document.getElementById('close-analytics-btn'),
         toastContainer: document.getElementById('toast-container'),
 
+        // Task History Calendar
+        calPrevMonthBtn: document.getElementById('cal-prev-month'),
+        calNextMonthBtn: document.getElementById('cal-next-month'),
+        calTodayBtn: document.getElementById('cal-today-btn'),
+        calMonthLabel: document.getElementById('cal-month-label'),
+        historyCalendarDays: document.getElementById('history-calendar-days'),
+        dayDetailsPanel: document.getElementById('day-details-panel'),
+        dayDetailsDate: document.getElementById('day-details-date'),
+        dayDetailsCountBadge: document.getElementById('day-details-count-badge'),
+        dayStatDone: document.getElementById('day-stat-done'),
+        dayStatPending: document.getElementById('day-stat-pending'),
+        dayDetailsTaskList: document.getElementById('day-details-task-list'),
+
         // App Version & In-App Updates
         currentVersionDisplay: document.getElementById('current-version-display'),
         checkUpdatesBtn: document.getElementById('check-updates-btn'),
@@ -472,55 +508,252 @@
         setTimeout(() => overlay.remove(), 400);
     }
 
-    // --- TASK TEMPLATES ---
-    const TASK_TEMPLATES = {
-        morning: [
-            { title: 'Morning meditation (10 min)', category: 'morning', priority: 'medium', dueTime: '06:30', recurring: 'daily' },
-            { title: 'Gym workout & stretch', category: 'health', priority: 'high', dueTime: '07:00', recurring: 'daily' },
-            { title: 'Healthy breakfast', category: 'morning', priority: 'medium', dueTime: '07:45', recurring: 'daily' },
-            { title: 'Review daily goals', category: 'morning', priority: 'high', dueTime: '08:15', recurring: 'daily' },
-            { title: 'Drink 2.5L water', category: 'health', priority: 'medium', dueTime: '09:00', recurring: 'daily' }
-        ],
-        work: [
-            { title: 'Check & respond to emails', category: 'work', priority: 'high', dueTime: '09:00', recurring: 'weekdays' },
-            { title: 'Daily standup / team sync', category: 'work', priority: 'high', dueTime: '10:00', recurring: 'weekdays' },
-            { title: 'Deep work focus block (2h)', category: 'work', priority: 'high', dueTime: '10:30', recurring: 'weekdays' },
-            { title: 'Review & prioritize tasks', category: 'work', priority: 'medium', dueTime: '14:00', recurring: 'weekdays' },
-            { title: 'End-of-day wrap-up & notes', category: 'work', priority: 'medium', dueTime: '17:30', recurring: 'weekdays' }
-        ],
-        evening: [
-            { title: 'Evening walk or light exercise', category: 'health', priority: 'medium', dueTime: '18:30', recurring: 'daily' },
-            { title: 'Cook or prep dinner', category: 'personal', priority: 'medium', dueTime: '19:00', recurring: 'daily' },
-            { title: 'Read 15 pages', category: 'personal', priority: 'medium', dueTime: '20:30', recurring: 'daily' },
-            { title: 'Plan tomorrow\'s tasks', category: 'evening', priority: 'high', dueTime: '21:00', recurring: 'daily' },
-            { title: 'Wind-down: no screens (30 min)', category: 'evening', priority: 'medium', dueTime: '21:30', recurring: 'daily' }
-        ]
+    // --- TASK HISTORY CALENDAR ENGINE ---
+    let calendarState = {
+        currentYear: new Date().getFullYear(),
+        currentMonth: new Date().getMonth(),
+        selectedDate: getTodayStr()
     };
 
-    function applyTemplate(templateKey) {
-        const template = TASK_TEMPLATES[templateKey];
-        if (!template) return;
+    function archiveTaskCompletion(task, isCompleted) {
+        if (!state.taskHistoryArchive) state.taskHistoryArchive = {};
         const today = getTodayStr();
-        template.forEach(t => {
-            const newTask = {
-                id: 'task-tmpl-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
-                title: t.title,
-                category: t.category,
-                priority: t.priority,
-                dueDate: today,
-                dueTime: t.dueTime || '',
-                recurring: t.recurring || 'none',
-                completed: false,
-                completedAt: null,
-                createdAt: new Date().toISOString(),
-                subtasks: []
+        if (!state.taskHistoryArchive[today]) state.taskHistoryArchive[today] = [];
+
+        const existingIdx = state.taskHistoryArchive[today].findIndex(x => x.id === task.id);
+        if (isCompleted) {
+            const item = {
+                id: task.id,
+                title: task.title,
+                category: task.category,
+                priority: task.priority,
+                dueDate: task.dueDate,
+                dueTime: task.dueTime || '',
+                completed: true,
+                completedAt: task.completedAt || new Date().toISOString(),
+                subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : []
             };
-            state.tasks.push(newTask);
+            if (existingIdx !== -1) {
+                state.taskHistoryArchive[today][existingIdx] = item;
+            } else {
+                state.taskHistoryArchive[today].push(item);
+            }
+        } else {
+            if (existingIdx !== -1) {
+                state.taskHistoryArchive[today].splice(existingIdx, 1);
+            }
+        }
+    }
+
+    function getTasksForDate(dateStr) {
+        const results = [];
+        const seenIds = new Set();
+
+        // 1. Current tasks scheduled or completed on this date
+        state.tasks.forEach(t => {
+            const isDue = t.dueDate === dateStr;
+            const isCompletedDate = t.completed && t.completedAt && formatLocalDate(new Date(t.completedAt)) === dateStr;
+
+            if (isDue || isCompletedDate) {
+                results.push({
+                    id: t.id,
+                    title: t.title,
+                    category: t.category,
+                    priority: t.priority,
+                    dueDate: t.dueDate,
+                    dueTime: t.dueTime || '',
+                    completed: t.completed,
+                    completedAt: t.completedAt,
+                    subtasks: t.subtasks || []
+                });
+                seenIds.add(t.id);
+            }
         });
-        saveState();
-        renderTasks();
-        renderCategoryFilters();
-        showToast(`${templateKey.charAt(0).toUpperCase() + templateKey.slice(1)} routine added! 🎉`);
+
+        // 2. Archived task logs for this date (e.g. from previous days or reset recurring tasks)
+        if (state.taskHistoryArchive && state.taskHistoryArchive[dateStr]) {
+            state.taskHistoryArchive[dateStr].forEach(item => {
+                if (!seenIds.has(item.id)) {
+                    results.push(item);
+                    seenIds.add(item.id);
+                }
+            });
+        }
+
+        // Sort: Pending first, then Completed
+        results.sort((a, b) => {
+            if (a.completed !== b.completed) return a.completed ? 1 : -1;
+            return (a.dueTime || '99:99').localeCompare(b.dueTime || '99:99');
+        });
+
+        return results;
+    }
+
+    function renderHistoryCalendar() {
+        if (!dom.historyCalendarDays || !dom.calMonthLabel) return;
+
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+
+        dom.calMonthLabel.textContent = `${monthNames[calendarState.currentMonth]} ${calendarState.currentYear}`;
+
+        const firstDayIndex = new Date(calendarState.currentYear, calendarState.currentMonth, 1).getDay();
+        const totalDaysInMonth = new Date(calendarState.currentYear, calendarState.currentMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(calendarState.currentYear, calendarState.currentMonth, 0).getDate();
+
+        dom.historyCalendarDays.innerHTML = '';
+
+        // Previous month filler days
+        for (let p = firstDayIndex - 1; p >= 0; p--) {
+            const dayNum = daysInPrevMonth - p;
+            const cell = document.createElement('div');
+            cell.className = 'cal-day-cell is-other-month';
+            cell.innerHTML = `<span class="cal-day-num">${dayNum}</span>`;
+            dom.historyCalendarDays.appendChild(cell);
+        }
+
+        const todayStr = getTodayStr();
+
+        // Current month days
+        for (let d = 1; d <= totalDaysInMonth; d++) {
+            const monthStr = String(calendarState.currentMonth + 1).padStart(2, '0');
+            const dayStr = String(d).padStart(2, '0');
+            const dateStr = `${calendarState.currentYear}-${monthStr}-${dayStr}`;
+
+            const dayTasks = getTasksForDate(dateStr);
+            const doneTasks = dayTasks.filter(t => t.completed);
+            const pendingTasks = dayTasks.filter(t => !t.completed);
+
+            const cell = document.createElement('div');
+            cell.className = 'cal-day-cell';
+            cell.dataset.date = dateStr;
+
+            if (dateStr === todayStr) cell.classList.add('is-today');
+            if (dateStr === calendarState.selectedDate) cell.classList.add('is-selected');
+
+            let badgeHtml = '';
+            if (dayTasks.length > 0) {
+                if (pendingTasks.length === 0 && doneTasks.length > 0) {
+                    cell.classList.add('all-completed');
+                } else {
+                    cell.classList.add('partial-completed');
+                }
+                badgeHtml = `<span class="cal-badge">${doneTasks.length}/${dayTasks.length}</span>`;
+            }
+
+            cell.innerHTML = `
+                <span class="cal-day-num">${d}</span>
+                ${badgeHtml}
+            `;
+
+            cell.addEventListener('click', () => {
+                calendarState.selectedDate = dateStr;
+                dom.historyCalendarDays.querySelectorAll('.cal-day-cell').forEach(c => c.classList.remove('is-selected'));
+                cell.classList.add('is-selected');
+                renderDayDetails(dateStr);
+            });
+
+            dom.historyCalendarDays.appendChild(cell);
+        }
+
+        // Next month filler days
+        const totalCells = firstDayIndex + totalDaysInMonth;
+        const remainingCells = (7 - (totalCells % 7)) % 7;
+        for (let n = 1; n <= remainingCells; n++) {
+            const cell = document.createElement('div');
+            cell.className = 'cal-day-cell is-other-month';
+            cell.innerHTML = `<span class="cal-day-num">${n}</span>`;
+            dom.historyCalendarDays.appendChild(cell);
+        }
+
+        // Render detailed breakdown of selected date
+        renderDayDetails(calendarState.selectedDate);
+    }
+
+    function renderDayDetails(dateStr) {
+        if (!dom.dayDetailsPanel || !dom.dayDetailsTaskList) return;
+
+        const monthNames = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        const parts = dateStr.split('-').map(Number);
+        const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+        const fullDateStr = `${weekdayNames[dateObj.getDay()]}, ${monthNames[parts[1] - 1]} ${parts[2]}, ${parts[0]}`;
+
+        const isToday = dateStr === getTodayStr();
+        const isYesterday = dateStr === getPastDateStr(1);
+        const relLabel = isToday ? ' (Today)' : (isYesterday ? ' (Yesterday)' : '');
+
+        dom.dayDetailsDate.textContent = fullDateStr + relLabel;
+
+        const tasks = getTasksForDate(dateStr);
+        const doneCount = tasks.filter(t => t.completed).length;
+        const pendingCount = tasks.filter(t => !t.completed).length;
+
+        dom.dayDetailsCountBadge.textContent = `${tasks.length} Task${tasks.length === 1 ? '' : 's'}`;
+        dom.dayStatDone.innerHTML = `<i class="fa-solid fa-check"></i> ${doneCount} Done`;
+        dom.dayStatPending.innerHTML = `<i class="fa-regular fa-clock"></i> ${pendingCount} Pending`;
+
+        dom.dayDetailsTaskList.innerHTML = '';
+
+        if (tasks.length === 0) {
+            dom.dayDetailsTaskList.innerHTML = `
+                <div class="day-details-empty">
+                    <i class="fa-regular fa-calendar-check"></i>
+                    <p>No tasks recorded on this date.</p>
+                </div>
+            `;
+            return;
+        }
+
+        tasks.forEach(task => {
+            const catInfo = CATEGORIES[task.category] || { label: task.category || 'General', icon: 'fa-tag' };
+            const priorityLabels = { high: 'High', medium: 'Med', low: 'Low' };
+
+            let timeBadge = '';
+            if (task.completed && task.completedAt) {
+                try {
+                    const compDate = new Date(task.completedAt);
+                    const hours = String(compDate.getHours()).padStart(2, '0');
+                    const mins = String(compDate.getMinutes()).padStart(2, '0');
+                    timeBadge = `<span class="badge badge-time"><i class="fa-solid fa-clock-rotate-left"></i> Done at ${hours}:${mins}</span>`;
+                } catch(e) {}
+            } else if (task.dueTime) {
+                timeBadge = `<span class="badge badge-time"><i class="fa-regular fa-clock"></i> ${task.dueTime}</span>`;
+            }
+
+            let subtaskSummary = '';
+            if (task.subtasks && task.subtasks.length > 0) {
+                const subDone = task.subtasks.filter(s => s.completed).length;
+                subtaskSummary = `<span class="badge badge-date"><i class="fa-solid fa-list-check"></i> Checklist ${subDone}/${task.subtasks.length}</span>`;
+            }
+
+            const item = document.createElement('div');
+            item.className = `day-task-card ${task.completed ? 'is-done' : ''}`;
+            item.innerHTML = `
+                <div class="day-task-check">
+                    <i class="${task.completed ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}"></i>
+                </div>
+                <div class="day-task-info">
+                    <div class="day-task-title">${escapeHtml(task.title)}</div>
+                    <div class="day-task-meta">
+                        <span class="badge badge-category"><i class="fa-solid ${catInfo.icon}"></i> ${catInfo.label}</span>
+                        <span class="badge badge-priority-${task.priority}">${priorityLabels[task.priority] || 'Med'}</span>
+                        ${timeBadge}
+                        ${subtaskSummary}
+                    </div>
+                </div>
+                <span class="day-task-status-pill ${task.completed ? 'pill-done' : 'pill-pending'}">
+                    ${task.completed ? 'Completed' : 'Pending'}
+                </span>
+            `;
+            dom.dayDetailsTaskList.appendChild(item);
+        });
     }
 
     // --- CONFETTI ON 100% COMPLETION ---
@@ -584,7 +817,6 @@
         checkAutoBackupSchedule();
         checkReminderNotification();
         checkDailyDigestNotification();
-        setupTemplateButtons();
 
         if (dom.currentVersionDisplay) {
             dom.currentVersionDisplay.textContent = 'v' + APP_RELEASE_VERSION;
@@ -601,11 +833,7 @@
         }, 2500);
     }
 
-    function setupTemplateButtons() {
-        document.querySelectorAll('[data-template]').forEach(btn => {
-            btn.addEventListener('click', () => applyTemplate(btn.dataset.template));
-        });
-    }
+
 
     // --- PERSISTENCE ---
     function saveState() {
@@ -613,6 +841,7 @@
             profile: state.profile,
             tasks: state.tasks,
             history: state.history || {},
+            taskHistoryArchive: state.taskHistoryArchive || {},
             customCategories: state.customCategories || {}
         };
         try {
@@ -638,6 +867,7 @@
         state.profile = usersStore[activeEmail].profile;
         state.tasks = usersStore[activeEmail].tasks;
         state.history = usersStore[activeEmail].history || {};
+        state.taskHistoryArchive = usersStore[activeEmail].taskHistoryArchive || {};
         saveState();
         applyTheme(state.profile.theme);
         renderHeaderProfile();
@@ -1064,6 +1294,7 @@
     function renderAnalyticsContent() {
         renderOverallProgressCard();
         renderWeeklyPlannerGrid();
+        renderHistoryCalendar();
 
         // 30-Day Real Heatmap Grid
         dom.heatmapGrid.innerHTML = '';
@@ -1945,6 +2176,7 @@
             }
 
             recordCompletionActivity(isCompleted);
+            archiveTaskCompletion(task, isCompleted);
 
             if (isCompleted) {
                 showToast('Task completed! 🎉');
@@ -2734,6 +2966,37 @@
                 showToast('Reset to starter tasks!');
             }
         });
+
+        // History Calendar Navigation
+        if (dom.calPrevMonthBtn) {
+            dom.calPrevMonthBtn.addEventListener('click', () => {
+                calendarState.currentMonth--;
+                if (calendarState.currentMonth < 0) {
+                    calendarState.currentMonth = 11;
+                    calendarState.currentYear--;
+                }
+                renderHistoryCalendar();
+            });
+        }
+        if (dom.calNextMonthBtn) {
+            dom.calNextMonthBtn.addEventListener('click', () => {
+                calendarState.currentMonth++;
+                if (calendarState.currentMonth > 11) {
+                    calendarState.currentMonth = 0;
+                    calendarState.currentYear++;
+                }
+                renderHistoryCalendar();
+            });
+        }
+        if (dom.calTodayBtn) {
+            dom.calTodayBtn.addEventListener('click', () => {
+                const now = new Date();
+                calendarState.currentYear = now.getFullYear();
+                calendarState.currentMonth = now.getMonth();
+                calendarState.selectedDate = getTodayStr();
+                renderHistoryCalendar();
+            });
+        }
 
         // Bottom Navigation Bar with Direct Page View Switch
         dom.bottomNavItems.forEach(nav => {
