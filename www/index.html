@@ -451,14 +451,79 @@
                     <button type="button" class="date-preset-btn" data-preset="nextweek">Next Week</button>
                 </div>
                 <div class="form-group" style="margin-top:10px;">
-                    <label for="task-recurring-select">Repeat</label>
+                    <label for="task-recurring-select"><i class="fa-solid fa-repeat"></i> Repeat Schedule</label>
                     <select id="task-recurring-select" class="clean-select">
-                        <option value="none">Never</option>
+                        <option value="none">Never (One-time)</option>
                         <option value="daily">Every Day</option>
-                        <option value="weekdays">Weekdays (Mon-Fri)</option>
-                        <option value="weekends">Weekends (Sat-Sun)</option>
-                        <option value="weekly">Weekly (same day)</option>
+                        <option value="weekdays">Weekdays (Mon–Fri)</option>
+                        <option value="weekends">Weekends (Sat–Sun)</option>
+                        <option value="weekly">Weekly (Same day of week)</option>
+                        <option value="custom_days">Specific Days of Week (e.g. Mon, Wed, Fri)...</option>
+                        <option value="monthly">Monthly (Same day of month)...</option>
+                        <option value="interval">Custom Interval (Every X Days)...</option>
                     </select>
+
+                    <!-- Option A: Specific Days of Week selector -->
+                    <div class="recurrence-panel hide" id="recurrence-custom-days-panel">
+                        <span class="recurrence-panel-label">Select repeating days:</span>
+                        <div class="weekdays-picker" id="recurrence-weekdays-picker">
+                            <button type="button" class="day-chip active" data-day="1">Mon</button>
+                            <button type="button" class="day-chip" data-day="2">Tue</button>
+                            <button type="button" class="day-chip active" data-day="3">Wed</button>
+                            <button type="button" class="day-chip" data-day="4">Thu</button>
+                            <button type="button" class="day-chip active" data-day="5">Fri</button>
+                            <button type="button" class="day-chip" data-day="6">Sat</button>
+                            <button type="button" class="day-chip" data-day="0">Sun</button>
+                        </div>
+                        <div class="recurrence-quick-presets">
+                            <button type="button" class="btn-text-sm" data-days-preset="mwf">Mon, Wed, Fri</button>
+                            <button type="button" class="btn-text-sm" data-days-preset="tt">Tue, Thu</button>
+                            <button type="button" class="btn-text-sm" data-days-preset="weekdays">Mon–Fri</button>
+                            <button type="button" class="btn-text-sm" data-days-preset="weekends">Sat–Sun</button>
+                        </div>
+                        <div class="recurrence-summary" id="recurrence-days-summary">Repeats every: Mon, Wed, Fri</div>
+                    </div>
+
+                    <!-- Option B: Custom Interval (Every X Days) selector -->
+                    <div class="recurrence-panel hide" id="recurrence-interval-panel">
+                        <span class="recurrence-panel-label">Repeat every:</span>
+                        <div class="interval-input-row">
+                            <div class="interval-stepper">
+                                <button type="button" class="stepper-btn" id="interval-decrement-btn" title="Decrease days"><i class="fa-solid fa-minus"></i></button>
+                                <input type="number" id="recurrence-interval-input" min="1" max="365" value="3" class="clean-input interval-number-input">
+                                <button type="button" class="stepper-btn" id="interval-increment-btn" title="Increase days"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                            <span class="interval-unit-label">days</span>
+                        </div>
+                        <div class="recurrence-quick-presets">
+                            <button type="button" class="btn-text-sm" data-interval-preset="2">Every 2 days</button>
+                            <button type="button" class="btn-text-sm" data-interval-preset="3">Every 3 days</button>
+                            <button type="button" class="btn-text-sm" data-interval-preset="5">Every 5 days</button>
+                            <button type="button" class="btn-text-sm" data-interval-preset="7">Every 7 days</button>
+                            <button type="button" class="btn-text-sm" data-interval-preset="14">Every 2 weeks</button>
+                        </div>
+                        <div class="recurrence-summary" id="recurrence-interval-summary">Repeats every 3 days from starting due date</div>
+                    </div>
+
+                    <!-- Option C: Monthly selector -->
+                    <div class="recurrence-panel hide" id="recurrence-monthly-panel">
+                        <span class="recurrence-panel-label">Repeat monthly on:</span>
+                        <div class="interval-input-row">
+                            <span class="monthly-prefix">Day</span>
+                            <div class="interval-stepper">
+                                <button type="button" class="stepper-btn" id="monthly-decrement-btn" title="Previous day"><i class="fa-solid fa-minus"></i></button>
+                                <input type="number" id="recurrence-monthly-day-input" min="1" max="31" value="1" class="clean-input interval-number-input">
+                                <button type="button" class="stepper-btn" id="monthly-increment-btn" title="Next day"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                            <span class="interval-unit-label">of every month</span>
+                        </div>
+                        <div class="recurrence-quick-presets">
+                            <button type="button" class="btn-text-sm" data-monthly-preset="1">1st of month</button>
+                            <button type="button" class="btn-text-sm" data-monthly-preset="15">15th of month</button>
+                            <button type="button" class="btn-text-sm" data-monthly-preset="last">End of month</button>
+                        </div>
+                        <div class="recurrence-summary" id="recurrence-monthly-summary">Repeats on the 1st of every month</div>
+                    </div>
                 </div>
                 <div class="form-group subtasks-group">
                     <label>Sub-tasks Checklist</label>
