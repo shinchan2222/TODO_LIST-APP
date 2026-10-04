@@ -42,6 +42,17 @@
             </div>
         </header>
 
+        <!-- Pull-to-Refresh Indicator -->
+        <div class="ptr-indicator" id="ptr-indicator" aria-hidden="true">
+            <div class="ptr-spinner" id="ptr-spinner">
+                <svg class="ptr-svg" viewBox="0 0 50 50">
+                    <circle class="ptr-track" cx="25" cy="25" r="20" fill="none" stroke-width="4"/>
+                    <circle class="ptr-arc" id="ptr-arc" cx="25" cy="25" r="20" fill="none" stroke-width="4" stroke-dasharray="126" stroke-dashoffset="126"/>
+                </svg>
+            </div>
+            <span class="ptr-label" id="ptr-label">Pull to refresh</span>
+        </div>
+
         <div class="account-status-bar hide" id="account-status-bar">
             <div class="account-info">
                 <i class="fa-brands fa-google-drive" style="color:#4285F4;"></i>

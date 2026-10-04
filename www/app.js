@@ -836,6 +836,7 @@
         }
 
         setupEventListeners();
+        setupPullToRefresh();
 
         // Show onboarding for new users
         setTimeout(() => showOnboarding(), 600);
@@ -3528,6 +3529,214 @@
         window.addEventListener('popstate', () => {
             handleAndroidBack();
         });
+    }
+
+    // --- PULL-TO-REFRESH ENGINE ---
+    function setupPullToRefresh() {
+        const scrollContainer = document.getElementById('page-tasks');
+        const ptrIndicator   = document.getElementById('ptr-indicator');
+        const ptrLabel       = document.getElementById('ptr-label');
+        const ptrSpinner     = document.getElementById('ptr-spinner');
+        const ptrArc         = document.getElementById('ptr-arc');
+
+        if (!scrollContainer || !ptrIndicator) return;
+
+        const THRESHOLD    = 70;   // px pulled before triggering refresh
+        const MAX_PULL     = 105;  // px maximum visual overstretch
+        const FULL_DASH    = 126;  // circumference of r=20 circle
+
+        let startY       = 0;
+        let currentPull  = 0;
+        let isPulling    = false;
+        let isRefreshing = false;
+
+        function setPullHeight(px) {
+            const clamped = Math.min(px, MAX_PULL);
+            ptrIndicator.style.height = clamped + 'px';
+            // Progress towards threshold (0 to 1)
+            const progress = Math.min(clamped / THRESHOLD, 1);
+            const offset = FULL_DASH - (FULL_DASH * progress);
+            if (ptrArc) ptrArc.style.strokeDashoffset = offset;
+        }
+
+        function getReadyState() {
+            return currentPull >= THRESHOLD;
+        }
+
+        function shouldIgnoreEvent(target) {
+            if (!target) return false;
+            // Never trigger PTR while user is interacting with controls, drag handles, or modals
+            if (target.closest('.drag-handle, input, textarea, select, button, .modal-sheet, .modal-overlay, .sort-menu')) return true;
+            if (document.querySelector('.task-card.is-dragging')) return true;
+            return false;
+        }
+
+        // --- Touch Event Handlers ---
+        function onTouchStart(e) {
+            if (isRefreshing) return;
+            if (scrollContainer.scrollTop > 2) return;
+            if (shouldIgnoreEvent(e.target)) return;
+
+            startY = e.touches[0].clientY;
+            isPulling = false;
+        }
+
+        function onTouchMove(e) {
+            if (isRefreshing) return;
+            const y = e.touches[0].clientY;
+            const deltaY = y - startY;
+
+            if (deltaY <= 0) {
+                if (isPulling) resetPtr();
+                return;
+            }
+
+            if (scrollContainer.scrollTop > 2 && !isPulling) return;
+
+            isPulling = true;
+            const resistance = 0.42;
+            currentPull = Math.pow(deltaY, 0.8) * resistance * (THRESHOLD / 45);
+
+            if (currentPull > 4) {
+                if (e.cancelable) e.preventDefault();
+                ptrIndicator.classList.add('ptr-visible');
+                ptrIndicator.classList.remove('ptr-complete', 'ptr-releasing');
+                setPullHeight(currentPull);
+
+                if (getReadyState()) {
+                    ptrIndicator.classList.add('ptr-ready');
+                    if (ptrLabel) ptrLabel.textContent = 'Release to refresh';
+                } else {
+                    ptrIndicator.classList.remove('ptr-ready');
+                    if (ptrLabel) ptrLabel.textContent = 'Pull to refresh';
+                }
+            }
+        }
+
+        function onTouchEnd() {
+            if (!isPulling || isRefreshing) {
+                resetPtr();
+                return;
+            }
+
+            if (getReadyState()) {
+                triggerRefresh();
+            } else {
+                resetPtr();
+            }
+        }
+
+        // --- Desktop Mouse Handlers (for testing in browser) ---
+        let isMouseDown = false;
+        function onMouseDown(e) {
+            if (isRefreshing || e.button !== 0) return;
+            if (scrollContainer.scrollTop > 2) return;
+            if (shouldIgnoreEvent(e.target)) return;
+
+            isMouseDown = true;
+            startY = e.clientY;
+            isPulling = false;
+        }
+
+        function onMouseMove(e) {
+            if (!isMouseDown || isRefreshing) return;
+            const deltaY = e.clientY - startY;
+
+            if (deltaY <= 0) {
+                if (isPulling) resetPtr();
+                return;
+            }
+
+            if (scrollContainer.scrollTop > 2 && !isPulling) return;
+
+            isPulling = true;
+            const resistance = 0.42;
+            currentPull = Math.pow(deltaY, 0.8) * resistance * (THRESHOLD / 45);
+
+            if (currentPull > 4) {
+                ptrIndicator.classList.add('ptr-visible');
+                ptrIndicator.classList.remove('ptr-complete', 'ptr-releasing');
+                setPullHeight(currentPull);
+
+                if (getReadyState()) {
+                    ptrIndicator.classList.add('ptr-ready');
+                    if (ptrLabel) ptrLabel.textContent = 'Release to refresh';
+                } else {
+                    ptrIndicator.classList.remove('ptr-ready');
+                    if (ptrLabel) ptrLabel.textContent = 'Pull to refresh';
+                }
+            }
+        }
+
+        function onMouseUp() {
+            if (!isMouseDown) return;
+            isMouseDown = false;
+            onTouchEnd();
+        }
+
+        function triggerRefresh() {
+            isRefreshing = true;
+
+            // Snap to resting indicator height
+            ptrIndicator.classList.add('ptr-releasing');
+            ptrIndicator.style.height = THRESHOLD + 'px';
+            if (ptrArc) ptrArc.style.strokeDashoffset = '0';
+
+            ptrIndicator.classList.remove('ptr-ready');
+            ptrSpinner.classList.add('ptr-spinning');
+            if (ptrLabel) ptrLabel.textContent = 'Syncing tasks...';
+
+            if (navigator.vibrate) {
+                try { navigator.vibrate([15, 50, 15]); } catch (err) {}
+            }
+
+            // Sync state, alarms, and update checks
+            setTimeout(async () => {
+                try {
+                    checkDailyReset();
+                    renderTasks();
+                    checkReminderNotification();
+                    checkDailyDigestNotification();
+                    await syncAllTaskAlarms();
+                    await checkForAppUpdates(false);
+                } catch (err) {
+                    console.warn('[PTR] Sync warning:', err);
+                }
+
+                ptrSpinner.classList.remove('ptr-spinning');
+                if (ptrLabel) ptrLabel.textContent = '✓ Up to date';
+                ptrIndicator.classList.add('ptr-complete');
+                ptrIndicator.style.height = '0px';
+
+                showToast('Tasks synced & up to date! 🔄');
+
+                setTimeout(() => {
+                    resetPtr();
+                    isRefreshing = false;
+                }, 380);
+            }, 650);
+        }
+
+        function resetPtr() {
+            isPulling    = false;
+            currentPull  = 0;
+            ptrIndicator.classList.remove('ptr-visible', 'ptr-ready', 'ptr-releasing');
+            ptrSpinner.classList.remove('ptr-spinning');
+            ptrIndicator.style.height = '0px';
+            if (ptrArc) ptrArc.style.strokeDashoffset = FULL_DASH;
+            if (ptrLabel) ptrLabel.textContent = 'Pull to refresh';
+        }
+
+        // Attach touch listeners
+        scrollContainer.addEventListener('touchstart', onTouchStart, { passive: true });
+        scrollContainer.addEventListener('touchmove',  onTouchMove,  { passive: false });
+        scrollContainer.addEventListener('touchend',   onTouchEnd,   { passive: true });
+        scrollContainer.addEventListener('touchcancel',resetPtr,      { passive: true });
+
+        // Attach mouse listeners for desktop simulation
+        scrollContainer.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup',   onMouseUp);
     }
 
     // --- TOAST NOTIFICATIONS & FEEDBACK ---
